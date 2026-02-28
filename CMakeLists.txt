@@ -26,6 +26,7 @@ target_include_directories(phi_adapter_contract
 
 add_library(phi_adapter_sdk STATIC
     src/runtime.cpp
+    src/sidecar.cpp
     src/linux/uds_epoll_transport.cpp
 )
 add_library(phi::adapter-sdk ALIAS phi_adapter_sdk)

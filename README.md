@@ -11,6 +11,7 @@ Linux-first SDK for phi adapter sidecars.
 - `phi::adapter-sdk`
   - Linux runtime helpers (UDS + epoll transport)
   - Minimal sidecar runtime wrapper (`SidecarRuntime`)
+  - Typed sidecar dispatcher (`SidecarDispatcher`) for core IPC requests/events
 
 ## Scope
 
@@ -30,8 +31,25 @@ cmake --build build --parallel
 
 ## Example
 
-`phi_adapter_sidecar_example` starts a sidecar runtime and echoes a simple heartbeat event.
+`phi_adapter_sidecar_example` starts a typed sidecar dispatcher.
+It handles the core request methods and emits typed command/action responses.
 
 ```bash
 ./build/phi_adapter_sidecar_example /tmp/phi-adapter-example.sock
 ```
+
+## IPC Methods (Typed Inbound)
+
+- `sync.adapter.bootstrap`
+- `cmd.channel.invoke`
+- `cmd.adapter.action.invoke`
+- `cmd.device.name.update`
+- `cmd.device.effect.invoke`
+- `cmd.scene.invoke`
+
+## IPC Events (Typed Outbound)
+
+- `connectionStateChanged`, `error`, `adapterMetaUpdated`
+- `deviceUpdated`, `deviceRemoved`, `channelUpdated`, `channelStateUpdated`
+- `roomUpdated`, `roomRemoved`, `groupUpdated`, `groupRemoved`
+- `scenesUpdated`, `fullSyncCompleted`
