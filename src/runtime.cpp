@@ -1,4 +1,4 @@
-#include "phi/adapter/sdk/runtime.h"
+#include "runtime_internal.h"
 
 #include <utility>
 
@@ -9,7 +9,7 @@ namespace phicore::adapter::sdk {
 class SidecarRuntime::Impl
 {
 public:
-    explicit Impl(std::string socketPath)
+    explicit Impl(phicore::adapter::v1::Utf8String socketPath)
         : transport(std::move(socketPath))
     {
     }
@@ -18,7 +18,7 @@ public:
     linuxio::UdsEpollServer transport;
 };
 
-SidecarRuntime::SidecarRuntime(std::string socketPath)
+SidecarRuntime::SidecarRuntime(phicore::adapter::v1::Utf8String socketPath)
     : m_impl(std::make_unique<Impl>(std::move(socketPath)))
 {
 }
@@ -30,7 +30,7 @@ void SidecarRuntime::setCallbacks(RuntimeCallbacks callbacks)
     m_impl->callbacks = std::move(callbacks);
 }
 
-bool SidecarRuntime::start(std::string *error)
+bool SidecarRuntime::start(phicore::adapter::v1::Utf8String *error)
 {
     return m_impl->transport.start(error);
 }
@@ -40,7 +40,7 @@ void SidecarRuntime::stop()
     m_impl->transport.stop();
 }
 
-bool SidecarRuntime::pollOnce(std::chrono::milliseconds timeout, std::string *error)
+bool SidecarRuntime::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
 {
     return m_impl->transport.pollOnce(
         timeout,
@@ -53,7 +53,7 @@ bool SidecarRuntime::pollOnce(std::chrono::milliseconds timeout, std::string *er
 bool SidecarRuntime::send(phicore::adapter::v1::MessageType type,
                           phicore::adapter::v1::CorrelationId correlationId,
                           std::span<const std::byte> payload,
-                          std::string *error)
+                          phicore::adapter::v1::Utf8String *error)
 {
     phicore::adapter::v1::FrameHeader header;
     header.type = static_cast<std::uint8_t>(type);

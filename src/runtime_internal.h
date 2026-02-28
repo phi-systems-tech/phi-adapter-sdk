@@ -21,7 +21,7 @@ struct RuntimeCallbacks {
 class SidecarRuntime
 {
 public:
-    explicit SidecarRuntime(std::string socketPath);
+    explicit SidecarRuntime(phicore::adapter::v1::Utf8String socketPath);
     ~SidecarRuntime();
 
     SidecarRuntime(const SidecarRuntime &) = delete;
@@ -29,15 +29,15 @@ public:
 
     void setCallbacks(RuntimeCallbacks callbacks);
 
-    bool start(std::string *error = nullptr);
+    bool start(phicore::adapter::v1::Utf8String *error = nullptr);
     void stop();
 
-    bool pollOnce(std::chrono::milliseconds timeout, std::string *error = nullptr);
+    bool pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error = nullptr);
 
     bool send(phicore::adapter::v1::MessageType type,
               phicore::adapter::v1::CorrelationId correlationId,
               std::span<const std::byte> payload,
-              std::string *error = nullptr);
+              phicore::adapter::v1::Utf8String *error = nullptr);
 
 private:
     class Impl;

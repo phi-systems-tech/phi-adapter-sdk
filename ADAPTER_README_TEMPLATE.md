@@ -39,11 +39,13 @@ Describe adapter scope and technical integration boundaries.
 
 - phi-core version requirements
 - Network/service prerequisites
+- Sidecar runtime requirements (Linux amd64/aarch64)
 
 ### Build Requirements
 
 - Build tools and required libraries
-- Qt modules used
+- C++20 compiler
+- `phi-adapter-sdk`
 
 ### Configuration
 
@@ -62,13 +64,22 @@ cmake --build build --parallel
 
 Notes:
 
-- By default, this project expects `phi-adapter-api` at `../phi-adapter-api`.
-- Alternatively install `phi-adapter-api-dev` and set `CMAKE_PREFIX_PATH`.
+- By default, this project expects `phi-adapter-sdk` at `../phi-adapter-sdk`.
+- Alternatively install `phi-adapter-sdk` and set `CMAKE_PREFIX_PATH`.
 
 ### Installation
 
-- Output shared library name
+- Output sidecar executable name (for `ipc.command`)
 - Deployment location (`/opt/phi/plugins/adapters/`)
+
+### SDK Integration
+
+- Use `AdapterSidecar` as the adapter base class.
+- Provide an `AdapterFactory` (`pluginType()`, `create()`).
+- Run using `SidecarHost`.
+- Follow naming conventions:
+  - inbound handlers: `on*`
+  - outbound IPC calls: `send*`
 
 ### Troubleshooting
 

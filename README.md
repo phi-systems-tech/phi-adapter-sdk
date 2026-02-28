@@ -10,8 +10,8 @@ Linux-first SDK for phi adapter sidecars.
   - Stable protocol primitives (`CmdId`, `ExternalId`, frame header, message type)
 - `phi::adapter-sdk`
   - Linux runtime helpers (UDS + epoll transport)
-  - Minimal sidecar runtime wrapper (`SidecarRuntime`)
-  - Typed sidecar dispatcher (`SidecarDispatcher`) for core IPC requests/events
+  - Typed dispatcher (`SidecarDispatcher`)
+  - C++ sidecar model (`AdapterSidecar`, `AdapterFactory`, `SidecarHost`)
 
 ## Scope
 
@@ -21,6 +21,7 @@ Linux-first SDK for phi adapter sidecars.
 - `externalId` is the canonical adapter-domain identifier in v1 contract types
 - Contract text type is `phicore::adapter::v1::Utf8String` (`std::string` alias)
 - All contract text fields are UTF-8 by contract
+- C++ API is the primary SDK surface for v1
 
 ## Build
 
@@ -29,16 +30,54 @@ cmake -S . -B build
 cmake --build build --parallel
 ```
 
-## Example
+## Recommended C++ Model
 
-`phi_adapter_sidecar_example` starts a typed sidecar dispatcher.
-It handles the core request methods and emits typed command/action responses.
+`AdapterSidecar` is the polymorphic base class for sidecar adapters.
+`AdapterFactory` creates adapter instances.
+`SidecarHost` wires IPC transport and handler dispatch.
+`AdapterFactory::pluginType()` is used as fallback if bootstrap payload has no plugin type.
+
+### Naming Rules
+
+- Inbound request handlers: `on*` (`onBootstrap`, `onChannelInvoke`, ...)
+- Outbound IPC calls: `send*` (`sendDeviceUpdated`, `sendChannelStateUpdated`, `sendError`, ...)
+
+### Minimal Structure
+
+```cpp
+class MyAdapter final : public phicore::adapter::sdk::AdapterSidecar {
+public:
+    void onBootstrap(const BootstrapRequest &request) override {
+        AdapterSidecar::onBootstrap(request); // caches adapterId/pluginType/externalId
+    }
+};
+
+class MyFactory final : public phicore::adapter::sdk::AdapterFactory {
+public:
+    phicore::adapter::v1::Utf8String pluginType() const override { return "my-plugin"; }
+    std::unique_ptr<phicore::adapter::sdk::AdapterSidecar> create() const override {
+        return std::make_unique<MyAdapter>();
+    }
+};
+
+MyFactory factory;
+phicore::adapter::sdk::SidecarHost host(socketPath, factory);
+host.start();
+while (running) {
+    host.pollOnce(std::chrono::milliseconds(250));
+}
+host.stop();
+```
+
+## Example Binary
+
+`phi_adapter_sidecar_example` demonstrates `AdapterFactory` + `AdapterSidecar` + `SidecarHost`.
 
 ```bash
 ./build/phi_adapter_sidecar_example /tmp/phi-adapter-example.sock
 ```
 
-## IPC Methods (Typed Inbound)
+## IPC Methods (typed inbound)
 
 - `sync.adapter.bootstrap`
 - `cmd.channel.invoke`
@@ -47,7 +86,7 @@ It handles the core request methods and emits typed command/action responses.
 - `cmd.device.effect.invoke`
 - `cmd.scene.invoke`
 
-## IPC Events (Typed Outbound)
+## IPC Events (typed outbound)
 
 - `connectionStateChanged`, `error`, `adapterMetaUpdated`
 - `deviceUpdated`, `deviceRemoved`, `channelUpdated`, `channelStateUpdated`

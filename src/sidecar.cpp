@@ -1,4 +1,5 @@
 #include "phi/adapter/sdk/sidecar.h"
+#include "runtime_internal.h"
 
 #include <charconv>
 #include <chrono>
@@ -791,8 +792,8 @@ ActionResponse defaultActionResponse(CmdId cmdId, const std::string &message)
 
 } // namespace
 
-SidecarDispatcher::SidecarDispatcher(std::string socketPath)
-    : m_runtime(std::move(socketPath))
+SidecarDispatcher::SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath)
+    : m_runtime(std::make_unique<SidecarRuntime>(std::move(socketPath)))
 {
     RuntimeCallbacks callbacks;
     callbacks.onConnected = [this]() {
@@ -809,27 +810,29 @@ SidecarDispatcher::SidecarDispatcher(std::string socketPath)
             return;
         handleRequestFrame(header, payload);
     };
-    m_runtime.setCallbacks(std::move(callbacks));
+    m_runtime->setCallbacks(std::move(callbacks));
 }
+
+SidecarDispatcher::~SidecarDispatcher() = default;
 
 void SidecarDispatcher::setHandlers(SidecarHandlers handlers)
 {
     m_handlers = std::move(handlers);
 }
 
-bool SidecarDispatcher::start(std::string *error)
+bool SidecarDispatcher::start(phicore::adapter::v1::Utf8String *error)
 {
-    return m_runtime.start(error);
+    return m_runtime->start(error);
 }
 
 void SidecarDispatcher::stop()
 {
-    m_runtime.stop();
+    m_runtime->stop();
 }
 
-bool SidecarDispatcher::pollOnce(std::chrono::milliseconds timeout, std::string *error)
+bool SidecarDispatcher::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
 {
-    return m_runtime.pollOnce(timeout, error);
+    return m_runtime->pollOnce(timeout, error);
 }
 
 bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHeader &header,
@@ -1004,14 +1007,14 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 bool SidecarDispatcher::sendJson(MessageType type,
                                  CorrelationId correlationId,
                                  std::string_view json,
-                                 std::string *error)
+                                 phicore::adapter::v1::Utf8String *error)
 {
     const auto chars = std::span<const char>(json.data(), json.size());
     const auto bytes = std::as_bytes(chars);
-    return m_runtime.send(type, correlationId, bytes, error);
+    return m_runtime->send(type, correlationId, bytes, error);
 }
 
-bool SidecarDispatcher::sendCmdResult(const CmdResponse &response, std::string *error)
+bool SidecarDispatcher::sendCmdResult(const CmdResponse &response, phicore::adapter::v1::Utf8String *error)
 {
     const std::int64_t tsMs = response.tsMs > 0 ? response.tsMs : nowMs();
     std::string body;
@@ -1037,7 +1040,7 @@ bool SidecarDispatcher::sendCmdResult(const CmdResponse &response, std::string *
     return sendJson(MessageType::Response, response.id, body, error);
 }
 
-bool SidecarDispatcher::sendActionResult(const ActionResponse &response, std::string *error)
+bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore::adapter::v1::Utf8String *error)
 {
     const std::int64_t tsMs = response.tsMs > 0 ? response.tsMs : nowMs();
     std::string body;
@@ -1065,7 +1068,7 @@ bool SidecarDispatcher::sendActionResult(const ActionResponse &response, std::st
     return sendJson(MessageType::Response, response.id, body, error);
 }
 
-bool SidecarDispatcher::sendConnectionStateChanged(bool connected, std::string *error)
+bool SidecarDispatcher::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
 {
     const std::string body = std::string("{\"kind\":\"connectionStateChanged\",\"connected\":")
         + (connected ? "true" : "false")
@@ -1073,10 +1076,10 @@ bool SidecarDispatcher::sendConnectionStateChanged(bool connected, std::string *
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendAdapterError(const std::string &message,
-                                         const ScalarList &params,
-                                         const std::string &ctx,
-                                         std::string *error)
+bool SidecarDispatcher::sendError(const phicore::adapter::v1::Utf8String &message,
+                                  const ScalarList &params,
+                                  const phicore::adapter::v1::Utf8String &ctx,
+                                  phicore::adapter::v1::Utf8String *error)
 {
     std::string body;
     body.push_back('{');
@@ -1094,7 +1097,7 @@ bool SidecarDispatcher::sendAdapterError(const std::string &message,
 }
 
 bool SidecarDispatcher::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
-                                               std::string *error)
+                                               phicore::adapter::v1::Utf8String *error)
 {
     const std::string patch = trim(metaPatchJson).empty() ? "{}" : metaPatchJson;
     const std::string body = std::string("{\"kind\":\"adapterMetaUpdated\",\"metaPatch\":") + patch + "}";
@@ -1105,7 +1108,7 @@ bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::Exte
                                                 const phicore::adapter::v1::ExternalId &channelExternalId,
                                                 const ScalarValue &value,
                                                 std::int64_t tsMs,
-                                                std::string *error)
+                                                phicore::adapter::v1::Utf8String *error)
 {
     const std::int64_t timestamp = tsMs > 0 ? tsMs : nowMs();
     std::string body;
@@ -1127,7 +1130,7 @@ bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::Exte
 
 bool SidecarDispatcher::sendDeviceUpdated(const Device &device,
                                           const ChannelList &channels,
-                                          std::string *error)
+                                          phicore::adapter::v1::Utf8String *error)
 {
     std::string body = "{\"kind\":\"deviceUpdated\",\"payload\":{\"device\":";
     body += deviceToJson(device);
@@ -1144,7 +1147,7 @@ bool SidecarDispatcher::sendDeviceUpdated(const Device &device,
 }
 
 bool SidecarDispatcher::sendDeviceRemoved(const phicore::adapter::v1::ExternalId &deviceExternalId,
-                                          std::string *error)
+                                          phicore::adapter::v1::Utf8String *error)
 {
     const std::string body = std::string("{\"kind\":\"deviceRemoved\",\"deviceExternalId\":")
         + jsonQuoted(deviceExternalId)
@@ -1154,7 +1157,7 @@ bool SidecarDispatcher::sendDeviceRemoved(const phicore::adapter::v1::ExternalId
 
 bool SidecarDispatcher::sendChannelUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
                                            const Channel &channel,
-                                           std::string *error)
+                                           phicore::adapter::v1::Utf8String *error)
 {
     std::string body = "{\"kind\":\"channelUpdated\",\"payload\":{\"deviceExternalId\":";
     body += jsonQuoted(deviceExternalId);
@@ -1164,7 +1167,7 @@ bool SidecarDispatcher::sendChannelUpdated(const phicore::adapter::v1::ExternalI
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendRoomUpdated(const Room &room, std::string *error)
+bool SidecarDispatcher::sendRoomUpdated(const Room &room, phicore::adapter::v1::Utf8String *error)
 {
     std::string body = "{\"kind\":\"roomUpdated\",\"room\":";
     body += roomToJson(room);
@@ -1173,7 +1176,7 @@ bool SidecarDispatcher::sendRoomUpdated(const Room &room, std::string *error)
 }
 
 bool SidecarDispatcher::sendRoomRemoved(const phicore::adapter::v1::ExternalId &roomExternalId,
-                                        std::string *error)
+                                        phicore::adapter::v1::Utf8String *error)
 {
     const std::string body = std::string("{\"kind\":\"roomRemoved\",\"roomExternalId\":")
         + jsonQuoted(roomExternalId)
@@ -1181,7 +1184,7 @@ bool SidecarDispatcher::sendRoomRemoved(const phicore::adapter::v1::ExternalId &
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendGroupUpdated(const Group &group, std::string *error)
+bool SidecarDispatcher::sendGroupUpdated(const Group &group, phicore::adapter::v1::Utf8String *error)
 {
     std::string body = "{\"kind\":\"groupUpdated\",\"group\":";
     body += groupToJson(group);
@@ -1190,7 +1193,7 @@ bool SidecarDispatcher::sendGroupUpdated(const Group &group, std::string *error)
 }
 
 bool SidecarDispatcher::sendGroupRemoved(const phicore::adapter::v1::ExternalId &groupExternalId,
-                                         std::string *error)
+                                         phicore::adapter::v1::Utf8String *error)
 {
     const std::string body = std::string("{\"kind\":\"groupRemoved\",\"groupExternalId\":")
         + jsonQuoted(groupExternalId)
@@ -1198,7 +1201,7 @@ bool SidecarDispatcher::sendGroupRemoved(const phicore::adapter::v1::ExternalId 
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendScenesUpdated(const SceneList &scenes, std::string *error)
+bool SidecarDispatcher::sendScenesUpdated(const SceneList &scenes, phicore::adapter::v1::Utf8String *error)
 {
     std::string body = "{\"kind\":\"scenesUpdated\",\"scenes\":[";
     bool first = true;
@@ -1212,9 +1215,294 @@ bool SidecarDispatcher::sendScenesUpdated(const SceneList &scenes, std::string *
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendFullSyncCompleted(std::string *error)
+bool SidecarDispatcher::sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error)
 {
     return sendJson(MessageType::Event, 0, "{\"kind\":\"fullSyncCompleted\"}", error);
+}
+
+void AdapterSidecar::onConnected()
+{
+}
+
+void AdapterSidecar::onDisconnected()
+{
+}
+
+void AdapterSidecar::onProtocolError(const phicore::adapter::v1::Utf8String &message)
+{
+    (void)message;
+}
+
+void AdapterSidecar::onBootstrap(const BootstrapRequest &request)
+{
+    cacheBootstrap(request);
+}
+
+CmdResponse AdapterSidecar::onChannelInvoke(const ChannelInvokeRequest &request)
+{
+    return defaultCmdResponse(request.cmdId, "Channel invoke handler not implemented");
+}
+
+ActionResponse AdapterSidecar::onAdapterActionInvoke(const AdapterActionInvokeRequest &request)
+{
+    return defaultActionResponse(request.cmdId, "Adapter action handler not implemented");
+}
+
+CmdResponse AdapterSidecar::onDeviceNameUpdate(const DeviceNameUpdateRequest &request)
+{
+    return defaultCmdResponse(request.cmdId, "Device name update handler not implemented");
+}
+
+CmdResponse AdapterSidecar::onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request)
+{
+    return defaultCmdResponse(request.cmdId, "Device effect handler not implemented");
+}
+
+CmdResponse AdapterSidecar::onSceneInvoke(const SceneInvokeRequest &request)
+{
+    return defaultCmdResponse(request.cmdId, "Scene invoke handler not implemented");
+}
+
+void AdapterSidecar::onUnknownRequest(const UnknownRequest &request)
+{
+    (void)request;
+}
+
+const BootstrapRequest &AdapterSidecar::bootstrap() const
+{
+    return m_bootstrap;
+}
+
+bool AdapterSidecar::hasBootstrap() const
+{
+    return m_hasBootstrap;
+}
+
+int AdapterSidecar::adapterId() const
+{
+    return m_hasBootstrap ? m_bootstrap.adapterId : 0;
+}
+
+const phicore::adapter::v1::Utf8String &AdapterSidecar::pluginType() const
+{
+    return m_bootstrap.adapter.pluginType;
+}
+
+const phicore::adapter::v1::ExternalId &AdapterSidecar::externalId() const
+{
+    return m_bootstrap.adapter.externalId;
+}
+
+bool AdapterSidecar::sendCmdResult(const CmdResponse &response, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendCmdResult(response, error) : false;
+}
+
+bool AdapterSidecar::sendActionResult(const ActionResponse &response, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendActionResult(response, error) : false;
+}
+
+bool AdapterSidecar::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendConnectionStateChanged(connected, error) : false;
+}
+
+bool AdapterSidecar::sendError(const phicore::adapter::v1::Utf8String &message,
+                               const ScalarList &params,
+                               const phicore::adapter::v1::Utf8String &ctx,
+                               phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendError(message, params, ctx, error) : false;
+}
+
+bool AdapterSidecar::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
+                                            phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated(metaPatchJson, error) : false;
+}
+
+bool AdapterSidecar::sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                             const phicore::adapter::v1::ExternalId &channelExternalId,
+                                             const ScalarValue &value,
+                                             std::int64_t tsMs,
+                                             phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher
+        ? m_dispatcher->sendChannelStateUpdated(deviceExternalId, channelExternalId, value, tsMs, error)
+        : false;
+}
+
+bool AdapterSidecar::sendDeviceUpdated(const Device &device,
+                                       const ChannelList &channels,
+                                       phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendDeviceUpdated(device, channels, error) : false;
+}
+
+bool AdapterSidecar::sendDeviceRemoved(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                       phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendDeviceRemoved(deviceExternalId, error) : false;
+}
+
+bool AdapterSidecar::sendChannelUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                        const Channel &channel,
+                                        phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendChannelUpdated(deviceExternalId, channel, error) : false;
+}
+
+bool AdapterSidecar::sendRoomUpdated(const Room &room, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendRoomUpdated(room, error) : false;
+}
+
+bool AdapterSidecar::sendRoomRemoved(const phicore::adapter::v1::ExternalId &roomExternalId, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendRoomRemoved(roomExternalId, error) : false;
+}
+
+bool AdapterSidecar::sendGroupUpdated(const Group &group, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendGroupUpdated(group, error) : false;
+}
+
+bool AdapterSidecar::sendGroupRemoved(const phicore::adapter::v1::ExternalId &groupExternalId, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendGroupRemoved(groupExternalId, error) : false;
+}
+
+bool AdapterSidecar::sendScenesUpdated(const SceneList &scenes, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendScenesUpdated(scenes, error) : false;
+}
+
+bool AdapterSidecar::sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendFullSyncCompleted(error) : false;
+}
+
+void AdapterSidecar::bindDispatcher(SidecarDispatcher *dispatcher)
+{
+    m_dispatcher = dispatcher;
+}
+
+void AdapterSidecar::cacheBootstrap(const BootstrapRequest &request)
+{
+    m_bootstrap = request;
+    m_hasBootstrap = true;
+}
+
+SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterSidecar> adapter)
+    : m_dispatcher(std::move(socketPath))
+    , m_adapter(std::move(adapter))
+{
+    if (m_adapter)
+        m_adapter->bindDispatcher(&m_dispatcher);
+    wireHandlers();
+}
+
+SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, const AdapterFactory &factory)
+    : SidecarHost(std::move(socketPath), factory.create())
+{
+    m_factoryPluginType = factory.pluginType();
+}
+
+bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
+{
+    if (!m_adapter) {
+        if (error)
+            *error = "SidecarHost has no adapter instance";
+        return false;
+    }
+    return m_dispatcher.start(error);
+}
+
+void SidecarHost::stop()
+{
+    m_dispatcher.stop();
+}
+
+bool SidecarHost::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher.pollOnce(timeout, error);
+}
+
+AdapterSidecar *SidecarHost::adapter()
+{
+    return m_adapter.get();
+}
+
+const AdapterSidecar *SidecarHost::adapter() const
+{
+    return m_adapter.get();
+}
+
+SidecarDispatcher *SidecarHost::dispatcher()
+{
+    return &m_dispatcher;
+}
+
+const SidecarDispatcher *SidecarHost::dispatcher() const
+{
+    return &m_dispatcher;
+}
+
+void SidecarHost::wireHandlers()
+{
+    SidecarHandlers handlers;
+    handlers.onConnected = [this]() {
+        if (m_adapter)
+            m_adapter->onConnected();
+    };
+    handlers.onDisconnected = [this]() {
+        if (m_adapter)
+            m_adapter->onDisconnected();
+    };
+    handlers.onProtocolError = [this](const phicore::adapter::v1::Utf8String &message) {
+        if (m_adapter)
+            m_adapter->onProtocolError(message);
+    };
+    handlers.onBootstrap = [this](const BootstrapRequest &request) {
+        if (!m_adapter)
+            return;
+        BootstrapRequest normalized = request;
+        if (normalized.adapter.pluginType.empty())
+            normalized.adapter.pluginType = m_factoryPluginType;
+        m_adapter->cacheBootstrap(normalized);
+        m_adapter->onBootstrap(normalized);
+    };
+    handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
+        if (!m_adapter)
+            return defaultCmdResponse(request.cmdId, "Adapter sidecar not available");
+        return m_adapter->onChannelInvoke(request);
+    };
+    handlers.onAdapterActionInvoke = [this](const AdapterActionInvokeRequest &request) {
+        if (!m_adapter)
+            return defaultActionResponse(request.cmdId, "Adapter sidecar not available");
+        return m_adapter->onAdapterActionInvoke(request);
+    };
+    handlers.onDeviceNameUpdate = [this](const DeviceNameUpdateRequest &request) {
+        if (!m_adapter)
+            return defaultCmdResponse(request.cmdId, "Adapter sidecar not available");
+        return m_adapter->onDeviceNameUpdate(request);
+    };
+    handlers.onDeviceEffectInvoke = [this](const DeviceEffectInvokeRequest &request) {
+        if (!m_adapter)
+            return defaultCmdResponse(request.cmdId, "Adapter sidecar not available");
+        return m_adapter->onDeviceEffectInvoke(request);
+    };
+    handlers.onSceneInvoke = [this](const SceneInvokeRequest &request) {
+        if (!m_adapter)
+            return defaultCmdResponse(request.cmdId, "Adapter sidecar not available");
+        return m_adapter->onSceneInvoke(request);
+    };
+    handlers.onUnknownRequest = [this](const UnknownRequest &request) {
+        if (m_adapter)
+            m_adapter->onUnknownRequest(request);
+    };
+    m_dispatcher.setHandlers(std::move(handlers));
 }
 
 } // namespace phicore::adapter::sdk
