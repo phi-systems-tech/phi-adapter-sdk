@@ -9,15 +9,15 @@
 namespace phicore::adapter::v1 {
 
 struct Discovery {
-    std::string pluginType;
+    Utf8String pluginType;
     ExternalId discoveredExternalId;
-    std::string label;
-    std::string hostname;
-    std::string ip;
+    Utf8String label;
+    Utf8String hostname;
+    Utf8String ip;
     std::uint16_t port = 0;
     DiscoveryKind kind = DiscoveryKind::Mdns;
-    std::string serviceType;
-    std::string signal;
+    Utf8String serviceType;
+    Utf8String signal;
     JsonText metaJson;
 };
 

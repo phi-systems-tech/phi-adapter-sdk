@@ -10,7 +10,7 @@ namespace phicore::adapter::v1 {
 
 using CmdId = std::uint64_t;
 using CorrelationId = std::uint64_t;
-using ExternalId = std::string;
+using ExternalId = Utf8String;
 
 enum class CmdStatus : std::uint8_t {
     Success = 0,
@@ -37,9 +37,9 @@ enum class ActionResultType : std::uint8_t {
 struct CmdResponse {
     CmdId id = 0;
     CmdStatus status = CmdStatus::Success;
-    std::string error;
+    Utf8String error;
     ScalarList errorParams;
-    std::string errorContext;
+    Utf8String errorContext;
     ScalarValue finalValue;
     std::int64_t tsMs = 0;
 };
@@ -47,9 +47,9 @@ struct CmdResponse {
 struct ActionResponse {
     CmdId id = 0;
     CmdStatus status = CmdStatus::Success;
-    std::string error;
+    Utf8String error;
     ScalarList errorParams;
-    std::string errorContext;
+    Utf8String errorContext;
     ActionResultType resultType = ActionResultType::None;
     ScalarValue resultValue;
     std::int64_t tsMs = 0;

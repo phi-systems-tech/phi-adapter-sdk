@@ -9,8 +9,8 @@ namespace phicore::adapter::v1 {
 
 struct Room {
     ExternalId externalId;
-    std::string name;
-    std::string zone;
+    Utf8String name;
+    Utf8String zone;
     std::vector<ExternalId> deviceExternalIds;
     JsonText metaJson;
 };

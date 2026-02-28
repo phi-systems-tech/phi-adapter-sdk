@@ -9,15 +9,15 @@
 namespace phicore::adapter::v1 {
 
 struct Adapter {
-    std::string name;
-    std::string host;
-    std::string ip;
+    Utf8String name;
+    Utf8String host;
+    Utf8String ip;
     std::uint16_t port = 0;
-    std::string user;
-    std::string password;
-    std::string token;
+    Utf8String user;
+    Utf8String password;
+    Utf8String token;
 
-    std::string pluginType;
+    Utf8String pluginType;
     ExternalId externalId;
     JsonText metaJson;
     AdapterFlags flags = AdapterFlag::None;
@@ -26,8 +26,8 @@ struct Adapter {
 using AdapterList = std::vector<Adapter>;
 
 struct AdapterConfigOption {
-    std::string value;
-    std::string label;
+    Utf8String value;
+    Utf8String label;
 };
 
 using AdapterConfigOptionList = std::vector<AdapterConfigOption>;
@@ -42,7 +42,7 @@ struct AdapterConfigResponsiveInt {
 };
 
 struct AdapterConfigFieldVisibility {
-    std::string fieldKey;
+    Utf8String fieldKey;
     ScalarValue value;
     AdapterConfigVisibilityOp op = AdapterConfigVisibilityOp::Equals;
 };
@@ -60,20 +60,20 @@ struct AdapterConfigFieldLayout {
 };
 
 struct AdapterConfigField {
-    std::string key;
+    Utf8String key;
     AdapterConfigFieldType type = AdapterConfigFieldType::String;
 
-    std::string label;
-    std::string description;
-    std::string actionId;
-    std::string actionLabel;
+    Utf8String label;
+    Utf8String description;
+    Utf8String actionId;
+    Utf8String actionLabel;
 
-    std::string placeholder;
+    Utf8String placeholder;
     ScalarValue defaultValue;
 
     AdapterConfigFieldVisibility visibility;
     AdapterConfigFieldLayout layout;
-    std::string parentActionId;
+    Utf8String parentActionId;
 
     AdapterConfigOptionList options;
     JsonText metaJson;
@@ -99,8 +99,8 @@ struct AdapterConfigSectionLayout {
 };
 
 struct AdapterConfigSection {
-    std::string title;
-    std::string description;
+    Utf8String title;
+    Utf8String description;
     AdapterConfigSectionLayout layout;
     AdapterConfigFieldList fields;
 };
@@ -111,9 +111,9 @@ struct AdapterConfigSchema {
 };
 
 struct AdapterActionDescriptor {
-    std::string id;
-    std::string label;
-    std::string description;
+    Utf8String id;
+    Utf8String label;
+    Utf8String description;
     bool hasForm = false;
     bool danger = false;
     int cooldownMs = 0;

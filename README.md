@@ -18,6 +18,8 @@ Linux-first SDK for phi adapter sidecars.
 - No Qt dependency
 - No Boost dependency
 - `externalId` is the canonical adapter-domain identifier in v1 contract types
+- Contract text type is `phicore::adapter::v1::Utf8String` (`std::string` alias)
+- All contract text fields are UTF-8 by contract
 
 ## Build
 

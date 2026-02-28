@@ -8,10 +8,10 @@
 namespace phicore::adapter::v1 {
 
 struct DiscoveryQuery {
-    std::string pluginType;
+    Utf8String pluginType;
     DiscoveryKind kind = DiscoveryKind::Mdns;
-    std::string mdnsServiceType;
-    std::string ssdpSt;
+    Utf8String mdnsServiceType;
+    Utf8String ssdpSt;
     int defaultPort = 0;
     JsonText hintsJson;
 

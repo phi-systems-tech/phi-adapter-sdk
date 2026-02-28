@@ -9,12 +9,12 @@
 namespace phicore::adapter::v1 {
 
 struct Channel {
-    std::string name;
+    Utf8String name;
     ExternalId externalId;
     ChannelKind kind = ChannelKind::Unknown;
     ChannelDataType dataType = ChannelDataType::Unknown;
     ChannelFlags flags = ChannelFlag::None;
-    std::string unit;
+    Utf8String unit;
     double minValue = 0.0;
     double maxValue = 0.0;
     double stepValue = 0.0;

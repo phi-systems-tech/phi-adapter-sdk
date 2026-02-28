@@ -9,9 +9,9 @@ namespace phicore::adapter::v1 {
 
 struct DeviceEffectDescriptor {
     DeviceEffect effect = DeviceEffect::None;
-    std::string id;
-    std::string label;
-    std::string description;
+    Utf8String id;
+    Utf8String label;
+    Utf8String description;
     bool requiresParams = false;
     JsonText metaJson;
 };
@@ -19,13 +19,13 @@ struct DeviceEffectDescriptor {
 using DeviceEffectDescriptorList = std::vector<DeviceEffectDescriptor>;
 
 struct Device {
-    std::string name;
+    Utf8String name;
     DeviceClass deviceClass = DeviceClass::Unknown;
     DeviceFlags flags = DeviceFlag::None;
     ExternalId externalId;
-    std::string manufacturer;
-    std::string firmware;
-    std::string model;
+    Utf8String manufacturer;
+    Utf8String firmware;
+    Utf8String model;
     JsonText metaJson;
     DeviceEffectDescriptorList effects;
 };
