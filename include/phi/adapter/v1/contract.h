@@ -1,0 +1,15 @@
+#pragma once
+
+#include "phi/adapter/v1/version.h"
+#include "phi/adapter/v1/value.h"
+#include "phi/adapter/v1/types.h"
+#include "phi/adapter/v1/frame.h"
+#include "phi/adapter/v1/color.h"
+#include "phi/adapter/v1/schema.h"
+#include "phi/adapter/v1/device.h"
+#include "phi/adapter/v1/channel.h"
+#include "phi/adapter/v1/room.h"
+#include "phi/adapter/v1/group.h"
+#include "phi/adapter/v1/scene.h"
+#include "phi/adapter/v1/discovery_query.h"
+#include "phi/adapter/v1/discovery.h"
