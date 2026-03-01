@@ -3,6 +3,7 @@
 #include "phi/adapter/v1/version.h"
 #include "phi/adapter/v1/value.h"
 #include "phi/adapter/v1/types.h"
+#include "phi/adapter/v1/enum_names.h"
 #include "phi/adapter/v1/frame.h"
 #include "phi/adapter/v1/color.h"
 #include "phi/adapter/v1/schema.h"

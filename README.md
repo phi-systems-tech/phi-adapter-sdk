@@ -8,6 +8,7 @@ Linux-first SDK for phi adapter sidecars.
   - Header-only contract (`phicore::adapter::v1`)
   - Domain types for adapter integration: schema, device, channel, room/group/scene, discovery
   - Stable protocol primitives (`CmdId`, `ExternalId`, frame header, message type)
+  - Central enum ↔ string helpers in `phi/adapter/v1/enum_names.h`
 - `phi::adapter-sdk`
   - Linux runtime helpers (UDS + epoll transport)
   - Typed dispatcher (`SidecarDispatcher`)
@@ -22,6 +23,7 @@ Linux-first SDK for phi adapter sidecars.
 - Contract text type is `phicore::adapter::v1::Utf8String` (`std::string` alias)
 - All contract text fields are UTF-8 by contract
 - C++ API is the primary SDK surface for v1
+- Enum string conversion (`enum_names.h`) is strict v1 canonical naming (no legacy aliases)
 
 ## Build
 
