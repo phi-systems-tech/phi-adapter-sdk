@@ -41,6 +41,8 @@ cmake --build build --parallel
 
 - Inbound request handlers: `on*` (`onBootstrap`, `onChannelInvoke`, ...)
 - Outbound IPC calls: `send*` (`sendDeviceUpdated`, `sendChannelStateUpdated`, `sendError`, ...)
+- Static descriptor overrides: `displayName()`, `description()`, `iconSvg()`, `imageBase64()`,
+  `apiVersion()`, `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchemaJson()`
 
 ### Minimal Structure
 
@@ -88,7 +90,13 @@ host.stop();
 
 ## IPC Events (typed outbound)
 
-- `connectionStateChanged`, `error`, `adapterMetaUpdated`
+- `connectionStateChanged`, `error`, `adapterMetaUpdated`, `adapterDescriptorUpdated`
 - `deviceUpdated`, `deviceRemoved`, `channelUpdated`, `channelStateUpdated`
 - `roomUpdated`, `roomRemoved`, `groupUpdated`, `groupRemoved`
 - `scenesUpdated`, `fullSyncCompleted`
+
+## Bootstrap Descriptor
+
+On `sync.adapter.bootstrap`, `SidecarHost` automatically responds with `kind=adapterDescriptor`.
+The payload is built from `AdapterSidecar::descriptor()` (default implementation aggregates the
+first-class override methods listed above).

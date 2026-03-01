@@ -17,6 +17,10 @@ class SidecarRuntime;
 struct BootstrapRequest {
     /// Database adapter id (`adapters.id`) in phi-core.
     int adapterId = 0;
+    /// Request-side command id from bootstrap envelope (`cmdId`).
+    phicore::adapter::v1::CmdId cmdId = 0;
+    /// Transport correlation id from frame header.
+    phicore::adapter::v1::CorrelationId correlationId = 0;
     /// Effective adapter instance configuration (host/user/meta/flags/...).
     phicore::adapter::v1::Adapter adapter;
     /// Static adapter config JSON (`AdapterStaticInfo::config`) as raw JSON text.
@@ -105,6 +109,35 @@ struct UnknownRequest {
     phicore::adapter::v1::Utf8String method;
     /// Raw request payload as JSON text.
     phicore::adapter::v1::JsonText payloadJson;
+};
+
+/**
+ * @brief First-class static adapter descriptor exchanged with phi-core.
+ *
+ * This descriptor replaces static meta transport for adapter identity,
+ * capabilities and config layout.
+ */
+struct AdapterDescriptor {
+    /// Adapter plugin type (e.g. `onkyo-pioneer`).
+    phicore::adapter::v1::Utf8String pluginType;
+    /// User-facing adapter name.
+    phicore::adapter::v1::Utf8String displayName;
+    /// User-facing adapter description.
+    phicore::adapter::v1::Utf8String description;
+    /// Adapter API version label.
+    phicore::adapter::v1::Utf8String apiVersion;
+    /// Inline icon SVG markup.
+    phicore::adapter::v1::Utf8String iconSvg;
+    /// Optional image payload (base64 text).
+    phicore::adapter::v1::Utf8String imageBase64;
+    /// Default device timeout in milliseconds.
+    int timeoutMs = 0;
+    /// Maximum allowed instances (`0` => unlimited).
+    int maxInstances = 0;
+    /// Adapter capabilities.
+    phicore::adapter::v1::AdapterCapabilities capabilities;
+    /// Adapter config schema as JSON object text.
+    phicore::adapter::v1::JsonText configSchemaJson;
 };
 
 /**
@@ -211,6 +244,22 @@ public:
      */
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
+
+    /**
+     * @brief Send bootstrap descriptor as response (`kind=adapterDescriptor`).
+     * @param descriptor First-class adapter descriptor payload.
+     * @param correlationId Correlation id for response frame.
+     */
+    bool sendAdapterDescriptor(const AdapterDescriptor &descriptor,
+                               phicore::adapter::v1::CorrelationId correlationId,
+                               phicore::adapter::v1::Utf8String *error = nullptr);
+
+    /**
+     * @brief Publish runtime descriptor update (`kind=adapterDescriptorUpdated`).
+     * @param descriptor First-class adapter descriptor payload.
+     */
+    bool sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+                                      phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish channel state update (`kind=channelStateUpdated`).
@@ -346,6 +395,56 @@ public:
     virtual void onUnknownRequest(const UnknownRequest &request);
 
     /**
+     * @brief Returns adapter display name for bootstrap descriptor.
+     */
+    virtual phicore::adapter::v1::Utf8String displayName() const;
+
+    /**
+     * @brief Returns adapter description for bootstrap descriptor.
+     */
+    virtual phicore::adapter::v1::Utf8String description() const;
+
+    /**
+     * @brief Returns adapter API version for bootstrap descriptor.
+     */
+    virtual phicore::adapter::v1::Utf8String apiVersion() const;
+
+    /**
+     * @brief Returns inline adapter icon SVG for bootstrap descriptor.
+     */
+    virtual phicore::adapter::v1::Utf8String iconSvg() const;
+
+    /**
+     * @brief Returns optional adapter image payload for bootstrap descriptor.
+     */
+    virtual phicore::adapter::v1::Utf8String imageBase64() const;
+
+    /**
+     * @brief Returns default device timeout in milliseconds.
+     */
+    virtual int timeoutMs() const;
+
+    /**
+     * @brief Returns maximum supported adapter instances (`0` => unlimited).
+     */
+    virtual int maxInstances() const;
+
+    /**
+     * @brief Returns adapter capabilities.
+     */
+    virtual phicore::adapter::v1::AdapterCapabilities capabilities() const;
+
+    /**
+     * @brief Returns adapter config schema as JSON object text.
+     */
+    virtual phicore::adapter::v1::JsonText configSchemaJson() const;
+
+    /**
+     * @brief Build first-class adapter descriptor from virtual overrides.
+     */
+    virtual AdapterDescriptor descriptor() const;
+
+    /**
      * @brief Returns last bootstrap payload.
      */
     const BootstrapRequest &bootstrap() const;
@@ -399,6 +498,12 @@ protected:
      */
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
+
+    /**
+     * @brief Send descriptor update event (`kind=adapterDescriptorUpdated`).
+     */
+    bool sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+                                      phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Send channel state update (`kind=channelStateUpdated`).

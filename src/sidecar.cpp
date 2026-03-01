@@ -1,11 +1,15 @@
 #include "phi/adapter/sdk/sidecar.h"
 #include "runtime_internal.h"
 
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <iomanip>
+#include <locale>
+#include <sstream>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -18,6 +22,8 @@ namespace {
 using phicore::adapter::v1::ActionResponse;
 using phicore::adapter::v1::ActionResultType;
 using phicore::adapter::v1::Adapter;
+using phicore::adapter::v1::AdapterActionDescriptor;
+using phicore::adapter::v1::AdapterCapabilities;
 using phicore::adapter::v1::Channel;
 using phicore::adapter::v1::ChannelList;
 using phicore::adapter::v1::CmdId;
@@ -425,10 +431,28 @@ bool parseDouble(std::string_view token, double *value)
     token = trim(token);
     if (token.empty())
         return false;
-    const std::string copy(token);
-    char *end = nullptr;
-    const double parsed = std::strtod(copy.c_str(), &end);
-    if (!end || *end != '\0')
+
+#if defined(__cpp_lib_to_chars) && (__cpp_lib_to_chars >= 201611L)
+    {
+        double parsed = 0.0;
+        const char *begin = token.data();
+        const char *end = token.data() + token.size();
+        const auto result = std::from_chars(begin, end, parsed, std::chars_format::general);
+        if (result.ec == std::errc() && result.ptr == end) {
+            *value = parsed;
+            return true;
+        }
+    }
+#endif
+
+    std::istringstream iss{std::string(token)};
+    iss.imbue(std::locale::classic());
+    double parsed = 0.0;
+    iss >> parsed;
+    if (iss.fail())
+        return false;
+    iss >> std::ws;
+    if (!iss.eof())
         return false;
     *value = parsed;
     return true;
@@ -543,6 +567,31 @@ void appendFieldPrefix(std::string &out, bool &first, std::string_view key)
     out.push_back(':');
 }
 
+void appendDoubleJson(std::string &out, double value)
+{
+    if (!std::isfinite(value)) {
+        out += "null";
+        return;
+    }
+
+#if defined(__cpp_lib_to_chars) && (__cpp_lib_to_chars >= 201611L)
+    {
+        std::array<char, 64> buf{};
+        const auto result = std::to_chars(
+            buf.data(), buf.data() + buf.size(), value, std::chars_format::general, 15);
+        if (result.ec == std::errc()) {
+            out.append(buf.data(), static_cast<std::size_t>(result.ptr - buf.data()));
+            return;
+        }
+    }
+#endif
+
+    std::ostringstream oss;
+    oss.imbue(std::locale::classic());
+    oss << std::setprecision(15) << value;
+    out += oss.str();
+}
+
 void appendScalarJson(std::string &out, const ScalarValue &value)
 {
     if (std::holds_alternative<std::monostate>(value)) {
@@ -558,10 +607,7 @@ void appendScalarJson(std::string &out, const ScalarValue &value)
         return;
     }
     if (const auto *d = std::get_if<double>(&value)) {
-        if (std::isfinite(*d))
-            out += std::to_string(*d);
-        else
-            out += "null";
+        appendDoubleJson(out, *d);
         return;
     }
     out += jsonQuoted(std::get<std::string>(value));
@@ -669,11 +715,11 @@ std::string channelToJson(const Channel &channel)
     appendFieldPrefix(out, first, "unit");
     out += jsonQuoted(channel.unit);
     appendFieldPrefix(out, first, "minValue");
-    out += std::to_string(channel.minValue);
+    appendDoubleJson(out, channel.minValue);
     appendFieldPrefix(out, first, "maxValue");
-    out += std::to_string(channel.maxValue);
+    appendDoubleJson(out, channel.maxValue);
     appendFieldPrefix(out, first, "stepValue");
-    out += std::to_string(channel.stepValue);
+    appendDoubleJson(out, channel.stepValue);
     appendFieldPrefix(out, first, "meta");
     appendMetaJson(out, channel.metaJson);
     appendFieldPrefix(out, first, "choices");
@@ -769,6 +815,114 @@ std::string sceneToJson(const Scene &scene)
     return out;
 }
 
+std::string jsonTokenOrDefault(const std::string &json, std::string_view fallback)
+{
+    const std::string_view token = trim(json);
+    if (token.empty())
+        return std::string(fallback);
+    return std::string(token);
+}
+
+std::string actionToJson(const AdapterActionDescriptor &action)
+{
+    std::string out;
+    out.push_back('{');
+    bool first = true;
+    appendFieldPrefix(out, first, "id");
+    out += jsonQuoted(action.id);
+    appendFieldPrefix(out, first, "label");
+    out += jsonQuoted(action.label);
+    appendFieldPrefix(out, first, "description");
+    out += jsonQuoted(action.description);
+    appendFieldPrefix(out, first, "hasForm");
+    out += (action.hasForm ? "true" : "false");
+    appendFieldPrefix(out, first, "danger");
+    out += (action.danger ? "true" : "false");
+    appendFieldPrefix(out, first, "cooldownMs");
+    out += std::to_string(action.cooldownMs);
+    if (!trim(action.confirmJson).empty()) {
+        appendFieldPrefix(out, first, "confirm");
+        out += jsonTokenOrDefault(action.confirmJson, "{}");
+    }
+    if (!trim(action.metaJson).empty()) {
+        appendFieldPrefix(out, first, "meta");
+        out += jsonTokenOrDefault(action.metaJson, "{}");
+    }
+    out.push_back('}');
+    return out;
+}
+
+std::string actionListToJson(const std::vector<AdapterActionDescriptor> &actions)
+{
+    std::string out;
+    out.push_back('[');
+    bool first = true;
+    for (const AdapterActionDescriptor &action : actions) {
+        if (action.id.empty())
+            continue;
+        if (!first)
+            out.push_back(',');
+        first = false;
+        out += actionToJson(action);
+    }
+    out.push_back(']');
+    return out;
+}
+
+std::string capabilitiesToJson(const AdapterCapabilities &caps)
+{
+    std::string out;
+    out.push_back('{');
+    bool first = true;
+    appendFieldPrefix(out, first, "required");
+    out += std::to_string(static_cast<int>(caps.required));
+    appendFieldPrefix(out, first, "optional");
+    out += std::to_string(static_cast<int>(caps.optional));
+    appendFieldPrefix(out, first, "flags");
+    out += std::to_string(static_cast<int>(caps.flags));
+    appendFieldPrefix(out, first, "factoryActions");
+    out += actionListToJson(caps.factoryActions);
+    appendFieldPrefix(out, first, "instanceActions");
+    out += actionListToJson(caps.instanceActions);
+    if (!trim(caps.defaultsJson).empty()) {
+        appendFieldPrefix(out, first, "defaults");
+        out += jsonTokenOrDefault(caps.defaultsJson, "{}");
+    }
+    out.push_back('}');
+    return out;
+}
+
+std::string descriptorToJson(const AdapterDescriptor &descriptor)
+{
+    std::string out;
+    out.push_back('{');
+    bool first = true;
+    appendFieldPrefix(out, first, "pluginType");
+    out += jsonQuoted(descriptor.pluginType);
+    appendFieldPrefix(out, first, "displayName");
+    out += jsonQuoted(descriptor.displayName);
+    appendFieldPrefix(out, first, "description");
+    out += jsonQuoted(descriptor.description);
+    appendFieldPrefix(out, first, "apiVersion");
+    out += jsonQuoted(descriptor.apiVersion);
+    appendFieldPrefix(out, first, "iconSvg");
+    out += jsonQuoted(descriptor.iconSvg);
+    appendFieldPrefix(out, first, "imageBase64");
+    out += jsonQuoted(descriptor.imageBase64);
+    appendFieldPrefix(out, first, "timeoutMs");
+    out += std::to_string(descriptor.timeoutMs);
+    appendFieldPrefix(out, first, "maxInstances");
+    out += std::to_string(descriptor.maxInstances);
+    appendFieldPrefix(out, first, "capabilities");
+    out += capabilitiesToJson(descriptor.capabilities);
+    appendFieldPrefix(out, first, "configSchema");
+    out += trim(descriptor.configSchemaJson).empty()
+        ? "null"
+        : jsonTokenOrDefault(descriptor.configSchemaJson, "{}");
+    out.push_back('}');
+    return out;
+}
+
 CmdResponse defaultCmdResponse(CmdId cmdId, const std::string &message)
 {
     CmdResponse response;
@@ -838,8 +992,6 @@ bool SidecarDispatcher::pollOnce(std::chrono::milliseconds timeout, phicore::ada
 bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHeader &header,
                                            std::span<const std::byte> payload)
 {
-    (void)header;
-
     const std::string jsonPayload(reinterpret_cast<const char *>(payload.data()), payload.size());
     MemberMap root;
     std::string parseError;
@@ -862,6 +1014,8 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (method == "sync.adapter.bootstrap") {
         if (m_handlers.onBootstrap) {
             BootstrapRequest request;
+            request.cmdId = cmdId;
+            request.correlationId = header.correlationId;
             MemberMap payloadMap;
             if (parseObjectMembers(payloadToken, &payloadMap, nullptr)) {
                 request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
@@ -1104,6 +1258,25 @@ bool SidecarDispatcher::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonT
     return sendJson(MessageType::Event, 0, body, error);
 }
 
+bool SidecarDispatcher::sendAdapterDescriptor(const AdapterDescriptor &descriptor,
+                                              CorrelationId correlationId,
+                                              phicore::adapter::v1::Utf8String *error)
+{
+    const std::string body = std::string("{\"kind\":\"adapterDescriptor\",\"descriptor\":")
+        + descriptorToJson(descriptor)
+        + "}";
+    return sendJson(MessageType::Response, correlationId, body, error);
+}
+
+bool SidecarDispatcher::sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+                                                     phicore::adapter::v1::Utf8String *error)
+{
+    const std::string body = std::string("{\"kind\":\"adapterDescriptorUpdated\",\"descriptor\":")
+        + descriptorToJson(descriptor)
+        + "}";
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
 bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
                                                 const phicore::adapter::v1::ExternalId &channelExternalId,
                                                 const ScalarValue &value,
@@ -1268,6 +1441,67 @@ void AdapterSidecar::onUnknownRequest(const UnknownRequest &request)
     (void)request;
 }
 
+phicore::adapter::v1::Utf8String AdapterSidecar::displayName() const
+{
+    return {};
+}
+
+phicore::adapter::v1::Utf8String AdapterSidecar::description() const
+{
+    return {};
+}
+
+phicore::adapter::v1::Utf8String AdapterSidecar::apiVersion() const
+{
+    return {};
+}
+
+phicore::adapter::v1::Utf8String AdapterSidecar::iconSvg() const
+{
+    return {};
+}
+
+phicore::adapter::v1::Utf8String AdapterSidecar::imageBase64() const
+{
+    return {};
+}
+
+int AdapterSidecar::timeoutMs() const
+{
+    return 50;
+}
+
+int AdapterSidecar::maxInstances() const
+{
+    return 0;
+}
+
+phicore::adapter::v1::AdapterCapabilities AdapterSidecar::capabilities() const
+{
+    return {};
+}
+
+phicore::adapter::v1::JsonText AdapterSidecar::configSchemaJson() const
+{
+    return {};
+}
+
+AdapterDescriptor AdapterSidecar::descriptor() const
+{
+    AdapterDescriptor out;
+    out.pluginType = pluginType();
+    out.displayName = displayName();
+    out.description = description();
+    out.apiVersion = apiVersion();
+    out.iconSvg = iconSvg();
+    out.imageBase64 = imageBase64();
+    out.timeoutMs = timeoutMs();
+    out.maxInstances = maxInstances();
+    out.capabilities = capabilities();
+    out.configSchemaJson = configSchemaJson();
+    return out;
+}
+
 const BootstrapRequest &AdapterSidecar::bootstrap() const
 {
     return m_bootstrap;
@@ -1320,6 +1554,12 @@ bool AdapterSidecar::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText
                                             phicore::adapter::v1::Utf8String *error)
 {
     return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated(metaPatchJson, error) : false;
+}
+
+bool AdapterSidecar::sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+                                                  phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendAdapterDescriptorUpdated(descriptor, error) : false;
 }
 
 bool AdapterSidecar::sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
@@ -1472,6 +1712,17 @@ void SidecarHost::wireHandlers()
             normalized.adapter.pluginType = m_factoryPluginType;
         m_adapter->cacheBootstrap(normalized);
         m_adapter->onBootstrap(normalized);
+
+        AdapterDescriptor descriptor = m_adapter->descriptor();
+        if (descriptor.pluginType.empty())
+            descriptor.pluginType = normalized.adapter.pluginType;
+        if (descriptor.pluginType.empty())
+            descriptor.pluginType = m_factoryPluginType;
+        phicore::adapter::v1::Utf8String err;
+        if (!m_dispatcher.sendAdapterDescriptor(descriptor, normalized.correlationId, &err)
+            && m_adapter) {
+            m_adapter->onProtocolError("Failed to send bootstrap descriptor: " + err);
+        }
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         if (!m_adapter)
