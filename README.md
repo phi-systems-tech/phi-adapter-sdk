@@ -100,3 +100,35 @@ host.stop();
 On `sync.adapter.bootstrap`, `SidecarHost` automatically responds with `kind=adapterDescriptor`.
 The payload is built from `AdapterSidecar::descriptor()` (default implementation aggregates the
 first-class override methods listed above).
+
+## Schema Handling (v1)
+
+- Adapter config schema is part of the first-class descriptor field `configSchema`.
+- Implement schema via `AdapterSidecar::configSchemaJson()` as UTF-8 JSON object text.
+- Return an object (`{...}`), not arrays/scalars.
+- Keep schema keys stable across releases; treat key renames/removals as breaking changes.
+- Use `sendAdapterDescriptorUpdated(...)` when static descriptor data changes at runtime.
+- Do not send static schema/icon/description/displayName through `sendAdapterMetaUpdated(...)`.
+- Use `sendAdapterMetaUpdated(...)` only for dynamic runtime metadata.
+
+### Bootstrap Flow
+
+1. phi-core sends `sync.adapter.bootstrap`.
+2. SDK host responds with `kind=adapterDescriptor` (includes `configSchema`).
+3. phi-core persists descriptor fields and exposes schema to UI/settings.
+4. Optional runtime static updates are sent via `kind=adapterDescriptorUpdated`.
+
+### Minimal Schema Example
+
+```cpp
+phicore::adapter::v1::JsonText configSchemaJson() const override {
+    return R"json({
+      "type": "object",
+      "properties": {
+        "host": { "type": "string", "title": "Host" },
+        "port": { "type": "integer", "title": "Port", "minimum": 1, "maximum": 65535 },
+        "forcedPort": { "type": "integer", "title": "Forced Port", "minimum": 1, "maximum": 65535 }
+      }
+    })json";
+}
+```

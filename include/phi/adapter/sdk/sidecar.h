@@ -136,7 +136,7 @@ struct AdapterDescriptor {
     int maxInstances = 0;
     /// Adapter capabilities.
     phicore::adapter::v1::AdapterCapabilities capabilities;
-    /// Adapter config schema as JSON object text.
+    /// Adapter config schema as JSON object text (UTF-8), expected object shape.
     phicore::adapter::v1::JsonText configSchemaJson;
 };
 
@@ -240,7 +240,10 @@ public:
 
     /**
      * @brief Publish adapter meta patch (`kind=adapterMetaUpdated`).
-     * @param metaPatchJson JSON object text.
+     * @param metaPatchJson JSON object text for dynamic runtime metadata only.
+     *
+     * Static adapter identity/capabilities/schema belong to descriptor transport
+     * (`adapterDescriptor` / `adapterDescriptorUpdated`).
      */
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
@@ -436,6 +439,8 @@ public:
 
     /**
      * @brief Returns adapter config schema as JSON object text.
+     *
+     * This value is serialized into descriptor field `configSchema`.
      */
     virtual phicore::adapter::v1::JsonText configSchemaJson() const;
 
