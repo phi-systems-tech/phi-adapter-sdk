@@ -136,42 +136,74 @@ enum class ChannelKind : std::uint16_t {
     Unknown = 0,
     PowerOnOff = 1,
     ButtonEvent = 2,
+    // [0..100] percent
     Brightness = 10,
+    // mired (micro reciprocal kelvin), typically [153..500]
     ColorTemperature = 11,
+    // RGB color (sRGB), value stored in ChannelDataType::Color payload
     ColorRGB = 12,
     ColorTemperaturePreset = 13,
+    // [0..100] percent
     Volume = 30,
     Mute = 31,
     HdmiInput = 32,
     PlayPause = 33,
+    // Celsius
     Temperature = 50,
+    // [0..100] percent
     Humidity = 51,
+    // lux
     Illuminance = 52,
     Motion = 53,
+    // [0..100] percent
     Battery = 54,
+    // ppm
     CO2 = 55,
+    // signed step delta (clockwise > 0, counter-clockwise < 0)
     RelativeRotation = 56,
+    // enum ConnectivityStatus
     ConnectivityStatus = 57,
+    // enum-style firmware/update state
     DeviceSoftwareUpdate = 58,
+    // dBm
     SignalStrength = 59,
+    // watt
     Power = 60,
+    // volt
     Voltage = 61,
+    // ampere
     Current = 62,
+    // kWh
     Energy = 63,
+    // [0..100] percent
     LinkQuality = 64,
+    // seconds
     Duration = 65,
     Contact = 66,
     Tamper = 67,
+    // enum ambient light bucket (dark/dim/bright/...)
     AmbientLightLevel = 68,
+    // enum SensitivityLevel, canonical range [1..5], no unit
+    MotionSensitivity = 69,
+    // pH [0.00..14.00]
     PhValue = 200,
+    // mV
     OrpValue = 201,
+    // ppm
     SaltPpm = 202,
+    // us/cm or ms/cm (adapter-specific scaling via unit/meta)
     Conductivity = 203,
+    // ppm
     TdsValue = 204,
+    // SG (dimensionless), typically [1.000..1.035]
     SpecificGravity = 205,
+    // dH or ppm CaCO3 (adapter-specific via unit/meta)
     WaterHardness = 206,
+    // ppm
     FreeChlorine = 207,
+    // bar
     FilterPressure = 208,
+    // L/min
     WaterFlow = 209,
     SceneTrigger = 300,
 };
