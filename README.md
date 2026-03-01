@@ -100,6 +100,7 @@ host.stop();
 On `sync.adapter.bootstrap`, `SidecarHost` automatically responds with `kind=adapterDescriptor`.
 The payload is built from `AdapterSidecar::descriptor()` (default implementation aggregates the
 first-class override methods listed above).
+`adapterDescriptor` is host-managed and not intended to be sent manually by adapter code.
 
 ## Schema Handling (v1)
 

@@ -249,15 +249,6 @@ public:
                                 phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
-     * @brief Send bootstrap descriptor as response (`kind=adapterDescriptor`).
-     * @param descriptor First-class adapter descriptor payload.
-     * @param correlationId Correlation id for response frame.
-     */
-    bool sendAdapterDescriptor(const AdapterDescriptor &descriptor,
-                               phicore::adapter::v1::CorrelationId correlationId,
-                               phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
      * @brief Publish runtime descriptor update (`kind=adapterDescriptorUpdated`).
      * @param descriptor First-class adapter descriptor payload.
      */
@@ -325,6 +316,17 @@ public:
     bool sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error = nullptr);
 
 private:
+    friend class SidecarHost;
+
+    /**
+     * @brief Send bootstrap descriptor response (`kind=adapterDescriptor`).
+     *
+     * Internal helper used by `SidecarHost` during bootstrap flow.
+     */
+    bool sendAdapterDescriptor(const AdapterDescriptor &descriptor,
+                               phicore::adapter::v1::CorrelationId correlationId,
+                               phicore::adapter::v1::Utf8String *error);
+
     bool handleRequestFrame(const phicore::adapter::v1::FrameHeader &header,
                             std::span<const std::byte> payload);
     bool sendJson(phicore::adapter::v1::MessageType type,
@@ -347,6 +349,32 @@ class AdapterSidecar
 public:
     virtual ~AdapterSidecar() = default;
 
+    /**
+     * @brief Returns last bootstrap payload.
+     */
+    const BootstrapRequest &bootstrap() const;
+
+    /**
+     * @brief Returns whether bootstrap payload was received.
+     */
+    bool hasBootstrap() const;
+
+    /**
+     * @brief Database adapter id (`adapters.id`) after bootstrap.
+     */
+    int adapterId() const;
+
+    /**
+     * @brief Effective plugin type after bootstrap.
+     */
+    const phicore::adapter::v1::Utf8String &pluginType() const;
+
+    /**
+     * @brief Effective adapter external id after bootstrap.
+     */
+    const phicore::adapter::v1::ExternalId &externalId() const;
+
+protected:
     /**
      * @brief Called when phi-core connects to this sidecar socket.
      */
@@ -448,33 +476,6 @@ public:
      * @brief Build first-class adapter descriptor from virtual overrides.
      */
     virtual AdapterDescriptor descriptor() const;
-
-    /**
-     * @brief Returns last bootstrap payload.
-     */
-    const BootstrapRequest &bootstrap() const;
-
-    /**
-     * @brief Returns whether bootstrap payload was received.
-     */
-    bool hasBootstrap() const;
-
-    /**
-     * @brief Database adapter id (`adapters.id`) after bootstrap.
-     */
-    int adapterId() const;
-
-    /**
-     * @brief Effective plugin type after bootstrap.
-     */
-    const phicore::adapter::v1::Utf8String &pluginType() const;
-
-    /**
-     * @brief Effective adapter external id after bootstrap.
-     */
-    const phicore::adapter::v1::ExternalId &externalId() const;
-
-protected:
     /**
      * @brief Send command response (`kind=cmdResult`).
      */
