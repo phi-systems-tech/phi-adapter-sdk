@@ -33,7 +33,7 @@ cmake --build build --parallel
 ## Recommended C++ Model
 
 `AdapterSidecar` is the polymorphic base class for sidecar adapters.
-`AdapterFactory` creates adapter instances.
+`AdapterFactory` creates adapter instances for `SidecarHost`.
 `SidecarHost` wires IPC transport and handler dispatch.
 `AdapterFactory::pluginType()` is used as fallback if bootstrap payload has no plugin type.
 
@@ -101,6 +101,16 @@ On `sync.adapter.bootstrap`, `SidecarHost` automatically responds with `kind=ada
 The payload is built from `AdapterSidecar::descriptor()` (default implementation aggregates the
 first-class override methods listed above).
 `adapterDescriptor` is host-managed and not intended to be sent manually by adapter code.
+
+## Factory Actions (v1)
+
+- There is no default UI/core fallback for adapter factory actions.
+- If an adapter needs `Test connection`, it must expose action `id="probe"` in
+  `capabilities().factoryActions`.
+- The adapter must implement `onAdapterActionInvoke(...)` for that action id.
+- `cmd.adapter.action.invoke` payload may contain `factoryAdapter` values
+  (`host`/`ip`/`port`/`meta`) for pre-create actions.
+- Keep factory/instance actions in descriptor+schema, not in legacy capability fallbacks.
 
 ## Schema Handling (v1)
 
