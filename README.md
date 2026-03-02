@@ -156,6 +156,48 @@ first-class override methods listed above).
 - Sidecars should consume network endpoints from `config().adapter.ip` and must not
   perform adapter-local DNS resolution.
 
+## Discovery Queries From Static Adapter Config (v1)
+
+- Discovery provider queries are defined in static adapter config `<pluginType>-config.json`.
+- `phi-core` parses the top-level `discovery` array from that file and dispatches queries to
+  discovery providers (`mdns`, `ssdp`, ...).
+- This static discovery config is the single source of truth for discovery behavior.
+- Runtime adapter values delivered via `sync.adapter.config.changed` are separate and do not
+  replace static discovery query definitions.
+
+Supported discovery object fields:
+
+- `kind`: discovery backend kind (`"mdns"`, `"ssdp"`, `"netscan"`, `"manual"`).
+- `mdnsServiceType`: required for `kind="mdns"`.
+- `ssdpSt`: required for `kind="ssdp"`.
+- `defaultPort`: optional default port used when provider response has no usable port.
+- `hints`: optional JSON object passed through to core discovery logic.
+  - Example: `portOverride`, `portOverrideOnlyIfDiscoveredPortIn`.
+
+Strict v1 rules:
+
+- No key aliases, no implicit remapping, no legacy fallback names.
+- Adapter README/schema/action keys and static discovery keys must be explicit and stable.
+- Renaming/removing public discovery keys is a breaking v1 change.
+
+Minimal static discovery config example:
+
+```json
+{
+  "discovery": [
+    {
+      "kind": "mdns",
+      "mdnsServiceType": "_example._tcp",
+      "defaultPort": 12345,
+      "hints": {
+        "portOverride": 12345,
+        "portOverrideOnlyIfDiscoveredPortIn": [80]
+      }
+    }
+  ]
+}
+```
+
 ## Factory Actions (v1)
 
 - There is no default UI/core fallback for adapter factory actions.
@@ -165,6 +207,25 @@ first-class override methods listed above).
 - `cmd.adapter.action.invoke` payload may contain `factoryAdapter` values
   (`host`/`ip`/`port`/`meta`) for pre-create actions.
 - Keep factory/instance actions in descriptor+schema, not in legacy capability fallbacks.
+
+## Action Result Form Patch (v1)
+
+To avoid form state loss on async action+reload flows, `ActionResponse` supports optional
+structured form patch fields in addition to `resultType/resultValue`:
+
+- `formValuesJson`: JSON object with field values to apply to the open action form
+  (example: `{"trackedMacs":["aa:bb:...","cc:dd:..."]}`).
+- `fieldChoicesJson`: JSON object mapping field keys to choice arrays
+  (example: `{"trackedMacs":[{"value":"...","label":"..."}]}`).
+- `reloadLayout`: optional boolean hint; when `true`, UI/core may re-request action layout.
+
+Rules:
+
+- Keep schema static; patch values/choices dynamically through action result.
+- For actions that mutate selectable lists (`probe`, `browse`, discovery-style actions),
+  return both `formValuesJson` and `fieldChoicesJson` in one response.
+- Do not encode these patches into scalar `resultValue`; use structured patch fields.
+- This pattern is generic and must work for any adapter action form, not only settings dialogs.
 
 ## Schema Handling (v1)
 
@@ -183,6 +244,23 @@ first-class override methods listed above).
 3. phi-core sends `sync.adapter.config.changed`.
 4. phi-core persists descriptor fields and exposes schema to UI/settings.
 5. Optional runtime static updates are sent via `kind=adapterDescriptorUpdated`.
+
+### Action Form Patch Example
+
+`browseHosts` action returning updated choices and retained selection:
+
+```cpp
+phicore::adapter::v1::ActionResponse resp;
+resp.id = request.cmdId;
+resp.status = phicore::adapter::v1::CmdStatus::Success;
+resp.resultType = phicore::adapter::v1::ActionResultType::None;
+resp.formValuesJson =
+    R"json({"trackedMacs":["1c:90:ff:0b:58:77","26:d2:aa:57:79:46"]})json";
+resp.fieldChoicesJson =
+    R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"}]})json";
+resp.reloadLayout = false;
+return resp;
+```
 
 ### Minimal Schema Example
 

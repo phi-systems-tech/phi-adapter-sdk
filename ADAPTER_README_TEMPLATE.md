@@ -52,7 +52,11 @@ Describe adapter scope and technical integration boundaries.
 - Config files
 - Required and optional fields
 - Document `factory` vs `instance` schema sections
+- Document static discovery config `<plugin>-config.json` (`discovery` array) and supported keys
+  (`kind`, `mdnsServiceType`, `ssdpSt`, `defaultPort`, `hints`)
+- State explicitly that v1 discovery config is strict (no aliases/fallback keys)
 - Document layout hints (`layout` / `field.ui`) and action placement rules
+- Document action-result form patch behavior (`formValuesJson`, `fieldChoicesJson`, `reloadLayout`)
 - Minimal example
 
 ### Build
