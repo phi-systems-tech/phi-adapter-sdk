@@ -42,6 +42,21 @@ Comparison semantics (core/runtime):
 - Enum compare remains value-based (integer identity).
 - String compare should not apply implicit trim as global default.
 
+## Coalescing, Dedupe, ACK And Result (v1)
+
+- `cmd.channel.invoke` ACK is transport-level acceptance only (request accepted by core pipeline).
+- ACK MUST NOT imply that the value was persisted, emitted, or changed.
+- Every accepted command SHOULD still produce a final command result.
+- Coalesced/superseded or deduped commands MUST NOT be treated as transport errors.
+  - Recommended result: `Success` with explicit reason metadata (`deduped`, `coalesced_superseded`).
+
+Core-side dedupe behavior:
+
+- If incoming state equals the last known channel value (by central type-aware compare), core does not fan out
+  a `channel.stateChanged` event and does not write history samples.
+- Equal-value updates are not considered failures.
+- History is append-only for changed reportable values; unchanged values are intentionally skipped.
+
 ## Build
 
 ```bash
