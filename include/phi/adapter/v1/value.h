@@ -15,6 +15,9 @@ using Utf8String = std::string;
 using JsonText = Utf8String;
 
 // Hot-path value container for command/state payloads.
+// Runtime comparison policy is defined by channel data type in core:
+// bool comparisons are lenient (string/int aliases), while adapters should
+// still emit canonical values per ChannelDataType.
 using ScalarValue = std::variant<std::monostate, bool, std::int64_t, double, Utf8String>;
 using ScalarList = std::vector<ScalarValue>;
 

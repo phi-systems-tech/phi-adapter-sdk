@@ -25,6 +25,23 @@ Linux-first SDK for phi adapter sidecars.
 - C++ API is the primary SDK surface for v1
 - Enum string conversion (`enum_names.h`) is strict v1 canonical naming (no legacy aliases)
 
+## Value Normalization And Comparison (v1)
+
+- Source of truth for channel value type is `Channel.dataType`.
+- Adapters MUST normalize outbound values (`channelStateUpdated`, `channel.lastValue`) to that type.
+- For `ChannelDataType::Bool`, adapters MUST emit canonical booleans (`true`/`false`) or numeric `0/1`.
+- String aliases such as `"on"`, `"off"`, `"yes"`, `"no"` are adapter-internal input forms and SHOULD be
+  normalized before emitting to core.
+
+Comparison semantics (core/runtime):
+
+- Bool compare is intentionally lenient:
+  - non-zero integer == `true`, zero == `false`
+  - case-insensitive string aliases map to bool (`"true"/"false"`, `"on"/"off"`, `"yes"/"no"`, `"1"/"0"`)
+- Numeric compare remains numeric (int/float coercion as needed by compare operation).
+- Enum compare remains value-based (integer identity).
+- String compare should not apply implicit trim as global default.
+
 ## Build
 
 ```bash

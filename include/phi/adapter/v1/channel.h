@@ -21,6 +21,12 @@ struct Channel {
     JsonText metaJson;
     AdapterConfigOptionList choices;
 
+    // Runtime value in canonical form for dataType:
+    // - Bool: bool(true/false) or int64(0/1)
+    // - Int/Enum: int64
+    // - Float: double
+    // - String: Utf8String
+    // - Color: transported via dedicated Color payloads (not ScalarValue)
     ScalarValue lastValue;
     std::int64_t lastUpdateMs = 0;
     bool hasValue = false;
