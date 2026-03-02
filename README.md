@@ -132,6 +132,14 @@ host.stop();
 - `cmd.device.effect.invoke`
 - `cmd.scene.invoke`
 
+## Target Resolution (v1, strict)
+
+- IPC target routing is resolved only by `externalId`.
+- `externalId == ""` targets factory scope.
+- `externalId != ""` targets one concrete instance scope.
+- Do not use `adapterId` or `scope` in sidecar IPC payloads.
+- Unknown/non-existent `externalId` must fail explicitly (`NotFound`/`InvalidArgument`).
+
 ## IPC Events (typed outbound)
 
 - `connectionStateChanged`, `error`, `adapterMetaUpdated`, `adapterDescriptorUpdated`
@@ -214,8 +222,7 @@ Minimal static discovery config example:
 - If an adapter needs `Test connection`, it must expose action `id="probe"` in
   `capabilities().factoryActions`.
 - The adapter must implement `onAdapterActionInvoke(...)` for that action id.
-- `cmd.adapter.action.invoke` payload may contain `factoryAdapter` values
-  (`host`/`ip`/`port`/`meta`) for pre-create actions.
+- Factory target is selected by empty `externalId`.
 - Keep factory/instance actions in descriptor+schema, not in legacy capability fallbacks.
 
 ## Action Result Form Patch (v1)
