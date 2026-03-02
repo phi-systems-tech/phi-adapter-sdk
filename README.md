@@ -25,6 +25,15 @@ Linux-first SDK for phi adapter sidecars.
 - C++ API is the primary SDK surface for v1
 - Enum string conversion (`enum_names.h`) is strict v1 canonical naming (no legacy aliases)
 
+## STRICT V1 POLICY: NO FALLBACKS, NO BACKWARD COMPATIBILITY
+
+- Do not implement legacy aliases for schema keys, action ids, channel ids, or enum names.
+- Do not add implicit key mapping (`port` -> `iscpPort`, etc.) in adapter handlers.
+- Treat missing required keys as `InvalidArgument`.
+- Keep adapter schema and handler keys identical and explicit.
+- Any rename/removal of public schema/action/channel keys is a breaking v1 change and must be migrated explicitly.
+- This applies across the full stack: adapter sidecars, phi-core, phi-ui, and automation runtime/editor.
+
 ## Value Normalization And Comparison (v1)
 
 - Source of truth for channel value type is `Channel.dataType`.
@@ -69,7 +78,7 @@ cmake --build build --parallel
 `AdapterSidecar` is the polymorphic base class for sidecar adapters.
 `AdapterFactory` creates adapter instances for `SidecarHost`.
 `SidecarHost` wires IPC transport and handler dispatch.
-`AdapterFactory::pluginType()` is used as fallback if bootstrap payload has no plugin type.
+`AdapterFactory::pluginType()` must match the adapter plugin type used by phi-core.
 
 ### Naming Rules
 
