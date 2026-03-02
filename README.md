@@ -156,6 +156,16 @@ first-class override methods listed above).
 - Sidecars should consume network endpoints from `config().adapter.ip` and must not
   perform adapter-local DNS resolution.
 
+## Runtime Binary Replacement (v1)
+
+- Adapter binaries are replaceable independently of `phi-core` runtime.
+- `start`/`stop`/`restart` are instance lifecycle operations; plugin generation activation is
+  controlled by core plugin reload flow (`cmd.adapter.reload`).
+- Sidecars must expose one strict v1 descriptor per generation (`configSchema`,
+  `capabilities`, discovery data) without legacy key aliases.
+- New/old adapter generations may coexist during controlled rolling restarts.
+- On contract incompatibility, fail fast (reject start/reload) instead of fallback behavior.
+
 ## Discovery Queries From Static Adapter Config (v1)
 
 - Discovery provider queries are defined in static adapter config `<pluginType>-config.json`.
