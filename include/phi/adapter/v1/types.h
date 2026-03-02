@@ -52,6 +52,9 @@ struct ActionResponse {
     Utf8String errorContext;
     ActionResultType resultType = ActionResultType::None;
     ScalarValue resultValue;
+    JsonText formValuesJson;
+    JsonText fieldChoicesJson;
+    bool reloadLayout = false;
     std::int64_t tsMs = 0;
 };
 

@@ -74,8 +74,17 @@ public:
         phicore::adapter::v1::ActionResponse response;
         response.id = request.cmdId;
         response.status = phicore::adapter::v1::CmdStatus::Success;
-        response.resultType = phicore::adapter::v1::ActionResultType::String;
-        response.resultValue = phicore::adapter::v1::Utf8String("ok");
+        if (request.actionId == "browseHosts") {
+            response.resultType = phicore::adapter::v1::ActionResultType::None;
+            response.formValuesJson =
+                R"json({"trackedMacs":["1c:90:ff:0b:58:77","26:d2:aa:57:79:46"]})json";
+            response.fieldChoicesJson =
+                R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"},{"value":"cc:8c:bf:76:0c:54","label":"Heater (192.168.1.26)"}]})json";
+            response.reloadLayout = false;
+        } else {
+            response.resultType = phicore::adapter::v1::ActionResultType::String;
+            response.resultValue = phicore::adapter::v1::Utf8String("ok");
+        }
         response.tsMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::system_clock::now().time_since_epoch())
                             .count();
