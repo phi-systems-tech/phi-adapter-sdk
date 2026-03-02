@@ -1011,48 +1011,75 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (payloadToken.empty())
         payloadToken = "{}";
 
+    MemberMap payloadMap;
+    if (!parseObjectMembers(payloadToken, &payloadMap, nullptr))
+        payloadMap.clear();
+
+    auto parseAdapterFromMap = [](const MemberMap &adapterMap) {
+        phicore::adapter::v1::Adapter adapter;
+        adapter.name = decodeStringOrDefault(member(adapterMap, "name"));
+        adapter.host = decodeStringOrDefault(member(adapterMap, "host"));
+        adapter.ip = decodeStringOrDefault(member(adapterMap, "ip"));
+        adapter.port =
+            static_cast<std::uint16_t>(parseIntOrDefault(member(adapterMap, "port"), 0));
+        adapter.user = decodeStringOrDefault(member(adapterMap, "user"));
+        adapter.password = decodeStringOrDefault(member(adapterMap, "pw"));
+        if (adapter.password.empty())
+            adapter.password = decodeStringOrDefault(member(adapterMap, "password"));
+        adapter.token = decodeStringOrDefault(member(adapterMap, "token"));
+        adapter.pluginType = decodeStringOrDefault(member(adapterMap, "plugin"));
+        if (adapter.pluginType.empty())
+            adapter.pluginType = decodeStringOrDefault(member(adapterMap, "pluginType"));
+        adapter.externalId = decodeStringOrDefault(member(adapterMap, "id"));
+        if (adapter.externalId.empty())
+            adapter.externalId = decodeStringOrDefault(member(adapterMap, "externalId"));
+        adapter.metaJson = std::string(member(adapterMap, "meta"));
+        adapter.flags = static_cast<phicore::adapter::v1::AdapterFlag>(
+            parseIntOrDefault(member(adapterMap, "flags"), 0));
+        return adapter;
+    };
+
     if (method == "sync.adapter.bootstrap") {
         if (m_handlers.onBootstrap) {
             BootstrapRequest request;
             request.cmdId = cmdId;
             request.correlationId = header.correlationId;
-            MemberMap payloadMap;
-            if (parseObjectMembers(payloadToken, &payloadMap, nullptr)) {
-                request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
-                request.staticConfigJson = std::string(member(payloadMap, "staticConfig"));
+            request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
+            request.staticConfigJson = std::string(member(payloadMap, "staticConfig"));
+            request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+            request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
 
-                MemberMap adapterMap;
-                const std::string_view adapterToken = member(payloadMap, "adapter");
-                if (parseObjectMembers(adapterToken, &adapterMap, nullptr)) {
-                    request.adapter.name = decodeStringOrDefault(member(adapterMap, "name"));
-                    request.adapter.host = decodeStringOrDefault(member(adapterMap, "host"));
-                    request.adapter.ip = decodeStringOrDefault(member(adapterMap, "ip"));
-                    request.adapter.port =
-                        static_cast<std::uint16_t>(parseIntOrDefault(member(adapterMap, "port"), 0));
-                    request.adapter.user = decodeStringOrDefault(member(adapterMap, "user"));
-                    request.adapter.password = decodeStringOrDefault(member(adapterMap, "pw"));
-                    if (request.adapter.password.empty())
-                        request.adapter.password = decodeStringOrDefault(member(adapterMap, "password"));
-                    request.adapter.token = decodeStringOrDefault(member(adapterMap, "token"));
-                    request.adapter.pluginType = decodeStringOrDefault(member(adapterMap, "plugin"));
-                    if (request.adapter.pluginType.empty())
-                        request.adapter.pluginType = decodeStringOrDefault(member(adapterMap, "pluginType"));
-                    request.adapter.externalId = decodeStringOrDefault(member(adapterMap, "id"));
-                    if (request.adapter.externalId.empty())
-                        request.adapter.externalId = decodeStringOrDefault(member(adapterMap, "externalId"));
-                    request.adapter.metaJson = std::string(member(adapterMap, "meta"));
-                    request.adapter.flags = static_cast<phicore::adapter::v1::AdapterFlag>(
-                        parseIntOrDefault(member(adapterMap, "flags"), 0));
-                }
+            MemberMap adapterMap;
+            const std::string_view adapterToken = member(payloadMap, "adapter");
+            if (parseObjectMembers(adapterToken, &adapterMap, nullptr)) {
+                request.adapter = parseAdapterFromMap(adapterMap);
+            } else {
+                // Transitional compatibility: bootstrap still provides identity fields.
+                if (request.adapter.externalId.empty())
+                    request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "id"));
+                if (request.adapter.pluginType.empty())
+                    request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "plugin"));
             }
             m_handlers.onBootstrap(request);
         }
         return true;
     }
 
-    MemberMap payloadMap;
-    if (!parseObjectMembers(payloadToken, &payloadMap, nullptr))
-        payloadMap.clear();
+    if (method == "sync.adapter.config.changed") {
+        if (m_handlers.onConfigChanged) {
+            ConfigChangedRequest request;
+            request.cmdId = cmdId;
+            request.correlationId = header.correlationId;
+            request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
+            request.staticConfigJson = std::string(member(payloadMap, "staticConfig"));
+
+            MemberMap adapterMap;
+            if (parseObjectMembers(member(payloadMap, "adapter"), &adapterMap, nullptr))
+                request.adapter = parseAdapterFromMap(adapterMap);
+            m_handlers.onConfigChanged(request);
+        }
+        return true;
+    }
 
     if (method == "cmd.channel.invoke") {
         ChannelInvokeRequest request;
@@ -1411,6 +1438,11 @@ void AdapterSidecar::onBootstrap(const BootstrapRequest &request)
     cacheBootstrap(request);
 }
 
+void AdapterSidecar::onConfigChanged(const ConfigChangedRequest &request)
+{
+    cacheConfig(request);
+}
+
 CmdResponse AdapterSidecar::onChannelInvoke(const ChannelInvokeRequest &request)
 {
     return defaultCmdResponse(request.cmdId, "Channel invoke handler not implemented");
@@ -1510,6 +1542,16 @@ const BootstrapRequest &AdapterSidecar::bootstrap() const
 bool AdapterSidecar::hasBootstrap() const
 {
     return m_hasBootstrap;
+}
+
+const ConfigChangedRequest &AdapterSidecar::config() const
+{
+    return m_config;
+}
+
+bool AdapterSidecar::hasConfig() const
+{
+    return m_hasConfig;
 }
 
 int AdapterSidecar::adapterId() const
@@ -1634,6 +1676,12 @@ void AdapterSidecar::cacheBootstrap(const BootstrapRequest &request)
     m_hasBootstrap = true;
 }
 
+void AdapterSidecar::cacheConfig(const ConfigChangedRequest &request)
+{
+    m_config = request;
+    m_hasConfig = true;
+}
+
 SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterSidecar> adapter)
     : m_dispatcher(std::move(socketPath))
     , m_adapter(std::move(adapter))
@@ -1723,6 +1771,19 @@ void SidecarHost::wireHandlers()
             && m_adapter) {
             m_adapter->onProtocolError("Failed to send bootstrap descriptor: " + err);
         }
+    };
+    handlers.onConfigChanged = [this](const ConfigChangedRequest &request) {
+        if (!m_adapter)
+            return;
+        ConfigChangedRequest normalized = request;
+        if (normalized.adapter.pluginType.empty())
+            normalized.adapter.pluginType = m_adapter->pluginType();
+        if (normalized.adapter.externalId.empty())
+            normalized.adapter.externalId = m_adapter->externalId();
+        if (normalized.adapterId <= 0)
+            normalized.adapterId = m_adapter->adapterId();
+        m_adapter->cacheConfig(normalized);
+        m_adapter->onConfigChanged(normalized);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         if (!m_adapter)

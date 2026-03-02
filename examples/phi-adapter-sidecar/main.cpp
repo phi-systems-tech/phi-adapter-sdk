@@ -45,6 +45,14 @@ public:
                   << " plugin=" << request.adapter.pluginType << std::endl;
     }
 
+    void onConfigChanged(const phicore::adapter::sdk::ConfigChangedRequest &request) override
+    {
+        AdapterSidecar::onConfigChanged(request);
+        std::cerr << "config.changed adapterId=" << request.adapterId
+                  << " ip=" << request.adapter.ip
+                  << " port=" << request.adapter.port << std::endl;
+    }
+
     phicore::adapter::v1::CmdResponse onChannelInvoke(
         const phicore::adapter::sdk::ChannelInvokeRequest &request) override
     {

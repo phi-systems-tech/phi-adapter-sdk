@@ -21,7 +21,26 @@ struct BootstrapRequest {
     phicore::adapter::v1::CmdId cmdId = 0;
     /// Transport correlation id from frame header.
     phicore::adapter::v1::CorrelationId correlationId = 0;
-    /// Effective adapter instance configuration (host/user/meta/flags/...).
+    /// Adapter identity payload.
+    phicore::adapter::v1::Adapter adapter;
+    /// Reserved legacy field; runtime config is delivered via `ConfigChangedRequest`.
+    phicore::adapter::v1::JsonText staticConfigJson;
+};
+
+/**
+ * @brief Runtime adapter configuration update payload.
+ *
+ * Sent by phi-core after bootstrap and whenever effective
+ * runtime config changes (for example resolved `ip` changes after DHCP).
+ */
+struct ConfigChangedRequest {
+    /// Database adapter id (`adapters.id`) in phi-core.
+    int adapterId = 0;
+    /// Request-side command id from envelope (`cmdId`).
+    phicore::adapter::v1::CmdId cmdId = 0;
+    /// Transport correlation id from frame header.
+    phicore::adapter::v1::CorrelationId correlationId = 0;
+    /// Effective adapter instance configuration snapshot.
     phicore::adapter::v1::Adapter adapter;
     /// Static adapter config JSON (`AdapterStaticInfo::config`) as raw JSON text.
     phicore::adapter::v1::JsonText staticConfigJson;
@@ -156,6 +175,8 @@ struct SidecarHandlers {
 
     /// Called on `sync.adapter.bootstrap`.
     std::function<void(const BootstrapRequest &)> onBootstrap;
+    /// Called on `sync.adapter.config.changed`.
+    std::function<void(const ConfigChangedRequest &)> onConfigChanged;
     /// Called on `cmd.channel.invoke`.
     std::function<phicore::adapter::v1::CmdResponse(const ChannelInvokeRequest &)> onChannelInvoke;
     /// Called on `cmd.adapter.action.invoke`.
@@ -360,6 +381,16 @@ public:
     bool hasBootstrap() const;
 
     /**
+     * @brief Returns last runtime config payload.
+     */
+    const ConfigChangedRequest &config() const;
+
+    /**
+     * @brief Returns whether runtime config payload was received.
+     */
+    bool hasConfig() const;
+
+    /**
      * @brief Database adapter id (`adapters.id`) after bootstrap.
      */
     int adapterId() const;
@@ -394,6 +425,11 @@ protected:
      * @brief Called after bootstrap payload arrived from phi-core.
      */
     virtual void onBootstrap(const BootstrapRequest &request);
+
+    /**
+     * @brief Called when runtime config snapshot was updated by phi-core.
+     */
+    virtual void onConfigChanged(const ConfigChangedRequest &request);
 
     /**
      * @brief Handle `cmd.channel.invoke`.
@@ -577,10 +613,13 @@ private:
 
     void bindDispatcher(SidecarDispatcher *dispatcher);
     void cacheBootstrap(const BootstrapRequest &request);
+    void cacheConfig(const ConfigChangedRequest &request);
 
     SidecarDispatcher *m_dispatcher = nullptr;
     BootstrapRequest m_bootstrap;
+    ConfigChangedRequest m_config;
     bool m_hasBootstrap = false;
+    bool m_hasConfig = false;
 };
 
 /**

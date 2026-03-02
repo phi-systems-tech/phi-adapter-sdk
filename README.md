@@ -84,6 +84,7 @@ host.stop();
 ## IPC Methods (typed inbound)
 
 - `sync.adapter.bootstrap`
+- `sync.adapter.config.changed`
 - `cmd.channel.invoke`
 - `cmd.adapter.action.invoke`
 - `cmd.device.name.update`
@@ -103,6 +104,16 @@ On `sync.adapter.bootstrap`, `SidecarHost` automatically responds with `kind=ada
 The payload is built from `AdapterSidecar::descriptor()` (default implementation aggregates the
 first-class override methods listed above).
 `adapterDescriptor` is host-managed and not intended to be sent manually by adapter code.
+
+## Runtime Config Updates (v1)
+
+- `sync.adapter.bootstrap` carries adapter identity/session data.
+- Effective runtime configuration is delivered via `sync.adapter.config.changed`.
+- phi-core sends an initial `config.changed` right after bootstrap.
+- Subsequent `config.changed` messages are sent whenever runtime config changes
+  (for example host re-resolve to a new DHCP IP).
+- Sidecars should consume network endpoints from `config().adapter.ip` and must not
+  perform adapter-local DNS resolution.
 
 ## Factory Actions (v1)
 
@@ -128,8 +139,9 @@ first-class override methods listed above).
 
 1. phi-core sends `sync.adapter.bootstrap`.
 2. SDK host responds with `kind=adapterDescriptor` (includes `configSchema`).
-3. phi-core persists descriptor fields and exposes schema to UI/settings.
-4. Optional runtime static updates are sent via `kind=adapterDescriptorUpdated`.
+3. phi-core sends `sync.adapter.config.changed`.
+4. phi-core persists descriptor fields and exposes schema to UI/settings.
+5. Optional runtime static updates are sent via `kind=adapterDescriptorUpdated`.
 
 ### Minimal Schema Example
 
