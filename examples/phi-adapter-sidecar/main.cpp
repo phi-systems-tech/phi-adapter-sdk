@@ -13,14 +13,14 @@
 namespace {
 
 std::atomic_bool g_running{true};
-namespace sdk = phicore::adapter::sdk;
+namespace phi = phicore::adapter::sdk;
 
 void handleSignal(int)
 {
     g_running.store(false);
 }
 
-class ExampleAdapter final : public sdk::AdapterInstance
+class ExampleAdapter final : public phi::AdapterInstance
 {
 protected:
     bool start() override
@@ -44,12 +44,12 @@ protected:
         std::cerr << "core disconnected" << std::endl;
     }
 
-    void onProtocolError(const sdk::Utf8String &message) override
+    void onProtocolError(const phi::Utf8String &message) override
     {
         std::cerr << "protocol error: " << message << std::endl;
     }
 
-    void onConfigChanged(const sdk::ConfigChangedRequest &request) override
+    void onConfigChanged(const phi::ConfigChangedRequest &request) override
     {
         std::cerr << "config.changed adapterId=" << request.adapterId
                   << " extId=" << request.adapter.externalId
@@ -57,11 +57,11 @@ protected:
                   << " port=" << request.adapter.port << std::endl;
     }
 
-    sdk::CmdResponse onChannelInvoke(const sdk::ChannelInvokeRequest &request) override
+    phi::CmdResponse onChannelInvoke(const phi::ChannelInvokeRequest &request) override
     {
-        sdk::CmdResponse response;
+        phi::CmdResponse response;
         response.id = request.cmdId;
-        response.status = sdk::CmdStatus::Success;
+        response.status = phi::CmdStatus::Success;
         response.finalValue = request.value;
         response.tsMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::system_clock::now().time_since_epoch())
@@ -72,21 +72,21 @@ protected:
         return response;
     }
 
-    sdk::ActionResponse onAdapterActionInvoke(const sdk::AdapterActionInvokeRequest &request) override
+    phi::ActionResponse onAdapterActionInvoke(const phi::AdapterActionInvokeRequest &request) override
     {
-        sdk::ActionResponse response;
+        phi::ActionResponse response;
         response.id = request.cmdId;
-        response.status = sdk::CmdStatus::Success;
+        response.status = phi::CmdStatus::Success;
         if (request.actionId == "browseHosts") {
-            response.resultType = sdk::ActionResultType::None;
+            response.resultType = phi::ActionResultType::None;
             response.formValuesJson =
                 R"json({"trackedMacs":["1c:90:ff:0b:58:77","26:d2:aa:57:79:46"]})json";
             response.fieldChoicesJson =
                 R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"},{"value":"cc:8c:bf:76:0c:54","label":"Heater (192.168.1.26)"}]})json";
             response.reloadLayout = false;
         } else {
-            response.resultType = sdk::ActionResultType::String;
-            response.resultValue = sdk::Utf8String("ok");
+            response.resultType = phi::ActionResultType::String;
+            response.resultValue = phi::Utf8String("ok");
         }
         response.tsMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::system_clock::now().time_since_epoch())
@@ -97,36 +97,36 @@ protected:
     }
 };
 
-class ExampleFactory final : public sdk::AdapterFactory
+class ExampleFactory final : public phi::AdapterFactory
 {
 protected:
-    sdk::Utf8String pluginType() const override
+    phi::Utf8String pluginType() const override
     {
         return "example";
     }
 
-    sdk::Utf8String displayName() const override
+    phi::Utf8String displayName() const override
     {
         return "Example";
     }
 
-    std::unique_ptr<sdk::AdapterInstance> createInstance(const sdk::ExternalId &externalId) override
+    std::unique_ptr<phi::AdapterInstance> createInstance(const phi::ExternalId &externalId) override
     {
         std::cerr << "create instance for externalId=" << externalId << std::endl;
         return std::make_unique<ExampleAdapter>();
     }
 
-    sdk::ActionResponse onFactoryActionInvoke(const sdk::AdapterActionInvokeRequest &request) override
+    phi::ActionResponse onFactoryActionInvoke(const phi::AdapterActionInvokeRequest &request) override
     {
-        sdk::ActionResponse response;
+        phi::ActionResponse response;
         response.id = request.cmdId;
-        response.status = sdk::CmdStatus::Success;
-        response.resultType = sdk::ActionResultType::String;
-        response.resultValue = sdk::Utf8String("factory-ok");
+        response.status = phi::CmdStatus::Success;
+        response.resultType = phi::ActionResultType::String;
+        response.resultValue = phi::Utf8String("factory-ok");
         return response;
     }
 
-    void onBootstrap(const sdk::BootstrapRequest &request) override
+    void onBootstrap(const phi::BootstrapRequest &request) override
     {
         std::cerr << "factory bootstrap adapterId=" << request.adapterId
                   << " extId='" << request.adapter.externalId
@@ -142,14 +142,14 @@ int main(int argc, char **argv)
     std::signal(SIGTERM, handleSignal);
 
     const char *envSocketPath = std::getenv("PHI_ADAPTER_SOCKET_PATH");
-    const sdk::Utf8String socketPath = (argc > 1)
+    const phi::Utf8String socketPath = (argc > 1)
         ? argv[1]
-        : (envSocketPath ? envSocketPath : sdk::Utf8String("/tmp/phi-adapter-example.sock"));
+        : (envSocketPath ? envSocketPath : phi::Utf8String("/tmp/phi-adapter-example.sock"));
 
     ExampleFactory factory;
-    sdk::SidecarHost host(socketPath, factory);
+    phi::SidecarHost host(socketPath, factory);
 
-    sdk::Utf8String error;
+    phi::Utf8String error;
     if (!host.start(&error)) {
         std::cerr << "host start failed: " << error << std::endl;
         return 1;

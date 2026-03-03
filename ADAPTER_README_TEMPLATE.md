@@ -81,6 +81,7 @@ Notes:
 - Use `AdapterInstance` as the adapter instance base class.
 - Provide an `AdapterFactory` (`pluginType()`, `createInstance()`).
 - Run using `SidecarHost`.
+- Recommended alias in adapter code: `namespace phi = phicore::adapter::sdk;`.
 - Follow naming conventions:
   - inbound handlers: `on*`
   - outbound IPC calls: `send*`

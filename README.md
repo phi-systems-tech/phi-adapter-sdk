@@ -27,12 +27,17 @@ Linux-first SDK for phi adapter sidecars.
 
 ## SDK Type Aliases
 
-To reduce `phicore::adapter::v1::...` noise in adapter code, `phicore::adapter::sdk`
-exports aliases for common contract types, for example:
+Recommended adapter-side alias:
 
-- `sdk::Utf8String`, `sdk::JsonText`, `sdk::ExternalId`, `sdk::CmdId`
-- `sdk::CmdResponse`, `sdk::ActionResponse`, `sdk::CmdStatus`, `sdk::ActionResultType`
-- `sdk::Adapter`, `sdk::Device`, `sdk::Channel`, `sdk::Room`, `sdk::Group`, `sdk::Scene`
+```cpp
+namespace phi = phicore::adapter::sdk;
+```
+
+With that alias, common contract types are available as:
+
+- `phi::Utf8String`, `phi::JsonText`, `phi::ExternalId`, `phi::CmdId`
+- `phi::CmdResponse`, `phi::ActionResponse`, `phi::CmdStatus`, `phi::ActionResultType`
+- `phi::Adapter`, `phi::Device`, `phi::Channel`, `phi::Room`, `phi::Group`, `phi::Scene`
 
 ## STRICT V1 POLICY: NO FALLBACKS, NO BACKWARD COMPATIBILITY
 
@@ -160,28 +165,30 @@ Concurrency model (v1, mandatory):
 ### Minimal Structure
 
 ```cpp
-class MyInstance final : public phicore::adapter::sdk::AdapterInstance {
+namespace phi = phicore::adapter::sdk;
+
+class MyInstance final : public phi::AdapterInstance {
 protected:
     bool start() override {
         return true;
     }
-    void onConfigChanged(const ConfigChangedRequest &request) override {
+    void onConfigChanged(const phi::ConfigChangedRequest &request) override {
         (void)request;
     }
 };
 
-class MyFactory final : public phicore::adapter::sdk::AdapterFactory {
+class MyFactory final : public phi::AdapterFactory {
 protected:
-    phicore::adapter::v1::Utf8String pluginType() const override { return "my-plugin"; }
-    std::unique_ptr<phicore::adapter::sdk::AdapterInstance> createInstance(
-        const phicore::adapter::v1::ExternalId &externalId) override {
+    phi::Utf8String pluginType() const override { return "my-plugin"; }
+    std::unique_ptr<phi::AdapterInstance> createInstance(
+        const phi::ExternalId &externalId) override {
         (void)externalId;
         return std::make_unique<MyInstance>();
     }
 };
 
 MyFactory factory;
-phicore::adapter::sdk::SidecarHost host(socketPath, factory);
+phi::SidecarHost host(socketPath, factory);
 host.start();
 while (running) {
     host.pollOnce(std::chrono::milliseconds(250));
