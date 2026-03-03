@@ -151,7 +151,12 @@ Logging API (v1 SDK contract):
   - when `AdapterFlagEnableLogs` is absent, `log(...)` is suppressed for
     `Trace`/`Debug`/`Info`/`Warn`
   - `Error` is always forwarded to core, independent of log flag state
-  - when `AdapterFlagEnableLogs` is set, `log(...)` is forwarded
+  - when `AdapterFlagEnableLogs` is set, SDK applies `adapter.meta.logging` filter:
+    - `logging.minLevel`: one of `trace|debug|info|warn|error` (default: `debug`)
+    - `logging.categories`: string array (default: `["all"]`)
+    - supported categories: `event`, `lifecycle`, `discovery`, `network`, `protocol`,
+      `deviceState`, `config`, `performance`, `security`, `internal`
+    - `["all"]` enables all categories
 - `sendError(...)` always emits:
   - `EventError` (primary incident event)
   - mirrored `EventLog` with `level=Error` and `category=Event`

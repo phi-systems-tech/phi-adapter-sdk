@@ -6,6 +6,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
@@ -623,6 +624,240 @@ std::int64_t parseIntOrDefault(std::string_view token, std::int64_t fallback = 0
     if (!token.empty())
         parseInt64(token, &value);
     return value;
+}
+
+std::string toLowerAscii(std::string_view text)
+{
+    std::string out;
+    out.reserve(text.size());
+    for (const unsigned char ch : text)
+        out.push_back(static_cast<char>(std::tolower(ch)));
+    return out;
+}
+
+std::string normalizeCategoryToken(std::string_view text)
+{
+    const std::string lower = toLowerAscii(trim(text));
+    std::string out;
+    out.reserve(lower.size());
+    for (const char ch : lower) {
+        if (ch == '_' || ch == '-' || ch == ' ' || ch == '.')
+            continue;
+        out.push_back(ch);
+    }
+    return out;
+}
+
+int logLevelPriority(LogLevel level)
+{
+    switch (level) {
+    case LogLevel::Trace:
+        return 0;
+    case LogLevel::Debug:
+        return 1;
+    case LogLevel::Info:
+        return 2;
+    case LogLevel::Warn:
+        return 3;
+    case LogLevel::Error:
+        return 4;
+    }
+    return 2;
+}
+
+bool parseLogLevelFilter(std::string_view text, LogLevel *out)
+{
+    if (!out)
+        return false;
+    const std::string value = toLowerAscii(trim(text));
+    if (value == "trace") {
+        *out = LogLevel::Trace;
+        return true;
+    }
+    if (value == "debug") {
+        *out = LogLevel::Debug;
+        return true;
+    }
+    if (value == "info") {
+        *out = LogLevel::Info;
+        return true;
+    }
+    if (value == "warn" || value == "warning") {
+        *out = LogLevel::Warn;
+        return true;
+    }
+    if (value == "error" || value == "critical") {
+        *out = LogLevel::Error;
+        return true;
+    }
+    return false;
+}
+
+int logCategoryIndex(LogCategory category)
+{
+    switch (category) {
+    case LogCategory::Event:
+        return 0;
+    case LogCategory::Lifecycle:
+        return 1;
+    case LogCategory::Discovery:
+        return 2;
+    case LogCategory::Network:
+        return 3;
+    case LogCategory::Protocol:
+        return 4;
+    case LogCategory::DeviceState:
+        return 5;
+    case LogCategory::Config:
+        return 6;
+    case LogCategory::Performance:
+        return 7;
+    case LogCategory::Security:
+        return 8;
+    case LogCategory::Internal:
+        return 9;
+    }
+    return -1;
+}
+
+bool parseLogCategoryFilter(std::string_view text, LogCategory *out)
+{
+    if (!out)
+        return false;
+    const std::string value = normalizeCategoryToken(text);
+    if (value == "event") {
+        *out = LogCategory::Event;
+        return true;
+    }
+    if (value == "lifecycle") {
+        *out = LogCategory::Lifecycle;
+        return true;
+    }
+    if (value == "discovery") {
+        *out = LogCategory::Discovery;
+        return true;
+    }
+    if (value == "network") {
+        *out = LogCategory::Network;
+        return true;
+    }
+    if (value == "protocol") {
+        *out = LogCategory::Protocol;
+        return true;
+    }
+    if (value == "devicestate") {
+        *out = LogCategory::DeviceState;
+        return true;
+    }
+    if (value == "config") {
+        *out = LogCategory::Config;
+        return true;
+    }
+    if (value == "performance") {
+        *out = LogCategory::Performance;
+        return true;
+    }
+    if (value == "security") {
+        *out = LogCategory::Security;
+        return true;
+    }
+    if (value == "internal") {
+        *out = LogCategory::Internal;
+        return true;
+    }
+    return false;
+}
+
+struct LogFilterConfig {
+    LogLevel minLevel = LogLevel::Debug;
+    bool allowAllCategories = true;
+    std::array<bool, 10> allowedCategories{};
+};
+
+bool parseLogFilterConfig(std::string_view metaJson, LogFilterConfig *out)
+{
+    if (!out)
+        return false;
+    *out = LogFilterConfig{};
+
+    const std::string_view metaToken = trim(metaJson);
+    if (metaToken.empty())
+        return true;
+
+    MemberMap metaMap;
+    if (!parseObjectMembers(metaToken, &metaMap, nullptr))
+        return false;
+
+    const std::string_view loggingToken = member(metaMap, "logging");
+    if (loggingToken.empty())
+        return true;
+
+    MemberMap loggingMap;
+    if (!parseObjectMembers(loggingToken, &loggingMap, nullptr))
+        return false;
+
+    const std::string minLevel = decodeStringOrDefault(member(loggingMap, "minLevel"));
+    if (!minLevel.empty()) {
+        LogLevel parsedLevel = out->minLevel;
+        if (parseLogLevelFilter(minLevel, &parsedLevel))
+            out->minLevel = parsedLevel;
+    }
+
+    const std::string_view categoriesToken = member(loggingMap, "categories");
+    if (categoriesToken.empty())
+        return true;
+
+    std::vector<std::string_view> categories;
+    if (!parseArrayElements(categoriesToken, &categories, nullptr))
+        return false;
+
+    out->allowAllCategories = false;
+    out->allowedCategories.fill(false);
+
+    for (const std::string_view itemToken : categories) {
+        const std::string item = decodeStringOrDefault(itemToken);
+        if (item.empty())
+            continue;
+        if (normalizeCategoryToken(item) == "all") {
+            out->allowAllCategories = true;
+            break;
+        }
+        LogCategory category = LogCategory::Internal;
+        if (!parseLogCategoryFilter(item, &category))
+            continue;
+        const int idx = logCategoryIndex(category);
+        if (idx >= 0)
+            out->allowedCategories[static_cast<std::size_t>(idx)] = true;
+    }
+
+    return true;
+}
+
+bool shouldForwardLog(const phicore::adapter::v1::Adapter &adapter,
+                      bool hasConfig,
+                      LogLevel level,
+                      LogCategory category)
+{
+    if (level == LogLevel::Error)
+        return true;
+    if (!hasConfig)
+        return true;
+    if (!phicore::adapter::v1::hasFlag(adapter.flags, phicore::adapter::v1::AdapterFlag::EnableLogs))
+        return false;
+
+    LogFilterConfig filter;
+    if (!parseLogFilterConfig(adapter.metaJson, &filter))
+        filter = LogFilterConfig{};
+
+    if (logLevelPriority(level) < logLevelPriority(filter.minLevel))
+        return false;
+    if (filter.allowAllCategories)
+        return true;
+
+    const int idx = logCategoryIndex(category);
+    if (idx < 0)
+        return false;
+    return filter.allowedCategories[static_cast<std::size_t>(idx)];
 }
 
 std::string jsonQuoted(std::string_view text)
@@ -1720,10 +1955,7 @@ bool AdapterFactory::log(LogLevel level,
             *error = "Dispatcher not bound";
         return false;
     }
-    if (level != LogLevel::Error
-        && m_hasFactoryConfig
-        && !phicore::adapter::v1::hasFlag(m_factoryConfig.adapter.flags,
-                                          phicore::adapter::v1::AdapterFlag::EnableLogs)) {
+    if (!shouldForwardLog(m_factoryConfig.adapter, m_hasFactoryConfig, level, category)) {
         return true;
     }
     LogEntry entry;
@@ -1885,10 +2117,7 @@ bool AdapterInstance::log(LogLevel level,
             *error = "Dispatcher not bound";
         return false;
     }
-    if (level != LogLevel::Error
-        && m_hasConfig
-        && !phicore::adapter::v1::hasFlag(m_config.adapter.flags,
-                                          phicore::adapter::v1::AdapterFlag::EnableLogs)) {
+    if (!shouldForwardLog(m_config.adapter, m_hasConfig, level, category)) {
         return true;
     }
     LogEntry entry;
