@@ -1,11 +1,16 @@
 #pragma once
 
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
+#include <variant>
 
 #include "phi/adapter/v1/contract.h"
 
@@ -279,15 +284,15 @@ struct SidecarHandlers {
     /// Called on `sync.adapter.instance.removed`.
     std::function<void(const InstanceRemovedRequest &)> onInstanceRemoved;
     /// Called on `cmd.channel.invoke`.
-    std::function<phicore::adapter::v1::CmdResponse(const ChannelInvokeRequest &)> onChannelInvoke;
+    std::function<void(const ChannelInvokeRequest &)> onChannelInvoke;
     /// Called on `cmd.adapter.action.invoke`.
-    std::function<phicore::adapter::v1::ActionResponse(const AdapterActionInvokeRequest &)> onAdapterActionInvoke;
+    std::function<void(const AdapterActionInvokeRequest &)> onAdapterActionInvoke;
     /// Called on `cmd.device.name.update`.
-    std::function<phicore::adapter::v1::CmdResponse(const DeviceNameUpdateRequest &)> onDeviceNameUpdate;
+    std::function<void(const DeviceNameUpdateRequest &)> onDeviceNameUpdate;
     /// Called on `cmd.device.effect.invoke`.
-    std::function<phicore::adapter::v1::CmdResponse(const DeviceEffectInvokeRequest &)> onDeviceEffectInvoke;
+    std::function<void(const DeviceEffectInvokeRequest &)> onDeviceEffectInvoke;
     /// Called on `cmd.scene.invoke`.
-    std::function<phicore::adapter::v1::CmdResponse(const SceneInvokeRequest &)> onSceneInvoke;
+    std::function<void(const SceneInvokeRequest &)> onSceneInvoke;
     /// Called when no typed handler exists for a request method.
     std::function<void(const UnknownRequest &)> onUnknownRequest;
 };
@@ -499,6 +504,7 @@ private:
 
     std::unique_ptr<SidecarRuntime> m_runtime;
     SidecarHandlers m_handlers;
+    std::recursive_mutex m_runtimeMutex;
 };
 
 class AdapterInstance;
@@ -704,6 +710,7 @@ class SidecarHost
 public:
     explicit SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory);
     SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory);
+    ~SidecarHost();
 
     /**
      * @brief Start IPC host.
@@ -736,20 +743,90 @@ public:
     const SidecarDispatcher *dispatcher() const;
 
 private:
+    struct WorkerTaskConnected {};
+    struct WorkerTaskDisconnected {};
+    struct WorkerTaskProtocolError { phicore::adapter::v1::Utf8String message; };
+    struct WorkerTaskConfigChanged { ConfigChangedRequest request; };
+    struct WorkerTaskUnknown { UnknownRequest request; };
+    struct WorkerTaskChannelInvoke { ChannelInvokeRequest request; };
+    struct WorkerTaskAdapterActionInvoke { AdapterActionInvokeRequest request; };
+    struct WorkerTaskDeviceNameUpdate { DeviceNameUpdateRequest request; };
+    struct WorkerTaskDeviceEffectInvoke { DeviceEffectInvokeRequest request; };
+    struct WorkerTaskSceneInvoke { SceneInvokeRequest request; };
+
+    using WorkerTask = std::variant<WorkerTaskConnected,
+                                    WorkerTaskDisconnected,
+                                    WorkerTaskProtocolError,
+                                    WorkerTaskConfigChanged,
+                                    WorkerTaskUnknown,
+                                    WorkerTaskChannelInvoke,
+                                    WorkerTaskAdapterActionInvoke,
+                                    WorkerTaskDeviceNameUpdate,
+                                    WorkerTaskDeviceEffectInvoke,
+                                    WorkerTaskSceneInvoke>;
+
+    struct DeferredCmdResult { phicore::adapter::v1::CmdResponse response; };
+    struct DeferredActionResult { phicore::adapter::v1::ActionResponse response; };
+    using DeferredResult = std::variant<DeferredCmdResult, DeferredActionResult>;
+
+    struct InstanceWorker {
+        phicore::adapter::v1::ExternalId externalId;
+        std::unique_ptr<AdapterInstance> instance;
+        std::thread thread;
+        std::mutex mutex;
+        std::condition_variable cv;
+        std::deque<WorkerTask> tasks;
+        bool stopRequested = false;
+        bool started = false;
+        bool startOk = false;
+    };
+
+    enum class PendingKind : std::uint8_t {
+        Cmd = 0,
+        Action = 1,
+    };
+
+    struct PendingCommand {
+        PendingKind kind = PendingKind::Cmd;
+        phicore::adapter::v1::ExternalId externalId;
+        std::int64_t deadlineMs = 0;
+    };
+
     static phicore::adapter::v1::CmdResponse normalizeCmdResponse(phicore::adapter::v1::CmdId cmdId,
                                                                   const phicore::adapter::v1::CmdResponse &response);
     static phicore::adapter::v1::ActionResponse normalizeActionResponse(phicore::adapter::v1::CmdId cmdId,
                                                                         const phicore::adapter::v1::ActionResponse &response);
     AdapterInstance *ensureInstance(const ConfigChangedRequest &request);
+    bool createInstanceWorker(const ConfigChangedRequest &request,
+                              phicore::adapter::v1::Utf8String *error = nullptr);
     AdapterInstance *findInstance(const phicore::adapter::v1::ExternalId &externalId);
     const AdapterInstance *findInstance(const phicore::adapter::v1::ExternalId &externalId) const;
+    InstanceWorker *findWorker(const phicore::adapter::v1::ExternalId &externalId);
+    const InstanceWorker *findWorker(const phicore::adapter::v1::ExternalId &externalId) const;
+    void workerMain(InstanceWorker *worker);
+    bool enqueueWorkerTask(const phicore::adapter::v1::ExternalId &externalId, WorkerTask task);
+    void enqueueWorkerTaskBroadcast(const WorkerTask &task);
+    void queueDeferredResult(DeferredResult result);
+    void drainDeferredResults();
+    void completePendingTimeouts();
+    int commandTimeoutMs(phicore::adapter::v1::Utf8String *error = nullptr) const;
+    bool trackPending(phicore::adapter::v1::CmdId cmdId,
+                      PendingKind kind,
+                      const phicore::adapter::v1::ExternalId &externalId,
+                      phicore::adapter::v1::Utf8String *error = nullptr);
+    void clearPendingForInstance(const phicore::adapter::v1::ExternalId &externalId,
+                                 const phicore::adapter::v1::Utf8String &reason);
+    void stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId);
     void stopAndDestroyInstances();
     void wireHandlers();
 
     SidecarDispatcher m_dispatcher;
     std::unique_ptr<AdapterFactory> m_ownedFactory;
     AdapterFactory *m_factory = nullptr;
-    std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<AdapterInstance>> m_instances;
+    std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<InstanceWorker>> m_instances;
+    std::unordered_map<phicore::adapter::v1::CmdId, PendingCommand> m_pendingCommands;
+    std::mutex m_resultMutex;
+    std::deque<DeferredResult> m_resultQueue;
 };
 
 } // namespace phicore::adapter::sdk

@@ -1100,16 +1100,19 @@ void SidecarDispatcher::setHandlers(SidecarHandlers handlers)
 
 bool SidecarDispatcher::start(phicore::adapter::v1::Utf8String *error)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_runtimeMutex);
     return m_runtime->start(error);
 }
 
 void SidecarDispatcher::stop()
 {
+    std::lock_guard<std::recursive_mutex> lock(m_runtimeMutex);
     m_runtime->stop();
 }
 
 bool SidecarDispatcher::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_runtimeMutex);
     return m_runtime->pollOnce(timeout, error);
 }
 
@@ -1237,11 +1240,11 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         request.valueJson = std::string(valueToken);
         request.hasScalarValue = parseScalarValueToken(valueToken, &request.value);
 
-        CmdResponse response = m_handlers.onChannelInvoke
-            ? m_handlers.onChannelInvoke(request)
-            : defaultCmdResponse(cmdId, "Channel invoke handler not registered");
-        if (response.id == 0)
-            response.id = cmdId;
+        if (m_handlers.onChannelInvoke) {
+            m_handlers.onChannelInvoke(request);
+            return true;
+        }
+        CmdResponse response = defaultCmdResponse(cmdId, "Channel invoke handler not registered");
         return sendCmdResult(response, nullptr);
     }
 
@@ -1254,11 +1257,11 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         if (trim(request.paramsJson).empty())
             request.paramsJson = "{}";
 
-        ActionResponse response = m_handlers.onAdapterActionInvoke
-            ? m_handlers.onAdapterActionInvoke(request)
-            : defaultActionResponse(cmdId, "Adapter action handler not registered");
-        if (response.id == 0)
-            response.id = cmdId;
+        if (m_handlers.onAdapterActionInvoke) {
+            m_handlers.onAdapterActionInvoke(request);
+            return true;
+        }
+        ActionResponse response = defaultActionResponse(cmdId, "Adapter action handler not registered");
         return sendActionResult(response, nullptr);
     }
 
@@ -1269,11 +1272,11 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
         request.name = decodeStringOrDefault(member(payloadMap, "name"));
 
-        CmdResponse response = m_handlers.onDeviceNameUpdate
-            ? m_handlers.onDeviceNameUpdate(request)
-            : defaultCmdResponse(cmdId, "Device name update handler not registered");
-        if (response.id == 0)
-            response.id = cmdId;
+        if (m_handlers.onDeviceNameUpdate) {
+            m_handlers.onDeviceNameUpdate(request);
+            return true;
+        }
+        CmdResponse response = defaultCmdResponse(cmdId, "Device name update handler not registered");
         return sendCmdResult(response, nullptr);
     }
 
@@ -1288,11 +1291,11 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         if (trim(request.paramsJson).empty())
             request.paramsJson = "{}";
 
-        CmdResponse response = m_handlers.onDeviceEffectInvoke
-            ? m_handlers.onDeviceEffectInvoke(request)
-            : defaultCmdResponse(cmdId, "Device effect handler not registered");
-        if (response.id == 0)
-            response.id = cmdId;
+        if (m_handlers.onDeviceEffectInvoke) {
+            m_handlers.onDeviceEffectInvoke(request);
+            return true;
+        }
+        CmdResponse response = defaultCmdResponse(cmdId, "Device effect handler not registered");
         return sendCmdResult(response, nullptr);
     }
 
@@ -1304,11 +1307,11 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         request.groupExternalId = decodeStringOrDefault(member(payloadMap, "groupExternalId"));
         request.action = decodeStringOrDefault(member(payloadMap, "action"));
 
-        CmdResponse response = m_handlers.onSceneInvoke
-            ? m_handlers.onSceneInvoke(request)
-            : defaultCmdResponse(cmdId, "Scene invoke handler not registered");
-        if (response.id == 0)
-            response.id = cmdId;
+        if (m_handlers.onSceneInvoke) {
+            m_handlers.onSceneInvoke(request);
+            return true;
+        }
+        CmdResponse response = defaultCmdResponse(cmdId, "Scene invoke handler not registered");
         return sendCmdResult(response, nullptr);
     }
 
@@ -1333,6 +1336,7 @@ bool SidecarDispatcher::sendJson(MessageType type,
                                  std::string_view json,
                                  phicore::adapter::v1::Utf8String *error)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_runtimeMutex);
     const auto chars = std::span<const char>(json.data(), json.size());
     const auto bytes = std::as_bytes(chars);
     return m_runtime->send(type, correlationId, bytes, error);
@@ -2052,6 +2056,7 @@ CmdResponse AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRe
 CmdResponse AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { return onSceneInvoke(request); }
 void AdapterInstance::hostOnUnknownRequest(const UnknownRequest &request) { onUnknownRequest(request); }
 
+
 SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory)
     : m_dispatcher(std::move(socketPath))
     , m_ownedFactory(std::move(factory))
@@ -2070,6 +2075,11 @@ SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFac
     wireHandlers();
 }
 
+SidecarHost::~SidecarHost()
+{
+    stop();
+}
+
 bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
 {
     if (!m_factory) {
@@ -2083,12 +2093,20 @@ bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
 void SidecarHost::stop()
 {
     stopAndDestroyInstances();
+    m_pendingCommands.clear();
+    {
+        std::lock_guard<std::mutex> lock(m_resultMutex);
+        m_resultQueue.clear();
+    }
     m_dispatcher.stop();
 }
 
 bool SidecarHost::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
 {
-    return m_dispatcher.pollOnce(timeout, error);
+    const bool ok = m_dispatcher.pollOnce(timeout, error);
+    drainDeferredResults();
+    completePendingTimeouts();
+    return ok;
 }
 
 AdapterFactory *SidecarHost::factory() { return m_factory; }
@@ -2122,52 +2140,422 @@ phicore::adapter::v1::ActionResponse SidecarHost::normalizeActionResponse(phicor
 
 AdapterInstance *SidecarHost::findInstance(const phicore::adapter::v1::ExternalId &externalId)
 {
-    auto it = m_instances.find(externalId);
-    return it == m_instances.end() ? nullptr : it->second.get();
+    const auto it = m_instances.find(externalId);
+    if (it == m_instances.end() || !it->second)
+        return nullptr;
+    return it->second->instance.get();
 }
 
 const AdapterInstance *SidecarHost::findInstance(const phicore::adapter::v1::ExternalId &externalId) const
 {
-    auto it = m_instances.find(externalId);
-    return it == m_instances.end() ? nullptr : it->second.get();
+    const auto it = m_instances.find(externalId);
+    if (it == m_instances.end() || !it->second)
+        return nullptr;
+    return it->second->instance.get();
 }
 
 AdapterInstance *SidecarHost::ensureInstance(const ConfigChangedRequest &request)
 {
     if (!m_factory || request.adapter.externalId.empty())
         return nullptr;
-    auto it = m_instances.find(request.adapter.externalId);
-    if (it != m_instances.end()) {
-        it->second->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
-        return it->second.get();
+    if (!findWorker(request.adapter.externalId)) {
+        phicore::adapter::v1::Utf8String error;
+        if (!createInstanceWorker(request, &error)) {
+            m_factory->hostOnProtocolError("Failed to create instance worker for externalId='"
+                                           + request.adapter.externalId + "': " + error);
+            return nullptr;
+        }
     }
+    return findInstance(request.adapter.externalId);
+}
+
+bool SidecarHost::createInstanceWorker(const ConfigChangedRequest &request, phicore::adapter::v1::Utf8String *error)
+{
+    if (!m_factory) {
+        if (error)
+            *error = "Factory not available";
+        return false;
+    }
+    if (request.adapter.externalId.empty()) {
+        if (error)
+            *error = "externalId is required";
+        return false;
+    }
+    if (findWorker(request.adapter.externalId))
+        return true;
+
+    const AdapterDescriptor descriptor = m_factory->hostDescriptor();
+    if (descriptor.maxInstances > 0
+        && static_cast<int>(m_instances.size()) >= descriptor.maxInstances) {
+        if (error)
+            *error = "maxInstances reached";
+        return false;
+    }
+
     std::unique_ptr<AdapterInstance> created = m_factory->hostCreateInstance(request.adapter.externalId);
-    if (!created)
-        return nullptr;
+    if (!created) {
+        if (error)
+            *error = "Factory createInstance returned null";
+        return false;
+    }
+
     created->bindDispatcher(&m_dispatcher);
     created->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
-    if (!created->hostStart()) {
-        created->hostOnProtocolError("Instance start() failed");
-        m_factory->hostDestroyInstance(std::move(created));
-        return nullptr;
+
+    auto worker = std::make_unique<InstanceWorker>();
+    worker->externalId = request.adapter.externalId;
+    worker->instance = std::move(created);
+
+    InstanceWorker *rawWorker = worker.get();
+    auto [it, inserted] = m_instances.emplace(request.adapter.externalId, std::move(worker));
+    if (!inserted) {
+        if (error)
+            *error = "Instance worker already exists";
+        return false;
     }
-    AdapterInstance *raw = created.get();
-    m_instances.emplace(request.adapter.externalId, std::move(created));
-    return raw;
+
+    rawWorker->thread = std::thread([this, rawWorker]() {
+        workerMain(rawWorker);
+    });
+
+    std::unique_lock<std::mutex> lock(rawWorker->mutex);
+    rawWorker->cv.wait(lock, [rawWorker]() { return rawWorker->started; });
+    if (!rawWorker->startOk) {
+        lock.unlock();
+        if (rawWorker->thread.joinable())
+            rawWorker->thread.join();
+        std::unique_ptr<AdapterInstance> failedInstance = std::move(rawWorker->instance);
+        m_instances.erase(it);
+        if (m_factory && failedInstance)
+            m_factory->hostDestroyInstance(std::move(failedInstance));
+        if (error)
+            *error = "Instance start() failed for externalId='" + request.adapter.externalId + "'";
+        return false;
+    }
+
+    return true;
+}
+
+SidecarHost::InstanceWorker *SidecarHost::findWorker(const phicore::adapter::v1::ExternalId &externalId)
+{
+    const auto it = m_instances.find(externalId);
+    return it == m_instances.end() ? nullptr : it->second.get();
+}
+
+const SidecarHost::InstanceWorker *SidecarHost::findWorker(const phicore::adapter::v1::ExternalId &externalId) const
+{
+    const auto it = m_instances.find(externalId);
+    return it == m_instances.end() ? nullptr : it->second.get();
+}
+
+void SidecarHost::workerMain(InstanceWorker *worker)
+{
+    if (!worker || !worker->instance)
+        return;
+
+    const bool started = worker->instance->hostStart();
+    if (!started)
+        worker->instance->hostOnProtocolError("Instance start() failed");
+
+    {
+        std::lock_guard<std::mutex> lock(worker->mutex);
+        worker->started = true;
+        worker->startOk = started;
+        if (!started)
+            worker->stopRequested = true;
+    }
+    worker->cv.notify_all();
+
+    while (true) {
+        WorkerTask task;
+        {
+            std::unique_lock<std::mutex> lock(worker->mutex);
+            worker->cv.wait(lock, [worker]() {
+                return worker->stopRequested || !worker->tasks.empty();
+            });
+            if (worker->stopRequested && worker->tasks.empty())
+                break;
+            task = std::move(worker->tasks.front());
+            worker->tasks.pop_front();
+        }
+
+        if (std::holds_alternative<WorkerTaskConnected>(task)) {
+            worker->instance->hostOnConnected();
+            continue;
+        }
+        if (std::holds_alternative<WorkerTaskDisconnected>(task)) {
+            worker->instance->hostOnDisconnected();
+            continue;
+        }
+        if (const auto *payload = std::get_if<WorkerTaskProtocolError>(&task)) {
+            worker->instance->hostOnProtocolError(payload->message);
+            continue;
+        }
+        if (const auto *payload = std::get_if<WorkerTaskConfigChanged>(&task)) {
+            worker->instance->hostOnConfigChanged(payload->request);
+            continue;
+        }
+        if (const auto *payload = std::get_if<WorkerTaskUnknown>(&task)) {
+            worker->instance->hostOnUnknownRequest(payload->request);
+            continue;
+        }
+        if (const auto *payload = std::get_if<WorkerTaskChannelInvoke>(&task)) {
+            CmdResponse response = normalizeCmdResponse(
+                payload->request.cmdId,
+                worker->instance->hostOnChannelInvoke(payload->request));
+            queueDeferredResult(DeferredCmdResult{std::move(response)});
+            continue;
+        }
+        if (const auto *payload = std::get_if<WorkerTaskAdapterActionInvoke>(&task)) {
+            ActionResponse response = normalizeActionResponse(
+                payload->request.cmdId,
+                worker->instance->hostOnAdapterActionInvoke(payload->request));
+            queueDeferredResult(DeferredActionResult{std::move(response)});
+            continue;
+        }
+        if (const auto *payload = std::get_if<WorkerTaskDeviceNameUpdate>(&task)) {
+            CmdResponse response = normalizeCmdResponse(
+                payload->request.cmdId,
+                worker->instance->hostOnDeviceNameUpdate(payload->request));
+            queueDeferredResult(DeferredCmdResult{std::move(response)});
+            continue;
+        }
+        if (const auto *payload = std::get_if<WorkerTaskDeviceEffectInvoke>(&task)) {
+            CmdResponse response = normalizeCmdResponse(
+                payload->request.cmdId,
+                worker->instance->hostOnDeviceEffectInvoke(payload->request));
+            queueDeferredResult(DeferredCmdResult{std::move(response)});
+            continue;
+        }
+        if (const auto *payload = std::get_if<WorkerTaskSceneInvoke>(&task)) {
+            CmdResponse response = normalizeCmdResponse(
+                payload->request.cmdId,
+                worker->instance->hostOnSceneInvoke(payload->request));
+            queueDeferredResult(DeferredCmdResult{std::move(response)});
+            continue;
+        }
+    }
+
+    worker->instance->hostStop();
+}
+
+bool SidecarHost::enqueueWorkerTask(const phicore::adapter::v1::ExternalId &externalId, WorkerTask task)
+{
+    InstanceWorker *worker = findWorker(externalId);
+    if (!worker)
+        return false;
+    {
+        std::lock_guard<std::mutex> lock(worker->mutex);
+        if (worker->stopRequested)
+            return false;
+        worker->tasks.push_back(std::move(task));
+    }
+    worker->cv.notify_one();
+    return true;
+}
+
+void SidecarHost::enqueueWorkerTaskBroadcast(const WorkerTask &task)
+{
+    for (auto &entry : m_instances) {
+        InstanceWorker *worker = entry.second.get();
+        if (!worker)
+            continue;
+        {
+            std::lock_guard<std::mutex> lock(worker->mutex);
+            if (worker->stopRequested)
+                continue;
+            worker->tasks.push_back(task);
+        }
+        worker->cv.notify_one();
+    }
+}
+
+void SidecarHost::queueDeferredResult(DeferredResult result)
+{
+    std::lock_guard<std::mutex> lock(m_resultMutex);
+    m_resultQueue.push_back(std::move(result));
+}
+
+void SidecarHost::drainDeferredResults()
+{
+    std::deque<DeferredResult> local;
+    {
+        std::lock_guard<std::mutex> lock(m_resultMutex);
+        local.swap(m_resultQueue);
+    }
+
+    for (auto &result : local) {
+        if (auto *cmd = std::get_if<DeferredCmdResult>(&result)) {
+            auto it = m_pendingCommands.find(cmd->response.id);
+            if (it == m_pendingCommands.end() || it->second.kind != PendingKind::Cmd)
+                continue;
+            m_pendingCommands.erase(it);
+            phicore::adapter::v1::Utf8String sendError;
+            if (!m_dispatcher.sendCmdResult(cmd->response, &sendError) && m_factory)
+                m_factory->hostOnProtocolError("Failed to send command result: " + sendError);
+            continue;
+        }
+        if (auto *action = std::get_if<DeferredActionResult>(&result)) {
+            auto it = m_pendingCommands.find(action->response.id);
+            if (it == m_pendingCommands.end() || it->second.kind != PendingKind::Action)
+                continue;
+            m_pendingCommands.erase(it);
+            phicore::adapter::v1::Utf8String sendError;
+            if (!m_dispatcher.sendActionResult(action->response, &sendError) && m_factory)
+                m_factory->hostOnProtocolError("Failed to send action result: " + sendError);
+        }
+    }
+}
+
+void SidecarHost::completePendingTimeouts()
+{
+    const std::int64_t now = nowMs();
+    for (auto it = m_pendingCommands.begin(); it != m_pendingCommands.end();) {
+        if (it->second.deadlineMs > now) {
+            ++it;
+            continue;
+        }
+
+        const CmdId cmdId = it->first;
+        const PendingCommand pending = it->second;
+        it = m_pendingCommands.erase(it);
+
+        phicore::adapter::v1::Utf8String sendError;
+        if (pending.kind == PendingKind::Cmd) {
+            CmdResponse response;
+            response.id = cmdId;
+            response.status = CmdStatus::Timeout;
+            response.error = "Command timed out";
+            response.tsMs = now;
+            if (!m_dispatcher.sendCmdResult(response, &sendError) && m_factory)
+                m_factory->hostOnProtocolError("Failed to send command timeout result: " + sendError);
+            continue;
+        }
+
+        ActionResponse response;
+        response.id = cmdId;
+        response.status = CmdStatus::Timeout;
+        response.error = "Action timed out";
+        response.resultType = ActionResultType::None;
+        response.tsMs = now;
+        if (!m_dispatcher.sendActionResult(response, &sendError) && m_factory)
+            m_factory->hostOnProtocolError("Failed to send action timeout result: " + sendError);
+    }
+}
+
+int SidecarHost::commandTimeoutMs(phicore::adapter::v1::Utf8String *error) const
+{
+    if (!m_factory) {
+        if (error)
+            *error = "Factory not available";
+        return 0;
+    }
+    const int timeout = m_factory->timeoutMs();
+    if (timeout <= 0) {
+        if (error)
+            *error = "Factory timeoutMs() must be > 0";
+        return 0;
+    }
+    return timeout;
+}
+
+bool SidecarHost::trackPending(phicore::adapter::v1::CmdId cmdId,
+                               PendingKind kind,
+                               const phicore::adapter::v1::ExternalId &externalId,
+                               phicore::adapter::v1::Utf8String *error)
+{
+    if (cmdId == 0) {
+        if (error)
+            *error = "cmdId must be > 0";
+        return false;
+    }
+    if (m_pendingCommands.find(cmdId) != m_pendingCommands.end()) {
+        if (error)
+            *error = "cmdId already pending";
+        return false;
+    }
+    const int timeoutMs = commandTimeoutMs(error);
+    if (timeoutMs <= 0)
+        return false;
+
+    PendingCommand pending;
+    pending.kind = kind;
+    pending.externalId = externalId;
+    pending.deadlineMs = nowMs() + timeoutMs;
+    m_pendingCommands.emplace(cmdId, std::move(pending));
+    return true;
+}
+
+void SidecarHost::clearPendingForInstance(const phicore::adapter::v1::ExternalId &externalId,
+                                          const phicore::adapter::v1::Utf8String &reason)
+{
+    const std::int64_t ts = nowMs();
+    for (auto it = m_pendingCommands.begin(); it != m_pendingCommands.end();) {
+        if (it->second.externalId != externalId) {
+            ++it;
+            continue;
+        }
+
+        const CmdId cmdId = it->first;
+        const PendingKind kind = it->second.kind;
+        it = m_pendingCommands.erase(it);
+
+        phicore::adapter::v1::Utf8String sendError;
+        if (kind == PendingKind::Cmd) {
+            CmdResponse response;
+            response.id = cmdId;
+            response.status = CmdStatus::Failure;
+            response.error = reason;
+            response.tsMs = ts;
+            if (!m_dispatcher.sendCmdResult(response, &sendError) && m_factory)
+                m_factory->hostOnProtocolError("Failed to send command failure result: " + sendError);
+            continue;
+        }
+
+        ActionResponse response;
+        response.id = cmdId;
+        response.status = CmdStatus::Failure;
+        response.error = reason;
+        response.resultType = ActionResultType::None;
+        response.tsMs = ts;
+        if (!m_dispatcher.sendActionResult(response, &sendError) && m_factory)
+            m_factory->hostOnProtocolError("Failed to send action failure result: " + sendError);
+    }
+}
+
+void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId)
+{
+    const auto it = m_instances.find(externalId);
+    if (it == m_instances.end())
+        return;
+
+    std::unique_ptr<InstanceWorker> worker = std::move(it->second);
+    m_instances.erase(it);
+    if (!worker)
+        return;
+
+    {
+        std::lock_guard<std::mutex> lock(worker->mutex);
+        worker->stopRequested = true;
+    }
+    worker->cv.notify_one();
+    if (worker->thread.joinable())
+        worker->thread.join();
+
+    clearPendingForInstance(externalId, "Instance removed");
+    if (m_factory && worker->instance)
+        m_factory->hostDestroyInstance(std::move(worker->instance));
 }
 
 void SidecarHost::stopAndDestroyInstances()
 {
-    if (!m_factory) {
-        m_instances.clear();
-        return;
-    }
-    for (auto &entry : m_instances) {
-        if (entry.second)
-            entry.second->hostStop();
-        m_factory->hostDestroyInstance(std::move(entry.second));
-    }
-    m_instances.clear();
+    std::vector<phicore::adapter::v1::ExternalId> externalIds;
+    externalIds.reserve(m_instances.size());
+    for (const auto &entry : m_instances)
+        externalIds.push_back(entry.first);
+
+    for (const auto &externalId : externalIds)
+        stopAndDestroyInstance(externalId);
 }
 
 void SidecarHost::wireHandlers()
@@ -2176,26 +2564,17 @@ void SidecarHost::wireHandlers()
     handlers.onConnected = [this]() {
         if (m_factory)
             m_factory->hostOnConnected();
-        for (auto &entry : m_instances) {
-            if (entry.second)
-                entry.second->hostOnConnected();
-        }
+        enqueueWorkerTaskBroadcast(WorkerTaskConnected{});
     };
     handlers.onDisconnected = [this]() {
         if (m_factory)
             m_factory->hostOnDisconnected();
-        for (auto &entry : m_instances) {
-            if (entry.second)
-                entry.second->hostOnDisconnected();
-        }
+        enqueueWorkerTaskBroadcast(WorkerTaskDisconnected{});
     };
     handlers.onProtocolError = [this](const phicore::adapter::v1::Utf8String &message) {
         if (m_factory)
             m_factory->hostOnProtocolError(message);
-        for (auto &entry : m_instances) {
-            if (entry.second)
-                entry.second->hostOnProtocolError(message);
-        }
+        enqueueWorkerTaskBroadcast(WorkerTaskProtocolError{message});
     };
     handlers.onBootstrap = [this](const BootstrapRequest &request) {
         if (!m_factory)
@@ -2220,20 +2599,17 @@ void SidecarHost::wireHandlers()
         if (!m_factory)
             return;
         ConfigChangedRequest normalized = request;
+        if (normalized.adapter.pluginType.empty())
+            normalized.adapter.pluginType = m_factory->hostPluginType();
         if (normalized.adapter.externalId.empty()) {
-            if (normalized.adapter.pluginType.empty())
-                normalized.adapter.pluginType = m_factory->hostPluginType();
             m_factory->hostOnFactoryConfigChanged(normalized);
             return;
         }
-        if (normalized.adapter.pluginType.empty())
-            normalized.adapter.pluginType = m_factory->hostPluginType();
-        AdapterInstance *instance = ensureInstance(normalized);
-        if (!instance) {
-            m_factory->hostOnProtocolError("Failed to create instance for externalId='" + normalized.adapter.externalId + "'");
+        if (!ensureInstance(normalized))
             return;
-        }
-        instance->hostOnConfigChanged(normalized);
+        if (!enqueueWorkerTask(normalized.adapter.externalId, WorkerTaskConfigChanged{normalized}))
+            m_factory->hostOnProtocolError("Failed to enqueue config.changed for externalId='"
+                                           + normalized.adapter.externalId + "'");
     };
     handlers.onInstanceRemoved = [this](const InstanceRemovedRequest &request) {
         if (!m_factory)
@@ -2242,64 +2618,145 @@ void SidecarHost::wireHandlers()
             m_factory->hostOnProtocolError("InstanceRemoved must target instance scope (externalId required)");
             return;
         }
-        auto it = m_instances.find(request.externalId);
-        if (it == m_instances.end())
-            return;
-        if (it->second)
-            it->second->hostStop();
-        m_factory->hostDestroyInstance(std::move(it->second));
-        m_instances.erase(it);
+        stopAndDestroyInstance(request.externalId);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
-        if (request.externalId.empty())
-            return invalidArgumentCmdResponse(request.cmdId, "externalId is required for CmdChannelInvoke");
-        AdapterInstance *inst = findInstance(request.externalId);
-        if (!inst)
-            return invalidArgumentCmdResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
-        return normalizeCmdResponse(request.cmdId, inst->hostOnChannelInvoke(request));
-    };
-    handlers.onAdapterActionInvoke = [this](const AdapterActionInvokeRequest &request) {
-        if (!m_factory)
-            return defaultActionResponse(request.cmdId, "Adapter factory not available");
-        if (request.externalId.empty())
-            return normalizeActionResponse(request.cmdId, m_factory->hostOnFactoryActionInvoke(request));
-        AdapterInstance *inst = findInstance(request.externalId);
-        if (!inst)
-            return invalidArgumentActionResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
-        return normalizeActionResponse(request.cmdId, inst->hostOnAdapterActionInvoke(request));
-    };
-    handlers.onDeviceNameUpdate = [this](const DeviceNameUpdateRequest &request) {
-        if (request.externalId.empty())
-            return invalidArgumentCmdResponse(request.cmdId, "externalId is required for CmdDeviceNameUpdate");
-        AdapterInstance *inst = findInstance(request.externalId);
-        if (!inst)
-            return invalidArgumentCmdResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
-        return normalizeCmdResponse(request.cmdId, inst->hostOnDeviceNameUpdate(request));
-    };
-    handlers.onDeviceEffectInvoke = [this](const DeviceEffectInvokeRequest &request) {
-        if (request.externalId.empty())
-            return invalidArgumentCmdResponse(request.cmdId, "externalId is required for CmdDeviceEffectInvoke");
-        AdapterInstance *inst = findInstance(request.externalId);
-        if (!inst)
-            return invalidArgumentCmdResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
-        return normalizeCmdResponse(request.cmdId, inst->hostOnDeviceEffectInvoke(request));
-    };
-    handlers.onSceneInvoke = [this](const SceneInvokeRequest &request) {
-        if (request.externalId.empty())
-            return invalidArgumentCmdResponse(request.cmdId, "externalId is required for CmdSceneInvoke");
-        AdapterInstance *inst = findInstance(request.externalId);
-        if (!inst)
-            return invalidArgumentCmdResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
-        return normalizeCmdResponse(request.cmdId, inst->hostOnSceneInvoke(request));
-    };
-    handlers.onUnknownRequest = [this](const UnknownRequest &request) {
+        CmdResponse response;
+        response.id = request.cmdId;
+        response.tsMs = nowMs();
         if (request.externalId.empty()) {
-            if (m_factory)
-                m_factory->hostOnProtocolError("Unhandled IPC command: " + std::to_string(request.command));
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdChannelInvoke";
+            m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
-        if (AdapterInstance *inst = findInstance(request.externalId))
-            inst->hostOnUnknownRequest(request);
+        phicore::adapter::v1::Utf8String error;
+        if (!trackPending(request.cmdId, PendingKind::Cmd, request.externalId, &error)) {
+            response.status = CmdStatus::Failure;
+            response.error = "Failed to track pending command: " + error;
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        if (!enqueueWorkerTask(request.externalId, WorkerTaskChannelInvoke{request})) {
+            m_pendingCommands.erase(request.cmdId);
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Unknown instance externalId: " + request.externalId;
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onAdapterActionInvoke = [this](const AdapterActionInvokeRequest &request) {
+        ActionResponse response;
+        response.id = request.cmdId;
+        response.resultType = ActionResultType::None;
+        response.tsMs = nowMs();
+        if (!m_factory) {
+            response.status = CmdStatus::Failure;
+            response.error = "Adapter factory not available";
+            m_dispatcher.sendActionResult(response, nullptr);
+            return;
+        }
+        if (request.externalId.empty()) {
+            m_dispatcher.sendActionResult(normalizeActionResponse(
+                                              request.cmdId,
+                                              m_factory->hostOnFactoryActionInvoke(request)),
+                                          nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String error;
+        if (!trackPending(request.cmdId, PendingKind::Action, request.externalId, &error)) {
+            response.status = CmdStatus::Failure;
+            response.error = "Failed to track pending action: " + error;
+            m_dispatcher.sendActionResult(response, nullptr);
+            return;
+        }
+        if (!enqueueWorkerTask(request.externalId, WorkerTaskAdapterActionInvoke{request})) {
+            m_pendingCommands.erase(request.cmdId);
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Unknown instance externalId: " + request.externalId;
+            m_dispatcher.sendActionResult(response, nullptr);
+        }
+    };
+    handlers.onDeviceNameUpdate = [this](const DeviceNameUpdateRequest &request) {
+        CmdResponse response;
+        response.id = request.cmdId;
+        response.tsMs = nowMs();
+        if (request.externalId.empty()) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdDeviceNameUpdate";
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String error;
+        if (!trackPending(request.cmdId, PendingKind::Cmd, request.externalId, &error)) {
+            response.status = CmdStatus::Failure;
+            response.error = "Failed to track pending command: " + error;
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        if (!enqueueWorkerTask(request.externalId, WorkerTaskDeviceNameUpdate{request})) {
+            m_pendingCommands.erase(request.cmdId);
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Unknown instance externalId: " + request.externalId;
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onDeviceEffectInvoke = [this](const DeviceEffectInvokeRequest &request) {
+        CmdResponse response;
+        response.id = request.cmdId;
+        response.tsMs = nowMs();
+        if (request.externalId.empty()) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdDeviceEffectInvoke";
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String error;
+        if (!trackPending(request.cmdId, PendingKind::Cmd, request.externalId, &error)) {
+            response.status = CmdStatus::Failure;
+            response.error = "Failed to track pending command: " + error;
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        if (!enqueueWorkerTask(request.externalId, WorkerTaskDeviceEffectInvoke{request})) {
+            m_pendingCommands.erase(request.cmdId);
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Unknown instance externalId: " + request.externalId;
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onSceneInvoke = [this](const SceneInvokeRequest &request) {
+        CmdResponse response;
+        response.id = request.cmdId;
+        response.tsMs = nowMs();
+        if (request.externalId.empty()) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdSceneInvoke";
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String error;
+        if (!trackPending(request.cmdId, PendingKind::Cmd, request.externalId, &error)) {
+            response.status = CmdStatus::Failure;
+            response.error = "Failed to track pending command: " + error;
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        if (!enqueueWorkerTask(request.externalId, WorkerTaskSceneInvoke{request})) {
+            m_pendingCommands.erase(request.cmdId);
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Unknown instance externalId: " + request.externalId;
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onUnknownRequest = [this](const UnknownRequest &request) {
+        if (!m_factory)
+            return;
+        if (request.externalId.empty()) {
+            m_factory->hostOnProtocolError("Unhandled IPC command: " + std::to_string(request.command));
+            return;
+        }
+        if (!enqueueWorkerTask(request.externalId, WorkerTaskUnknown{request}))
+            m_factory->hostOnProtocolError("Unknown instance externalId for unknown request: " + request.externalId);
     };
     m_dispatcher.setHandlers(std::move(handlers));
 }
