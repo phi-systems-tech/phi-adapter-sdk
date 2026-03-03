@@ -122,15 +122,51 @@ host.stop();
 ./build/phi_adapter_sidecar_example /tmp/phi-adapter-example.sock
 ```
 
-## IPC Methods (typed inbound)
+## Adapter IPC Command Model (v1)
 
-- `sync.adapter.bootstrap`
-- `sync.adapter.config.changed`
-- `cmd.channel.invoke`
-- `cmd.adapter.action.invoke`
-- `cmd.device.name.update`
-- `cmd.device.effect.invoke`
-- `cmd.scene.invoke`
+Naming rules:
+
+- `Sync*`: core -> adapter, no response.
+- `Cmd*`: core -> adapter, always followed by `Result*`.
+- `Event*`: adapter -> core, unsolicited runtime/topology events.
+- `Result*`: adapter -> core, correlated response to one `Cmd*`.
+
+Canonical enum: `phicore::adapter::v1::IpcCommand` in
+`phi/adapter/v1/ipc_command.h`.
+
+Core -> Adapter (`Sync*` / `Cmd*`):
+
+- `SyncAdapterBootstrap` (`0x0101`)
+- `SyncAdapterConfigChanged` (`0x0102`)
+- `CmdChannelInvoke` (`0x0201`)
+- `CmdAdapterActionInvoke` (`0x0202`)
+- `CmdDeviceNameUpdate` (`0x0203`)
+- `CmdDeviceEffectInvoke` (`0x0204`)
+- `CmdSceneInvoke` (`0x0205`)
+
+Adapter -> Core (`Event*`):
+
+- `EventAdapterDescriptor` (`0x1001`)
+- `EventAdapterDescriptorUpdated` (`0x1002`)
+- `EventAdapterMetaUpdated` (`0x1003`)
+- `EventConnectionStateChanged` (`0x1004`)
+- `EventError` (`0x1005`)
+- `EventDeviceUpdated` (`0x1101`)
+- `EventDeviceRemoved` (`0x1102`)
+- `EventChannelUpdated` (`0x1201`)
+- `EventChannelStateUpdated` (`0x1202`)
+- `EventRoomUpdated` (`0x1301`)
+- `EventRoomRemoved` (`0x1302`)
+- `EventGroupUpdated` (`0x1401`)
+- `EventGroupRemoved` (`0x1402`)
+- `EventSceneUpdated` (`0x1501`)
+- `EventSceneRemoved` (`0x1502`)
+- `EventFullSyncCompleted` (`0x1FFF`)
+
+Adapter -> Core (`Result*`):
+
+- `ResultCmd` (`0x2001`)
+- `ResultAction` (`0x2002`)
 
 ## Target Resolution (v1, strict)
 
