@@ -816,6 +816,8 @@ private:
                       phicore::adapter::v1::Utf8String *error = nullptr);
     void clearPendingForInstance(const phicore::adapter::v1::ExternalId &externalId,
                                  const phicore::adapter::v1::Utf8String &reason);
+    void scheduleInstanceRemoval(const phicore::adapter::v1::ExternalId &externalId);
+    void drainDeferredInstanceRemovals();
     void stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId);
     void stopAndDestroyInstances();
     void wireHandlers();
@@ -824,6 +826,7 @@ private:
     std::unique_ptr<AdapterFactory> m_ownedFactory;
     AdapterFactory *m_factory = nullptr;
     std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<InstanceWorker>> m_instances;
+    std::deque<std::unique_ptr<InstanceWorker>> m_instancesPendingRemoval;
     std::unordered_map<phicore::adapter::v1::CmdId, PendingCommand> m_pendingCommands;
     std::mutex m_resultMutex;
     std::deque<DeferredResult> m_resultQueue;

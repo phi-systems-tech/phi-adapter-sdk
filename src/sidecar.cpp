@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <locale>
 #include <sstream>
 #include <string_view>
@@ -991,7 +992,7 @@ std::string deviceToJson(const Device &device)
     std::string out;
     out.push_back('{');
     bool first = true;
-    appendFieldPrefix(out, first, "id");
+    appendFieldPrefix(out, first, "externalId");
     out += jsonQuoted(device.externalId);
     appendFieldPrefix(out, first, "name");
     out += jsonQuoted(device.name);
@@ -1040,7 +1041,7 @@ std::string channelToJson(const Channel &channel)
     std::string out;
     out.push_back('{');
     bool first = true;
-    appendFieldPrefix(out, first, "id");
+    appendFieldPrefix(out, first, "externalId");
     out += jsonQuoted(channel.externalId);
     appendFieldPrefix(out, first, "name");
     out += jsonQuoted(channel.name);
@@ -2003,7 +2004,10 @@ phicore::adapter::v1::ActionResponse AdapterFactory::onFactoryActionInvoke(const
 void AdapterFactory::onFactoryConfigChanged(const ConfigChangedRequest &request) { (void)request; }
 void AdapterFactory::onConnected() {}
 void AdapterFactory::onDisconnected() {}
-void AdapterFactory::onProtocolError(const phicore::adapter::v1::Utf8String &message) { (void)message; }
+void AdapterFactory::onProtocolError(const phicore::adapter::v1::Utf8String &message)
+{
+    std::cerr << "[sidecar][protocolError][factory] " << message << std::endl;
+}
 void AdapterFactory::onBootstrap(const BootstrapRequest &request) { (void)request; }
 
 bool AdapterFactory::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
@@ -2140,7 +2144,11 @@ bool AdapterInstance::restart()
 }
 void AdapterInstance::onConnected() {}
 void AdapterInstance::onDisconnected() {}
-void AdapterInstance::onProtocolError(const phicore::adapter::v1::Utf8String &message) { (void)message; }
+void AdapterInstance::onProtocolError(const phicore::adapter::v1::Utf8String &message)
+{
+    std::cerr << "[sidecar][protocolError][instance] externalId=" << m_externalId
+              << " message=" << message << std::endl;
+}
 void AdapterInstance::onConfigChanged(const ConfigChangedRequest &request) { (void)request; }
 CmdResponse AdapterInstance::onChannelInvoke(const ChannelInvokeRequest &request)
 {
@@ -2322,6 +2330,7 @@ bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
 void SidecarHost::stop()
 {
     stopAndDestroyInstances();
+    drainDeferredInstanceRemovals();
     m_pendingCommands.clear();
     {
         std::lock_guard<std::mutex> lock(m_resultMutex);
@@ -2333,6 +2342,7 @@ void SidecarHost::stop()
 bool SidecarHost::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
 {
     const bool ok = m_dispatcher.pollOnce(timeout, error);
+    drainDeferredInstanceRemovals();
     drainDeferredResults();
     completePendingTimeouts();
     return ok;
@@ -2754,6 +2764,12 @@ void SidecarHost::clearPendingForInstance(const phicore::adapter::v1::ExternalId
 
 void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId)
 {
+    scheduleInstanceRemoval(externalId);
+    drainDeferredInstanceRemovals();
+}
+
+void SidecarHost::scheduleInstanceRemoval(const phicore::adapter::v1::ExternalId &externalId)
+{
     const auto it = m_instances.find(externalId);
     if (it == m_instances.end())
         return;
@@ -2768,12 +2784,22 @@ void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId 
         worker->stopRequested = true;
     }
     worker->cv.notify_one();
-    if (worker->thread.joinable())
-        worker->thread.join();
+    m_instancesPendingRemoval.push_back(std::move(worker));
+}
 
-    clearPendingForInstance(externalId, "Instance removed");
-    if (m_factory && worker->instance)
-        m_factory->hostDestroyInstance(std::move(worker->instance));
+void SidecarHost::drainDeferredInstanceRemovals()
+{
+    while (!m_instancesPendingRemoval.empty()) {
+        std::unique_ptr<InstanceWorker> worker = std::move(m_instancesPendingRemoval.front());
+        m_instancesPendingRemoval.pop_front();
+        if (!worker)
+            continue;
+        if (worker->thread.joinable())
+            worker->thread.join();
+        clearPendingForInstance(worker->externalId, "Instance removed");
+        if (m_factory && worker->instance)
+            m_factory->hostDestroyInstance(std::move(worker->instance));
+    }
 }
 
 void SidecarHost::stopAndDestroyInstances()
@@ -2847,7 +2873,7 @@ void SidecarHost::wireHandlers()
             m_factory->hostOnProtocolError("InstanceRemoved must target instance scope (externalId required)");
             return;
         }
-        stopAndDestroyInstance(request.externalId);
+        scheduleInstanceRemoval(request.externalId);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         CmdResponse response;
