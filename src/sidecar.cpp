@@ -33,6 +33,7 @@ using phicore::adapter::v1::CorrelationId;
 using phicore::adapter::v1::Device;
 using phicore::adapter::v1::DeviceEffect;
 using phicore::adapter::v1::Group;
+using phicore::adapter::v1::IpcCommand;
 using phicore::adapter::v1::MessageType;
 using phicore::adapter::v1::Room;
 using phicore::adapter::v1::ScalarList;
@@ -489,6 +490,19 @@ bool parseCmdIdToken(std::string_view token, CmdId *cmdId)
     return parseUInt64(token, cmdId);
 }
 
+bool parseIpcCommandToken(std::string_view token, IpcCommand *command)
+{
+    if (!command)
+        return false;
+    std::int64_t raw = 0;
+    if (!parseInt64(token, &raw))
+        return false;
+    if (raw <= 0 || raw > 0xFFFF)
+        return false;
+    *command = static_cast<IpcCommand>(static_cast<std::uint16_t>(raw));
+    return true;
+}
+
 bool parseScalarValueToken(std::string_view token, ScalarValue *value)
 {
     token = trim(token);
@@ -582,6 +596,12 @@ void appendFieldPrefix(std::string &out, bool &first, std::string_view key)
     first = false;
     out += jsonQuoted(key);
     out.push_back(':');
+}
+
+void appendCommandField(std::string &out, bool &first, IpcCommand command)
+{
+    appendFieldPrefix(out, first, "command");
+    out += std::to_string(phicore::adapter::v1::toUint16(command));
 }
 
 void appendDoubleJson(std::string &out, double value)
@@ -1039,11 +1059,22 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return false;
     }
 
-    const std::string method = decodeStringOrDefault(member(root, "method"));
+    IpcCommand command = IpcCommand::SyncAdapterBootstrap;
+    const std::string_view commandToken = member(root, "command");
+    if (!parseIpcCommandToken(commandToken, &command)) {
+        if (m_handlers.onProtocolError)
+            m_handlers.onProtocolError("Request missing/invalid command");
+        return false;
+    }
+
     CmdId cmdId = 0;
     const std::string_view cmdIdToken = member(root, "cmdId");
-    if (!cmdIdToken.empty())
-        parseCmdIdToken(cmdIdToken, &cmdId);
+    if (!cmdIdToken.empty()) {
+        if (!parseCmdIdToken(cmdIdToken, &cmdId))
+            cmdId = header.correlationId;
+    } else {
+        cmdId = header.correlationId;
+    }
 
     std::string_view payloadToken = member(root, "payload");
     if (payloadToken.empty())
@@ -1071,7 +1102,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return adapter;
     };
 
-    if (method == "sync.adapter.bootstrap") {
+    if (command == IpcCommand::SyncAdapterBootstrap) {
         if (m_handlers.onBootstrap) {
             BootstrapRequest request;
             request.cmdId = cmdId;
@@ -1095,7 +1126,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return true;
     }
 
-    if (method == "sync.adapter.config.changed") {
+    if (command == IpcCommand::SyncAdapterConfigChanged) {
         if (m_handlers.onConfigChanged) {
             ConfigChangedRequest request;
             request.cmdId = cmdId;
@@ -1117,7 +1148,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return true;
     }
 
-    if (method == "cmd.channel.invoke") {
+    if (command == IpcCommand::CmdChannelInvoke) {
         ChannelInvokeRequest request;
         request.cmdId = cmdId;
         request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
@@ -1135,7 +1166,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return sendCmdResult(response, nullptr);
     }
 
-    if (method == "cmd.adapter.action.invoke") {
+    if (command == IpcCommand::CmdAdapterActionInvoke) {
         AdapterActionInvokeRequest request;
         request.cmdId = cmdId;
         request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
@@ -1152,7 +1183,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return sendActionResult(response, nullptr);
     }
 
-    if (method == "cmd.device.name.update") {
+    if (command == IpcCommand::CmdDeviceNameUpdate) {
         DeviceNameUpdateRequest request;
         request.cmdId = cmdId;
         request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
@@ -1167,7 +1198,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return sendCmdResult(response, nullptr);
     }
 
-    if (method == "cmd.device.effect.invoke") {
+    if (command == IpcCommand::CmdDeviceEffectInvoke) {
         DeviceEffectInvokeRequest request;
         request.cmdId = cmdId;
         request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
@@ -1186,7 +1217,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return sendCmdResult(response, nullptr);
     }
 
-    if (method == "cmd.scene.invoke") {
+    if (command == IpcCommand::CmdSceneInvoke) {
         SceneInvokeRequest request;
         request.cmdId = cmdId;
         request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
@@ -1206,12 +1237,13 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         UnknownRequest request;
         request.cmdId = cmdId;
         request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.method = method;
+        request.command = phicore::adapter::v1::toUint16(command);
         request.payloadJson = std::string(payloadToken);
         m_handlers.onUnknownRequest(request);
     }
     if (cmdId != 0) {
-        CmdResponse response = defaultCmdResponse(cmdId, "Unhandled IPC method: " + method);
+        CmdResponse response = defaultCmdResponse(
+            cmdId, "Unhandled IPC command: " + std::to_string(phicore::adapter::v1::toUint16(command)));
         return sendCmdResult(response, nullptr);
     }
     return true;
@@ -1233,8 +1265,7 @@ bool SidecarDispatcher::sendCmdResult(const CmdResponse &response, phicore::adap
     std::string body;
     body.push_back('{');
     bool first = true;
-    appendFieldPrefix(body, first, "kind");
-    body += "\"cmdResult\"";
+    appendCommandField(body, first, IpcCommand::ResultCmd);
     appendFieldPrefix(body, first, "cmdId");
     body += jsonQuoted(std::to_string(response.id));
     appendFieldPrefix(body, first, "status");
@@ -1261,8 +1292,7 @@ bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore
     std::string body;
     body.push_back('{');
     bool first = true;
-    appendFieldPrefix(body, first, "kind");
-    body += "\"actionResult\"";
+    appendCommandField(body, first, IpcCommand::ResultAction);
     appendFieldPrefix(body, first, "cmdId");
     body += jsonQuoted(std::to_string(response.id));
     appendFieldPrefix(body, first, "status");
@@ -1299,7 +1329,9 @@ bool SidecarDispatcher::sendConnectionStateChanged(const phicore::adapter::v1::E
                                                    bool connected,
                                                    phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"connectionStateChanged\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventConnectionStateChanged))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"connected\":"
         + (connected ? "true" : "false")
@@ -1316,8 +1348,7 @@ bool SidecarDispatcher::sendError(const phicore::adapter::v1::ExternalId &extern
     std::string body;
     body.push_back('{');
     bool first = true;
-    appendFieldPrefix(body, first, "kind");
-    body += "\"error\"";
+    appendCommandField(body, first, IpcCommand::EventError);
     appendFieldPrefix(body, first, "externalId");
     body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "message");
@@ -1340,8 +1371,7 @@ bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &external
     std::string body;
     body.push_back('{');
     bool first = true;
-    appendFieldPrefix(body, first, "kind");
-    body += "\"log\"";
+    appendCommandField(body, first, IpcCommand::EventLog);
     appendFieldPrefix(body, first, "externalId");
     body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "pluginType");
@@ -1367,7 +1397,9 @@ bool SidecarDispatcher::sendAdapterMetaUpdated(const phicore::adapter::v1::Exter
                                                phicore::adapter::v1::Utf8String *error)
 {
     const std::string patch = trim(metaPatchJson).empty() ? "{}" : metaPatchJson;
-    const std::string body = std::string("{\"kind\":\"adapterMetaUpdated\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventAdapterMetaUpdated))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"metaPatch\":"
         + patch
@@ -1380,7 +1412,9 @@ bool SidecarDispatcher::sendAdapterDescriptor(const phicore::adapter::v1::Extern
                                               CorrelationId correlationId,
                                               phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"adapterDescriptor\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventAdapterDescriptor))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"descriptor\":"
         + descriptorToJson(descriptor)
@@ -1392,7 +1426,9 @@ bool SidecarDispatcher::sendAdapterDescriptorUpdated(const phicore::adapter::v1:
                                                      const AdapterDescriptor &descriptor,
                                                      phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"adapterDescriptorUpdated\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventAdapterDescriptorUpdated))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"descriptor\":"
         + descriptorToJson(descriptor)
@@ -1411,8 +1447,7 @@ bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::Exte
     std::string body;
     body.push_back('{');
     bool first = true;
-    appendFieldPrefix(body, first, "kind");
-    body += "\"channelStateUpdated\"";
+    appendCommandField(body, first, IpcCommand::EventChannelStateUpdated);
     appendFieldPrefix(body, first, "externalId");
     body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "deviceExternalId");
@@ -1432,7 +1467,9 @@ bool SidecarDispatcher::sendDeviceUpdated(const phicore::adapter::v1::ExternalId
                                           const ChannelList &channels,
                                           phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"deviceUpdated\",\"externalId\":";
+    std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventDeviceUpdated))
+        + ",\"externalId\":";
     body += jsonQuoted(externalId);
     body += ",\"payload\":{\"device\":";
     body += deviceToJson(device);
@@ -1452,7 +1489,9 @@ bool SidecarDispatcher::sendDeviceRemoved(const phicore::adapter::v1::ExternalId
                                           const phicore::adapter::v1::ExternalId &deviceExternalId,
                                           phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"deviceRemoved\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventDeviceRemoved))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"deviceExternalId\":"
         + jsonQuoted(deviceExternalId)
@@ -1465,7 +1504,9 @@ bool SidecarDispatcher::sendChannelUpdated(const phicore::adapter::v1::ExternalI
                                            const Channel &channel,
                                            phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"channelUpdated\",\"externalId\":";
+    std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventChannelUpdated))
+        + ",\"externalId\":";
     body += jsonQuoted(externalId);
     body += ",\"payload\":{\"deviceExternalId\":";
     body += jsonQuoted(deviceExternalId);
@@ -1479,7 +1520,9 @@ bool SidecarDispatcher::sendRoomUpdated(const phicore::adapter::v1::ExternalId &
                                         const Room &room,
                                         phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"roomUpdated\",\"externalId\":";
+    std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventRoomUpdated))
+        + ",\"externalId\":";
     body += jsonQuoted(externalId);
     body += ",\"room\":";
     body += roomToJson(room);
@@ -1491,7 +1534,9 @@ bool SidecarDispatcher::sendRoomRemoved(const phicore::adapter::v1::ExternalId &
                                         const phicore::adapter::v1::ExternalId &roomExternalId,
                                         phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"roomRemoved\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventRoomRemoved))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"roomExternalId\":"
         + jsonQuoted(roomExternalId)
@@ -1503,7 +1548,9 @@ bool SidecarDispatcher::sendGroupUpdated(const phicore::adapter::v1::ExternalId 
                                          const Group &group,
                                          phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"groupUpdated\",\"externalId\":";
+    std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventGroupUpdated))
+        + ",\"externalId\":";
     body += jsonQuoted(externalId);
     body += ",\"group\":";
     body += groupToJson(group);
@@ -1515,7 +1562,9 @@ bool SidecarDispatcher::sendGroupRemoved(const phicore::adapter::v1::ExternalId 
                                          const phicore::adapter::v1::ExternalId &groupExternalId,
                                          phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"groupRemoved\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventGroupRemoved))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"groupExternalId\":"
         + jsonQuoted(groupExternalId)
@@ -1527,7 +1576,9 @@ bool SidecarDispatcher::sendSceneUpdated(const phicore::adapter::v1::ExternalId 
                                          const Scene &scene,
                                          phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"sceneUpdated\",\"externalId\":";
+    std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventSceneUpdated))
+        + ",\"externalId\":";
     body += jsonQuoted(externalId);
     body += ",\"scene\":";
     body += sceneToJson(scene);
@@ -1539,7 +1590,9 @@ bool SidecarDispatcher::sendSceneRemoved(const phicore::adapter::v1::ExternalId 
                                          const phicore::adapter::v1::ExternalId &sceneExternalId,
                                          phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"sceneRemoved\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventSceneRemoved))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"sceneExternalId\":"
         + jsonQuoted(sceneExternalId)
@@ -1550,7 +1603,9 @@ bool SidecarDispatcher::sendSceneRemoved(const phicore::adapter::v1::ExternalId 
 bool SidecarDispatcher::sendFullSyncCompleted(const phicore::adapter::v1::ExternalId &externalId,
                                               phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"fullSyncCompleted\",\"externalId\":")
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventFullSyncCompleted))
+        + ",\"externalId\":"
         + jsonQuoted(externalId)
         + "}";
     return sendJson(MessageType::Event, 0, body, error);
@@ -2071,7 +2126,7 @@ void SidecarHost::wireHandlers()
     handlers.onUnknownRequest = [this](const UnknownRequest &request) {
         if (request.externalId.empty()) {
             if (m_factory)
-                m_factory->hostOnProtocolError("Unhandled IPC method: " + request.method);
+                m_factory->hostOnProtocolError("Unhandled IPC command: " + std::to_string(request.command));
             return;
         }
         if (AdapterInstance *inst = findInstance(request.externalId))

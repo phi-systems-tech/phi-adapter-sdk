@@ -22,6 +22,7 @@ enum class IpcCommand : std::uint16_t {
     EventAdapterMetaUpdated = 0x1003,
     EventConnectionStateChanged = 0x1004,
     EventError = 0x1005,
+    EventLog = 0x1006,
 
     EventDeviceUpdated = 0x1101,
     EventDeviceRemoved = 0x1102,
