@@ -178,12 +178,15 @@ Adapter -> Core (`Result*`):
 - Do not use `adapterId` or `scope` in sidecar IPC payloads.
 - Unknown/non-existent `externalId` must fail explicitly (`NotFound`/`InvalidArgument`).
 
-## IPC Events (typed outbound)
+## Factory And Instance Planes (v1)
 
-- `connectionStateChanged`, `error`, `adapterMetaUpdated`, `adapterDescriptorUpdated`
-- `deviceUpdated`, `deviceRemoved`, `channelUpdated`, `channelStateUpdated`
-- `roomUpdated`, `roomRemoved`, `groupUpdated`, `groupRemoved`
-- `scenesUpdated`, `fullSyncCompleted`
+- Factory plane (`externalId == ""`):
+  - plugin-level descriptor/capabilities/schema and factory actions
+  - no device/channel topology events
+- Instance plane (`externalId != ""`):
+  - device/channel/room/group/scene runtime and command handling
+  - state, topology and sync-completion events
+- One runtime process may host factory and multiple instances; target resolution still stays strict by `externalId`.
 
 ## Bootstrap Descriptor
 
@@ -194,8 +197,9 @@ first-class override methods listed above).
 
 ## Runtime Config Updates (v1)
 
-- `sync.adapter.bootstrap` carries adapter identity/session data.
+- `sync.adapter.bootstrap` is factory-plane handshake (`externalId == ""`).
 - Effective runtime configuration is delivered via `sync.adapter.config.changed`.
+- `sync.adapter.config.changed` is instance-plane (`externalId != ""`).
 - phi-core sends an initial `config.changed` right after bootstrap.
 - Subsequent `config.changed` messages are sent whenever runtime config changes
   (for example host re-resolve to a new DHCP IP).
@@ -261,6 +265,7 @@ Minimal static discovery config example:
   `capabilities().factoryActions`.
 - The adapter must implement `onAdapterActionInvoke(...)` for that action id.
 - Factory target is selected by empty `externalId`.
+- Instance actions use non-empty `externalId`.
 - Keep factory/instance actions in descriptor+schema, not in legacy capability fallbacks.
 
 ## Action Result Form Patch (v1)
