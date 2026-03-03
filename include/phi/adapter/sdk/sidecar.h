@@ -13,6 +13,27 @@ namespace phicore::adapter::sdk {
 
 class SidecarRuntime;
 
+// SDK-facing aliases for v1 contract types.
+using CmdId = phicore::adapter::v1::CmdId;
+using CorrelationId = phicore::adapter::v1::CorrelationId;
+using ExternalId = phicore::adapter::v1::ExternalId;
+using Utf8String = phicore::adapter::v1::Utf8String;
+using JsonText = phicore::adapter::v1::JsonText;
+using ScalarValue = phicore::adapter::v1::ScalarValue;
+using ScalarList = phicore::adapter::v1::ScalarList;
+using CmdStatus = phicore::adapter::v1::CmdStatus;
+using ActionResultType = phicore::adapter::v1::ActionResultType;
+using CmdResponse = phicore::adapter::v1::CmdResponse;
+using ActionResponse = phicore::adapter::v1::ActionResponse;
+using Adapter = phicore::adapter::v1::Adapter;
+using AdapterCapabilities = phicore::adapter::v1::AdapterCapabilities;
+using Device = phicore::adapter::v1::Device;
+using Channel = phicore::adapter::v1::Channel;
+using ChannelList = phicore::adapter::v1::ChannelList;
+using Room = phicore::adapter::v1::Room;
+using Group = phicore::adapter::v1::Group;
+using Scene = phicore::adapter::v1::Scene;
+
 /**
  * @brief Bootstrap payload sent by phi-core right after IPC connect.
  */

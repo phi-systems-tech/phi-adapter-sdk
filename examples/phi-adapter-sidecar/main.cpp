@@ -13,13 +13,14 @@
 namespace {
 
 std::atomic_bool g_running{true};
+namespace sdk = phicore::adapter::sdk;
 
 void handleSignal(int)
 {
     g_running.store(false);
 }
 
-class ExampleAdapter final : public phicore::adapter::sdk::AdapterInstance
+class ExampleAdapter final : public sdk::AdapterInstance
 {
 protected:
     bool start() override
@@ -43,12 +44,12 @@ protected:
         std::cerr << "core disconnected" << std::endl;
     }
 
-    void onProtocolError(const phicore::adapter::v1::Utf8String &message) override
+    void onProtocolError(const sdk::Utf8String &message) override
     {
         std::cerr << "protocol error: " << message << std::endl;
     }
 
-    void onConfigChanged(const phicore::adapter::sdk::ConfigChangedRequest &request) override
+    void onConfigChanged(const sdk::ConfigChangedRequest &request) override
     {
         std::cerr << "config.changed adapterId=" << request.adapterId
                   << " extId=" << request.adapter.externalId
@@ -56,12 +57,11 @@ protected:
                   << " port=" << request.adapter.port << std::endl;
     }
 
-    phicore::adapter::v1::CmdResponse onChannelInvoke(
-        const phicore::adapter::sdk::ChannelInvokeRequest &request) override
+    sdk::CmdResponse onChannelInvoke(const sdk::ChannelInvokeRequest &request) override
     {
-        phicore::adapter::v1::CmdResponse response;
+        sdk::CmdResponse response;
         response.id = request.cmdId;
-        response.status = phicore::adapter::v1::CmdStatus::Success;
+        response.status = sdk::CmdStatus::Success;
         response.finalValue = request.value;
         response.tsMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::system_clock::now().time_since_epoch())
@@ -72,22 +72,21 @@ protected:
         return response;
     }
 
-    phicore::adapter::v1::ActionResponse onAdapterActionInvoke(
-        const phicore::adapter::sdk::AdapterActionInvokeRequest &request) override
+    sdk::ActionResponse onAdapterActionInvoke(const sdk::AdapterActionInvokeRequest &request) override
     {
-        phicore::adapter::v1::ActionResponse response;
+        sdk::ActionResponse response;
         response.id = request.cmdId;
-        response.status = phicore::adapter::v1::CmdStatus::Success;
+        response.status = sdk::CmdStatus::Success;
         if (request.actionId == "browseHosts") {
-            response.resultType = phicore::adapter::v1::ActionResultType::None;
+            response.resultType = sdk::ActionResultType::None;
             response.formValuesJson =
                 R"json({"trackedMacs":["1c:90:ff:0b:58:77","26:d2:aa:57:79:46"]})json";
             response.fieldChoicesJson =
                 R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"},{"value":"cc:8c:bf:76:0c:54","label":"Heater (192.168.1.26)"}]})json";
             response.reloadLayout = false;
         } else {
-            response.resultType = phicore::adapter::v1::ActionResultType::String;
-            response.resultValue = phicore::adapter::v1::Utf8String("ok");
+            response.resultType = sdk::ActionResultType::String;
+            response.resultValue = sdk::Utf8String("ok");
         }
         response.tsMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::system_clock::now().time_since_epoch())
@@ -98,38 +97,36 @@ protected:
     }
 };
 
-class ExampleFactory final : public phicore::adapter::sdk::AdapterFactory
+class ExampleFactory final : public sdk::AdapterFactory
 {
 protected:
-    phicore::adapter::v1::Utf8String pluginType() const override
+    sdk::Utf8String pluginType() const override
     {
         return "example";
     }
 
-    phicore::adapter::v1::Utf8String displayName() const override
+    sdk::Utf8String displayName() const override
     {
         return "Example";
     }
 
-    std::unique_ptr<phicore::adapter::sdk::AdapterInstance> createInstance(
-        const phicore::adapter::v1::ExternalId &externalId) override
+    std::unique_ptr<sdk::AdapterInstance> createInstance(const sdk::ExternalId &externalId) override
     {
         std::cerr << "create instance for externalId=" << externalId << std::endl;
         return std::make_unique<ExampleAdapter>();
     }
 
-    phicore::adapter::v1::ActionResponse onFactoryActionInvoke(
-        const phicore::adapter::sdk::AdapterActionInvokeRequest &request) override
+    sdk::ActionResponse onFactoryActionInvoke(const sdk::AdapterActionInvokeRequest &request) override
     {
-        phicore::adapter::v1::ActionResponse response;
+        sdk::ActionResponse response;
         response.id = request.cmdId;
-        response.status = phicore::adapter::v1::CmdStatus::Success;
-        response.resultType = phicore::adapter::v1::ActionResultType::String;
-        response.resultValue = phicore::adapter::v1::Utf8String("factory-ok");
+        response.status = sdk::CmdStatus::Success;
+        response.resultType = sdk::ActionResultType::String;
+        response.resultValue = sdk::Utf8String("factory-ok");
         return response;
     }
 
-    void onBootstrap(const phicore::adapter::sdk::BootstrapRequest &request) override
+    void onBootstrap(const sdk::BootstrapRequest &request) override
     {
         std::cerr << "factory bootstrap adapterId=" << request.adapterId
                   << " extId='" << request.adapter.externalId
@@ -145,14 +142,14 @@ int main(int argc, char **argv)
     std::signal(SIGTERM, handleSignal);
 
     const char *envSocketPath = std::getenv("PHI_ADAPTER_SOCKET_PATH");
-    const phicore::adapter::v1::Utf8String socketPath = (argc > 1)
+    const sdk::Utf8String socketPath = (argc > 1)
         ? argv[1]
-        : (envSocketPath ? envSocketPath : phicore::adapter::v1::Utf8String("/tmp/phi-adapter-example.sock"));
+        : (envSocketPath ? envSocketPath : sdk::Utf8String("/tmp/phi-adapter-example.sock"));
 
     ExampleFactory factory;
-    phicore::adapter::sdk::SidecarHost host(socketPath, factory);
+    sdk::SidecarHost host(socketPath, factory);
 
-    phicore::adapter::v1::Utf8String error;
+    sdk::Utf8String error;
     if (!host.start(&error)) {
         std::cerr << "host start failed: " << error << std::endl;
         return 1;

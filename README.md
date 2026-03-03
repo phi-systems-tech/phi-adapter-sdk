@@ -25,6 +25,15 @@ Linux-first SDK for phi adapter sidecars.
 - C++ API is the primary SDK surface for v1
 - Enum string conversion (`enum_names.h`) is strict v1 canonical naming (no legacy aliases)
 
+## SDK Type Aliases
+
+To reduce `phicore::adapter::v1::...` noise in adapter code, `phicore::adapter::sdk`
+exports aliases for common contract types, for example:
+
+- `sdk::Utf8String`, `sdk::JsonText`, `sdk::ExternalId`, `sdk::CmdId`
+- `sdk::CmdResponse`, `sdk::ActionResponse`, `sdk::CmdStatus`, `sdk::ActionResultType`
+- `sdk::Adapter`, `sdk::Device`, `sdk::Channel`, `sdk::Room`, `sdk::Group`, `sdk::Scene`
+
 ## STRICT V1 POLICY: NO FALLBACKS, NO BACKWARD COMPATIBILITY
 
 - Do not implement legacy aliases for schema keys, action ids, channel ids, or enum names.
