@@ -328,14 +328,14 @@ public:
      * @param metaPatchJson JSON object text for dynamic runtime metadata only.
      *
      * Static adapter identity/capabilities/schema belong to descriptor transport
-     * (`EventAdapterDescriptor` / `EventAdapterDescriptorUpdated`).
+     * (`EventFactoryDescriptor` / `EventFactoryDescriptorUpdated`).
      */
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::ExternalId &externalId,
                                 const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
-     * @brief Publish runtime descriptor update (`command=EventAdapterDescriptorUpdated`).
+     * @brief Publish runtime descriptor update (`command=EventFactoryDescriptorUpdated`).
      * @param descriptor First-class adapter descriptor payload.
      */
     bool sendAdapterDescriptorUpdated(const phicore::adapter::v1::ExternalId &externalId,
@@ -428,7 +428,7 @@ private:
     friend class SidecarHost;
 
     /**
-     * @brief Send bootstrap descriptor response (`command=EventAdapterDescriptor`).
+     * @brief Send bootstrap descriptor response (`command=EventFactoryDescriptor`).
      *
      * Internal helper used by `SidecarHost` during bootstrap flow.
      */
@@ -504,7 +504,9 @@ protected:
                    phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
-    bool sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+    AdapterDescriptor factoryDescriptor() const;
+    bool sendFactoryDescriptorUpdated(phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendFactoryDescriptorUpdated(const AdapterDescriptor &descriptor,
                                       phicore::adapter::v1::Utf8String *error = nullptr);
 
 private:

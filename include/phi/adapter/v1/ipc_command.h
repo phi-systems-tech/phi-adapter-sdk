@@ -17,8 +17,8 @@ enum class IpcCommand : std::uint16_t {
     CmdSceneInvoke = 0x0205,
 
     // Event (adapter -> core, unsolicited)
-    EventAdapterDescriptor = 0x1001,
-    EventAdapterDescriptorUpdated = 0x1002,
+    EventFactoryDescriptor = 0x1001,
+    EventFactoryDescriptorUpdated = 0x1002,
     EventAdapterMetaUpdated = 0x1003,
     EventConnectionStateChanged = 0x1004,
     EventError = 0x1005,

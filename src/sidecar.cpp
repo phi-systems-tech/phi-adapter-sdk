@@ -1413,7 +1413,7 @@ bool SidecarDispatcher::sendAdapterDescriptor(const phicore::adapter::v1::Extern
                                               phicore::adapter::v1::Utf8String *error)
 {
     const std::string body = std::string("{\"command\":")
-        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventAdapterDescriptor))
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventFactoryDescriptor))
         + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"descriptor\":"
@@ -1427,7 +1427,7 @@ bool SidecarDispatcher::sendAdapterDescriptorUpdated(const phicore::adapter::v1:
                                                      phicore::adapter::v1::Utf8String *error)
 {
     const std::string body = std::string("{\"command\":")
-        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventAdapterDescriptorUpdated))
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventFactoryDescriptorUpdated))
         + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"descriptor\":"
@@ -1696,7 +1696,23 @@ bool AdapterFactory::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText
 {
     return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated({}, metaPatchJson, error) : false;
 }
-bool AdapterFactory::sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+AdapterDescriptor AdapterFactory::factoryDescriptor() const
+{
+    AdapterDescriptor descriptorValue = descriptor();
+    if (descriptorValue.pluginType.empty())
+        descriptorValue.pluginType = pluginType();
+    return descriptorValue;
+}
+bool AdapterFactory::sendFactoryDescriptorUpdated(phicore::adapter::v1::Utf8String *error)
+{
+    if (!m_dispatcher) {
+        if (error)
+            *error = "Dispatcher not bound";
+        return false;
+    }
+    return m_dispatcher->sendAdapterDescriptorUpdated({}, factoryDescriptor(), error);
+}
+bool AdapterFactory::sendFactoryDescriptorUpdated(const AdapterDescriptor &descriptor,
                                                   phicore::adapter::v1::Utf8String *error)
 {
     return m_dispatcher ? m_dispatcher->sendAdapterDescriptorUpdated({}, descriptor, error) : false;

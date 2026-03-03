@@ -230,8 +230,8 @@ Core -> Adapter (`Sync*` / `Cmd*`):
 
 Adapter -> Core (`Event*`):
 
-- `EventAdapterDescriptor` (`0x1001`)
-- `EventAdapterDescriptorUpdated` (`0x1002`)
+- `EventFactoryDescriptor` (`0x1001`)
+- `EventFactoryDescriptorUpdated` (`0x1002`)
 - `EventAdapterMetaUpdated` (`0x1003`)
 - `EventConnectionStateChanged` (`0x1004`)
 - `EventError` (`0x1005`)
@@ -272,10 +272,12 @@ Adapter -> Core (`Result*`):
 
 ## Bootstrap Descriptor
 
-On `sync.adapter.bootstrap`, `SidecarHost` automatically responds with `kind=adapterDescriptor`.
+On `sync.adapter.bootstrap`, `SidecarHost` automatically responds with `kind=factoryDescriptor`.
 The payload is built from `AdapterFactory::descriptor()` (default implementation aggregates the
 first-class override methods listed above).
-`adapterDescriptor` is host-managed and not intended to be sent manually by adapter code.
+`factoryDescriptor` is host-managed and not intended to be sent manually by adapter code.
+The descriptor payload is complete (name/description/apiVersion/icon/image/capabilities/schema/...),
+not a partial field patch.
 
 ## Runtime Config Updates (v1)
 
@@ -375,17 +377,18 @@ Rules:
 - Implement schema via `AdapterFactory::configSchemaJson()` as UTF-8 JSON object text.
 - Return an object (`{...}`), not arrays/scalars.
 - Keep schema keys stable across releases; treat key renames/removals as breaking changes.
-- Use `sendAdapterDescriptorUpdated(...)` when static descriptor data changes at runtime.
+- Use `sendFactoryDescriptorUpdated()` when static descriptor data changes at runtime.
+  This sends the full current `factoryDescriptor()` (built from `descriptor()`).
 - Do not send static schema/icon/description/displayName through `sendAdapterMetaUpdated(...)`.
 - Use `sendAdapterMetaUpdated(...)` only for dynamic runtime metadata.
 
 ### Bootstrap Flow
 
 1. phi-core sends `sync.adapter.bootstrap`.
-2. SDK host responds with `kind=adapterDescriptor` (includes `configSchema`).
+2. SDK host responds with `kind=factoryDescriptor` (includes `configSchema`).
 3. phi-core sends `sync.adapter.config.changed`.
 4. phi-core persists descriptor fields and exposes schema to UI/settings.
-5. Optional runtime static updates are sent via `kind=adapterDescriptorUpdated`.
+5. Optional runtime static updates are sent via `kind=factoryDescriptorUpdated`.
 
 ### Action Form Patch Example
 
