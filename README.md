@@ -133,6 +133,8 @@ Naming rules:
 
 Canonical enum: `phicore::adapter::v1::IpcCommand` in
 `phi/adapter/v1/ipc_command.h`.
+Canonical payload contract for every `IpcCommand` is defined in
+`phi-transport-api/PROTOCOLL.md` section `6.4`.
 
 Core -> Adapter (`Sync*` / `Cmd*`):
 
