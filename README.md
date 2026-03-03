@@ -165,7 +165,10 @@ Logging API (v1 SDK contract):
 Cmd/Action Results (NVI, mandatory):
 
 - Host dispatch uses private NVI entry points for command/action processing.
-- Adapter command/action hooks are synchronous functions from host perspective.
+- SDK runtime uses asynchronous **Variant B** processing for `Cmd*`:
+  - host accepts request and enqueues it to the target instance worker
+  - instance worker computes result and enqueues correlated `Result*`
+  - host sends `Result*` back to core on the host send path
 - Each accepted `Cmd*` request produces exactly one correlated `Result*`.
 - `cmdId` correlation is host-managed and always echoed.
 - SDK/host normalizes responses (required fields, `status`, `tsMs`, kind-specific payload).
@@ -174,11 +177,28 @@ Cmd/Action Results (NVI, mandatory):
 
 Concurrency model (v1, mandatory):
 
-- Background work (polling, network callbacks, event streams) may run on worker threads.
+- `HostThread` is the sidecar main thread that runs `SidecarHost::pollOnce(...)`.
+- IPC read/write and frame dispatch run on `HostThread`.
+- Exactly one runtime process exists per `pluginType`.
+- One runtime process hosts factory scope and all instance scopes for that `pluginType`.
+- Each adapter instance (`externalId`) runs in its own SDK-owned worker thread.
+- `createInstance(externalId)` creates runtime object; SDK owns worker lifecycle.
+- `SyncAdapterInstanceRemoved` stops worker and destroys the instance.
+- `send*`, `log`, and `sendError` are thread-safe enqueue APIs.
 - IPC write/dispatch to core MUST be serialized through one host-owned send path.
 - Worker threads MUST not emit IPC frames directly.
-- Worker threads should enqueue domain updates; host thread drains and sends `Event*`.
-- This guarantees deterministic ordering, one-result-per-command behavior, and safe correlation.
+- Worker threads enqueue events/results; `HostThread` drains queues and sends frames.
+- Per-instance outbound ordering is FIFO and deterministic.
+- Backpressure policy:
+  - queues are bounded per instance
+  - drop first: low-priority logs (`Trace`/`Debug`)
+  - never drop: `EventError`
+  - coalescing of rapid state updates is SDK-controlled
+- Timeout policy:
+  - pending command timeout is tracked by host
+  - default timeout source is `AdapterFactory::timeoutMs()` (plugin-level)
+  - timeout returns correlated `Result*` with timeout status
+  - late worker results after timeout are dropped with debug log
 
 ### Naming Rules
 
