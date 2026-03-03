@@ -40,6 +40,23 @@ using phicore::adapter::v1::ScalarValue;
 using phicore::adapter::v1::Scene;
 using phicore::adapter::v1::SceneList;
 
+std::string_view logLevelName(LogLevel level)
+{
+    switch (level) {
+    case LogLevel::Trace:
+        return "trace";
+    case LogLevel::Debug:
+        return "debug";
+    case LogLevel::Info:
+        return "info";
+    case LogLevel::Warn:
+        return "warn";
+    case LogLevel::Error:
+        return "error";
+    }
+    return "info";
+}
+
 using MemberMap = std::unordered_map<std::string, std::string_view>;
 
 std::int64_t nowMs()
@@ -944,6 +961,27 @@ ActionResponse defaultActionResponse(CmdId cmdId, const std::string &message)
     return response;
 }
 
+CmdResponse invalidArgumentCmdResponse(CmdId cmdId, const std::string &message)
+{
+    CmdResponse response;
+    response.id = cmdId;
+    response.status = CmdStatus::InvalidArgument;
+    response.error = message;
+    response.tsMs = nowMs();
+    return response;
+}
+
+ActionResponse invalidArgumentActionResponse(CmdId cmdId, const std::string &message)
+{
+    ActionResponse response;
+    response.id = cmdId;
+    response.status = CmdStatus::InvalidArgument;
+    response.error = message;
+    response.resultType = ActionResultType::None;
+    response.tsMs = nowMs();
+    return response;
+}
+
 } // namespace
 
 SidecarDispatcher::SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath)
@@ -1023,16 +1061,10 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         adapter.port =
             static_cast<std::uint16_t>(parseIntOrDefault(member(adapterMap, "port"), 0));
         adapter.user = decodeStringOrDefault(member(adapterMap, "user"));
-        adapter.password = decodeStringOrDefault(member(adapterMap, "pw"));
-        if (adapter.password.empty())
-            adapter.password = decodeStringOrDefault(member(adapterMap, "password"));
+        adapter.password = decodeStringOrDefault(member(adapterMap, "password"));
         adapter.token = decodeStringOrDefault(member(adapterMap, "token"));
-        adapter.pluginType = decodeStringOrDefault(member(adapterMap, "plugin"));
-        if (adapter.pluginType.empty())
-            adapter.pluginType = decodeStringOrDefault(member(adapterMap, "pluginType"));
-        adapter.externalId = decodeStringOrDefault(member(adapterMap, "id"));
-        if (adapter.externalId.empty())
-            adapter.externalId = decodeStringOrDefault(member(adapterMap, "externalId"));
+        adapter.pluginType = decodeStringOrDefault(member(adapterMap, "pluginType"));
+        adapter.externalId = decodeStringOrDefault(member(adapterMap, "externalId"));
         adapter.metaJson = std::string(member(adapterMap, "meta"));
         adapter.flags = static_cast<phicore::adapter::v1::AdapterFlag>(
             parseIntOrDefault(member(adapterMap, "flags"), 0));
@@ -1053,13 +1085,11 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
             const std::string_view adapterToken = member(payloadMap, "adapter");
             if (parseObjectMembers(adapterToken, &adapterMap, nullptr)) {
                 request.adapter = parseAdapterFromMap(adapterMap);
-            } else {
-                // Transitional compatibility: bootstrap still provides identity fields.
-                if (request.adapter.externalId.empty())
-                    request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "id"));
-                if (request.adapter.pluginType.empty())
-                    request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "plugin"));
             }
+            if (request.adapter.pluginType.empty())
+                request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
+            if (request.adapter.externalId.empty())
+                request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
             m_handlers.onBootstrap(request);
         }
         return true;
@@ -1072,10 +1102,16 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
             request.correlationId = header.correlationId;
             request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
             request.staticConfigJson = std::string(member(payloadMap, "staticConfig"));
+            request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+            request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
 
             MemberMap adapterMap;
             if (parseObjectMembers(member(payloadMap, "adapter"), &adapterMap, nullptr))
                 request.adapter = parseAdapterFromMap(adapterMap);
+            if (request.adapter.pluginType.empty())
+                request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
+            if (request.adapter.externalId.empty())
+                request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
             m_handlers.onConfigChanged(request);
         }
         return true;
@@ -1084,12 +1120,9 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (method == "cmd.channel.invoke") {
         ChannelInvokeRequest request;
         request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
         request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
-        if (request.deviceExternalId.empty())
-            request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceId"));
         request.channelExternalId = decodeStringOrDefault(member(payloadMap, "channelExternalId"));
-        if (request.channelExternalId.empty())
-            request.channelExternalId = decodeStringOrDefault(member(payloadMap, "channelId"));
         const std::string_view valueToken = member(payloadMap, "value");
         request.valueJson = std::string(valueToken);
         request.hasScalarValue = parseScalarValueToken(valueToken, &request.value);
@@ -1105,6 +1138,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (method == "cmd.adapter.action.invoke") {
         AdapterActionInvokeRequest request;
         request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
         request.actionId = decodeStringOrDefault(member(payloadMap, "actionId"));
         request.paramsJson = std::string(member(payloadMap, "params"));
         if (trim(request.paramsJson).empty())
@@ -1121,9 +1155,8 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (method == "cmd.device.name.update") {
         DeviceNameUpdateRequest request;
         request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
         request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
-        if (request.deviceExternalId.empty())
-            request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceId"));
         request.name = decodeStringOrDefault(member(payloadMap, "name"));
 
         CmdResponse response = m_handlers.onDeviceNameUpdate
@@ -1137,9 +1170,8 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (method == "cmd.device.effect.invoke") {
         DeviceEffectInvokeRequest request;
         request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
         request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
-        if (request.deviceExternalId.empty())
-            request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceId"));
         request.effect = static_cast<DeviceEffect>(parseIntOrDefault(member(payloadMap, "effect"), 0));
         request.effectId = decodeStringOrDefault(member(payloadMap, "effectId"));
         request.paramsJson = std::string(member(payloadMap, "params"));
@@ -1157,9 +1189,8 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (method == "cmd.scene.invoke") {
         SceneInvokeRequest request;
         request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
         request.sceneExternalId = decodeStringOrDefault(member(payloadMap, "sceneExternalId"));
-        if (request.sceneExternalId.empty())
-            request.sceneExternalId = decodeStringOrDefault(member(payloadMap, "sceneId"));
         request.groupExternalId = decodeStringOrDefault(member(payloadMap, "groupExternalId"));
         request.action = decodeStringOrDefault(member(payloadMap, "action"));
 
@@ -1174,6 +1205,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (m_handlers.onUnknownRequest) {
         UnknownRequest request;
         request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
         request.method = method;
         request.payloadJson = std::string(payloadToken);
         m_handlers.onUnknownRequest(request);
@@ -1263,15 +1295,20 @@ bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore
     return sendJson(MessageType::Response, response.id, body, error);
 }
 
-bool SidecarDispatcher::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
+bool SidecarDispatcher::sendConnectionStateChanged(const phicore::adapter::v1::ExternalId &externalId,
+                                                   bool connected,
+                                                   phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"connectionStateChanged\",\"connected\":")
+    const std::string body = std::string("{\"kind\":\"connectionStateChanged\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + ",\"connected\":"
         + (connected ? "true" : "false")
         + "}";
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendError(const phicore::adapter::v1::Utf8String &message,
+bool SidecarDispatcher::sendError(const phicore::adapter::v1::ExternalId &externalId,
+                                  const phicore::adapter::v1::Utf8String &message,
                                   const ScalarList &params,
                                   const phicore::adapter::v1::Utf8String &ctx,
                                   phicore::adapter::v1::Utf8String *error)
@@ -1281,6 +1318,8 @@ bool SidecarDispatcher::sendError(const phicore::adapter::v1::Utf8String &messag
     bool first = true;
     appendFieldPrefix(body, first, "kind");
     body += "\"error\"";
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "message");
     body += jsonQuoted(message);
     appendFieldPrefix(body, first, "ctx");
@@ -1291,34 +1330,78 @@ bool SidecarDispatcher::sendError(const phicore::adapter::v1::Utf8String &messag
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
-                                               phicore::adapter::v1::Utf8String *error)
+bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &externalId,
+                                const phicore::adapter::v1::Utf8String &pluginType,
+                                const LogEntry &entry,
+                                phicore::adapter::v1::Utf8String *error)
 {
-    const std::string patch = trim(metaPatchJson).empty() ? "{}" : metaPatchJson;
-    const std::string body = std::string("{\"kind\":\"adapterMetaUpdated\",\"metaPatch\":") + patch + "}";
+    const std::int64_t tsMs = entry.tsMs > 0 ? entry.tsMs : nowMs();
+    const std::string fields = trim(entry.fieldsJson).empty() ? "{}" : entry.fieldsJson;
+    std::string body;
+    body.push_back('{');
+    bool first = true;
+    appendFieldPrefix(body, first, "kind");
+    body += "\"log\"";
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "pluginType");
+    body += jsonQuoted(pluginType);
+    appendFieldPrefix(body, first, "level");
+    body += jsonQuoted(std::string(logLevelName(entry.level)));
+    appendFieldPrefix(body, first, "message");
+    body += jsonQuoted(entry.message);
+    appendFieldPrefix(body, first, "ctx");
+    body += jsonQuoted(entry.ctx);
+    appendFieldPrefix(body, first, "params");
+    appendScalarListJson(body, entry.params);
+    appendFieldPrefix(body, first, "fields");
+    body += jsonTokenOrDefault(fields, "{}");
+    appendFieldPrefix(body, first, "tsMs");
+    body += std::to_string(tsMs);
+    body.push_back('}');
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendAdapterDescriptor(const AdapterDescriptor &descriptor,
+bool SidecarDispatcher::sendAdapterMetaUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                               const phicore::adapter::v1::JsonText &metaPatchJson,
+                                               phicore::adapter::v1::Utf8String *error)
+{
+    const std::string patch = trim(metaPatchJson).empty() ? "{}" : metaPatchJson;
+    const std::string body = std::string("{\"kind\":\"adapterMetaUpdated\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + ",\"metaPatch\":"
+        + patch
+        + "}";
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
+bool SidecarDispatcher::sendAdapterDescriptor(const phicore::adapter::v1::ExternalId &externalId,
+                                              const AdapterDescriptor &descriptor,
                                               CorrelationId correlationId,
                                               phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"adapterDescriptor\",\"descriptor\":")
+    const std::string body = std::string("{\"kind\":\"adapterDescriptor\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + ",\"descriptor\":"
         + descriptorToJson(descriptor)
         + "}";
     return sendJson(MessageType::Response, correlationId, body, error);
 }
 
-bool SidecarDispatcher::sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+bool SidecarDispatcher::sendAdapterDescriptorUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                                     const AdapterDescriptor &descriptor,
                                                      phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"adapterDescriptorUpdated\",\"descriptor\":")
+    const std::string body = std::string("{\"kind\":\"adapterDescriptorUpdated\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + ",\"descriptor\":"
         + descriptorToJson(descriptor)
         + "}";
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                                const phicore::adapter::v1::ExternalId &deviceExternalId,
                                                 const phicore::adapter::v1::ExternalId &channelExternalId,
                                                 const ScalarValue &value,
                                                 std::int64_t tsMs,
@@ -1330,6 +1413,8 @@ bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::Exte
     bool first = true;
     appendFieldPrefix(body, first, "kind");
     body += "\"channelStateUpdated\"";
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "deviceExternalId");
     body += jsonQuoted(deviceExternalId);
     appendFieldPrefix(body, first, "channelExternalId");
@@ -1342,11 +1427,14 @@ bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::Exte
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendDeviceUpdated(const Device &device,
+bool SidecarDispatcher::sendDeviceUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                          const Device &device,
                                           const ChannelList &channels,
                                           phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"deviceUpdated\",\"payload\":{\"device\":";
+    std::string body = "{\"kind\":\"deviceUpdated\",\"externalId\":";
+    body += jsonQuoted(externalId);
+    body += ",\"payload\":{\"device\":";
     body += deviceToJson(device);
     body += ",\"channels\":[";
     bool first = true;
@@ -1360,20 +1448,26 @@ bool SidecarDispatcher::sendDeviceUpdated(const Device &device,
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendDeviceRemoved(const phicore::adapter::v1::ExternalId &deviceExternalId,
+bool SidecarDispatcher::sendDeviceRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                                          const phicore::adapter::v1::ExternalId &deviceExternalId,
                                           phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"deviceRemoved\",\"deviceExternalId\":")
+    const std::string body = std::string("{\"kind\":\"deviceRemoved\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + ",\"deviceExternalId\":"
         + jsonQuoted(deviceExternalId)
         + "}";
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendChannelUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+bool SidecarDispatcher::sendChannelUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                           const phicore::adapter::v1::ExternalId &deviceExternalId,
                                            const Channel &channel,
                                            phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"channelUpdated\",\"payload\":{\"deviceExternalId\":";
+    std::string body = "{\"kind\":\"channelUpdated\",\"externalId\":";
+    body += jsonQuoted(externalId);
+    body += ",\"payload\":{\"deviceExternalId\":";
     body += jsonQuoted(deviceExternalId);
     body += ",\"channel\":";
     body += channelToJson(channel);
@@ -1381,158 +1475,131 @@ bool SidecarDispatcher::sendChannelUpdated(const phicore::adapter::v1::ExternalI
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendRoomUpdated(const Room &room, phicore::adapter::v1::Utf8String *error)
+bool SidecarDispatcher::sendRoomUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                        const Room &room,
+                                        phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"roomUpdated\",\"room\":";
+    std::string body = "{\"kind\":\"roomUpdated\",\"externalId\":";
+    body += jsonQuoted(externalId);
+    body += ",\"room\":";
     body += roomToJson(room);
     body += "}";
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendRoomRemoved(const phicore::adapter::v1::ExternalId &roomExternalId,
+bool SidecarDispatcher::sendRoomRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                                        const phicore::adapter::v1::ExternalId &roomExternalId,
                                         phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"roomRemoved\",\"roomExternalId\":")
+    const std::string body = std::string("{\"kind\":\"roomRemoved\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + ",\"roomExternalId\":"
         + jsonQuoted(roomExternalId)
         + "}";
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendGroupUpdated(const Group &group, phicore::adapter::v1::Utf8String *error)
+bool SidecarDispatcher::sendGroupUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                         const Group &group,
+                                         phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"groupUpdated\",\"group\":";
+    std::string body = "{\"kind\":\"groupUpdated\",\"externalId\":";
+    body += jsonQuoted(externalId);
+    body += ",\"group\":";
     body += groupToJson(group);
     body += "}";
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendGroupRemoved(const phicore::adapter::v1::ExternalId &groupExternalId,
+bool SidecarDispatcher::sendGroupRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                                         const phicore::adapter::v1::ExternalId &groupExternalId,
                                          phicore::adapter::v1::Utf8String *error)
 {
-    const std::string body = std::string("{\"kind\":\"groupRemoved\",\"groupExternalId\":")
+    const std::string body = std::string("{\"kind\":\"groupRemoved\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + ",\"groupExternalId\":"
         + jsonQuoted(groupExternalId)
         + "}";
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendScenesUpdated(const SceneList &scenes, phicore::adapter::v1::Utf8String *error)
+bool SidecarDispatcher::sendSceneUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                         const Scene &scene,
+                                         phicore::adapter::v1::Utf8String *error)
 {
-    std::string body = "{\"kind\":\"scenesUpdated\",\"scenes\":[";
-    bool first = true;
-    for (const Scene &scene : scenes) {
-        if (!first)
-            body.push_back(',');
-        first = false;
-        body += sceneToJson(scene);
-    }
-    body += "]}";
+    std::string body = "{\"kind\":\"sceneUpdated\",\"externalId\":";
+    body += jsonQuoted(externalId);
+    body += ",\"scene\":";
+    body += sceneToJson(scene);
+    body += "}";
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error)
+bool SidecarDispatcher::sendSceneRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                                         const phicore::adapter::v1::ExternalId &sceneExternalId,
+                                         phicore::adapter::v1::Utf8String *error)
 {
-    return sendJson(MessageType::Event, 0, "{\"kind\":\"fullSyncCompleted\"}", error);
+    const std::string body = std::string("{\"kind\":\"sceneRemoved\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + ",\"sceneExternalId\":"
+        + jsonQuoted(sceneExternalId)
+        + "}";
+    return sendJson(MessageType::Event, 0, body, error);
 }
 
-void AdapterSidecar::onConnected()
+bool SidecarDispatcher::sendFullSyncCompleted(const phicore::adapter::v1::ExternalId &externalId,
+                                              phicore::adapter::v1::Utf8String *error)
 {
+    const std::string body = std::string("{\"kind\":\"fullSyncCompleted\",\"externalId\":")
+        + jsonQuoted(externalId)
+        + "}";
+    return sendJson(MessageType::Event, 0, body, error);
 }
 
-void AdapterSidecar::onDisconnected()
+const BootstrapRequest &AdapterFactory::bootstrap() const
 {
+    return m_bootstrap;
 }
 
-void AdapterSidecar::onProtocolError(const phicore::adapter::v1::Utf8String &message)
+bool AdapterFactory::hasBootstrap() const
 {
-    (void)message;
+    return m_hasBootstrap;
 }
 
-void AdapterSidecar::onBootstrap(const BootstrapRequest &request)
+bool AdapterFactory::log(LogLevel level,
+                         const phicore::adapter::v1::Utf8String &message,
+                         const phicore::adapter::v1::Utf8String &ctx,
+                         const phicore::adapter::v1::ScalarList &params,
+                         const phicore::adapter::v1::JsonText &fieldsJson,
+                         std::int64_t tsMs,
+                         phicore::adapter::v1::Utf8String *error)
 {
-    cacheBootstrap(request);
+    if (!m_dispatcher) {
+        if (error)
+            *error = "Dispatcher not bound";
+        return false;
+    }
+    LogEntry entry;
+    entry.level = level;
+    entry.message = message;
+    entry.ctx = ctx;
+    entry.params = params;
+    entry.fieldsJson = fieldsJson;
+    entry.tsMs = tsMs;
+    return m_dispatcher->sendLog({}, hostPluginType(), entry, error);
 }
 
-void AdapterSidecar::onConfigChanged(const ConfigChangedRequest &request)
-{
-    cacheConfig(request);
-}
+phicore::adapter::v1::Utf8String AdapterFactory::displayName() const { return {}; }
+phicore::adapter::v1::Utf8String AdapterFactory::description() const { return {}; }
+phicore::adapter::v1::Utf8String AdapterFactory::apiVersion() const { return {}; }
+phicore::adapter::v1::Utf8String AdapterFactory::iconSvg() const { return {}; }
+phicore::adapter::v1::Utf8String AdapterFactory::imageBase64() const { return {}; }
+int AdapterFactory::timeoutMs() const { return 50; }
+int AdapterFactory::maxInstances() const { return 0; }
+phicore::adapter::v1::AdapterCapabilities AdapterFactory::capabilities() const { return {}; }
+phicore::adapter::v1::JsonText AdapterFactory::configSchemaJson() const { return {}; }
 
-CmdResponse AdapterSidecar::onChannelInvoke(const ChannelInvokeRequest &request)
-{
-    return defaultCmdResponse(request.cmdId, "Channel invoke handler not implemented");
-}
-
-ActionResponse AdapterSidecar::onAdapterActionInvoke(const AdapterActionInvokeRequest &request)
-{
-    return defaultActionResponse(request.cmdId, "Adapter action handler not implemented");
-}
-
-CmdResponse AdapterSidecar::onDeviceNameUpdate(const DeviceNameUpdateRequest &request)
-{
-    return defaultCmdResponse(request.cmdId, "Device name update handler not implemented");
-}
-
-CmdResponse AdapterSidecar::onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request)
-{
-    return defaultCmdResponse(request.cmdId, "Device effect handler not implemented");
-}
-
-CmdResponse AdapterSidecar::onSceneInvoke(const SceneInvokeRequest &request)
-{
-    return defaultCmdResponse(request.cmdId, "Scene invoke handler not implemented");
-}
-
-void AdapterSidecar::onUnknownRequest(const UnknownRequest &request)
-{
-    (void)request;
-}
-
-phicore::adapter::v1::Utf8String AdapterSidecar::displayName() const
-{
-    return {};
-}
-
-phicore::adapter::v1::Utf8String AdapterSidecar::description() const
-{
-    return {};
-}
-
-phicore::adapter::v1::Utf8String AdapterSidecar::apiVersion() const
-{
-    return {};
-}
-
-phicore::adapter::v1::Utf8String AdapterSidecar::iconSvg() const
-{
-    return {};
-}
-
-phicore::adapter::v1::Utf8String AdapterSidecar::imageBase64() const
-{
-    return {};
-}
-
-int AdapterSidecar::timeoutMs() const
-{
-    return 50;
-}
-
-int AdapterSidecar::maxInstances() const
-{
-    return 0;
-}
-
-phicore::adapter::v1::AdapterCapabilities AdapterSidecar::capabilities() const
-{
-    return {};
-}
-
-phicore::adapter::v1::JsonText AdapterSidecar::configSchemaJson() const
-{
-    return {};
-}
-
-AdapterDescriptor AdapterSidecar::descriptor() const
+AdapterDescriptor AdapterFactory::descriptor() const
 {
     AdapterDescriptor out;
     out.pluginType = pluginType();
@@ -1548,174 +1615,259 @@ AdapterDescriptor AdapterSidecar::descriptor() const
     return out;
 }
 
-const BootstrapRequest &AdapterSidecar::bootstrap() const
+void AdapterFactory::destroyInstance(std::unique_ptr<AdapterInstance> instance) { (void)instance; }
+phicore::adapter::v1::ActionResponse AdapterFactory::onFactoryActionInvoke(const AdapterActionInvokeRequest &request)
 {
-    return m_bootstrap;
+    return defaultActionResponse(request.cmdId, "Factory action handler not implemented");
 }
+void AdapterFactory::onConnected() {}
+void AdapterFactory::onDisconnected() {}
+void AdapterFactory::onProtocolError(const phicore::adapter::v1::Utf8String &message) { (void)message; }
+void AdapterFactory::onBootstrap(const BootstrapRequest &request) { (void)request; }
 
-bool AdapterSidecar::hasBootstrap() const
+bool AdapterFactory::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
 {
-    return m_hasBootstrap;
+    return m_dispatcher ? m_dispatcher->sendConnectionStateChanged({}, connected, error) : false;
 }
-
-const ConfigChangedRequest &AdapterSidecar::config() const
-{
-    return m_config;
-}
-
-bool AdapterSidecar::hasConfig() const
-{
-    return m_hasConfig;
-}
-
-int AdapterSidecar::adapterId() const
-{
-    return m_hasBootstrap ? m_bootstrap.adapterId : 0;
-}
-
-const phicore::adapter::v1::Utf8String &AdapterSidecar::pluginType() const
-{
-    return m_bootstrap.adapter.pluginType;
-}
-
-const phicore::adapter::v1::ExternalId &AdapterSidecar::externalId() const
-{
-    return m_bootstrap.adapter.externalId;
-}
-
-bool AdapterSidecar::sendCmdResult(const CmdResponse &response, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendCmdResult(response, error) : false;
-}
-
-bool AdapterSidecar::sendActionResult(const ActionResponse &response, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendActionResult(response, error) : false;
-}
-
-bool AdapterSidecar::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendConnectionStateChanged(connected, error) : false;
-}
-
-bool AdapterSidecar::sendError(const phicore::adapter::v1::Utf8String &message,
+bool AdapterFactory::sendError(const phicore::adapter::v1::Utf8String &message,
                                const ScalarList &params,
                                const phicore::adapter::v1::Utf8String &ctx,
                                phicore::adapter::v1::Utf8String *error)
 {
-    return m_dispatcher ? m_dispatcher->sendError(message, params, ctx, error) : false;
+    return m_dispatcher ? m_dispatcher->sendError({}, message, params, ctx, error) : false;
 }
-
-bool AdapterSidecar::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
+bool AdapterFactory::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                             phicore::adapter::v1::Utf8String *error)
 {
-    return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated(metaPatchJson, error) : false;
+    return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated({}, metaPatchJson, error) : false;
 }
-
-bool AdapterSidecar::sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+bool AdapterFactory::sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
                                                   phicore::adapter::v1::Utf8String *error)
 {
-    return m_dispatcher ? m_dispatcher->sendAdapterDescriptorUpdated(descriptor, error) : false;
+    return m_dispatcher ? m_dispatcher->sendAdapterDescriptorUpdated({}, descriptor, error) : false;
 }
 
-bool AdapterSidecar::sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
-                                             const phicore::adapter::v1::ExternalId &channelExternalId,
-                                             const ScalarValue &value,
-                                             std::int64_t tsMs,
-                                             phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher
-        ? m_dispatcher->sendChannelStateUpdated(deviceExternalId, channelExternalId, value, tsMs, error)
-        : false;
-}
-
-bool AdapterSidecar::sendDeviceUpdated(const Device &device,
-                                       const ChannelList &channels,
-                                       phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendDeviceUpdated(device, channels, error) : false;
-}
-
-bool AdapterSidecar::sendDeviceRemoved(const phicore::adapter::v1::ExternalId &deviceExternalId,
-                                       phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendDeviceRemoved(deviceExternalId, error) : false;
-}
-
-bool AdapterSidecar::sendChannelUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
-                                        const Channel &channel,
-                                        phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendChannelUpdated(deviceExternalId, channel, error) : false;
-}
-
-bool AdapterSidecar::sendRoomUpdated(const Room &room, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendRoomUpdated(room, error) : false;
-}
-
-bool AdapterSidecar::sendRoomRemoved(const phicore::adapter::v1::ExternalId &roomExternalId, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendRoomRemoved(roomExternalId, error) : false;
-}
-
-bool AdapterSidecar::sendGroupUpdated(const Group &group, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendGroupUpdated(group, error) : false;
-}
-
-bool AdapterSidecar::sendGroupRemoved(const phicore::adapter::v1::ExternalId &groupExternalId, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendGroupRemoved(groupExternalId, error) : false;
-}
-
-bool AdapterSidecar::sendScenesUpdated(const SceneList &scenes, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendScenesUpdated(scenes, error) : false;
-}
-
-bool AdapterSidecar::sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendFullSyncCompleted(error) : false;
-}
-
-void AdapterSidecar::bindDispatcher(SidecarDispatcher *dispatcher)
-{
-    m_dispatcher = dispatcher;
-}
-
-void AdapterSidecar::cacheBootstrap(const BootstrapRequest &request)
+void AdapterFactory::bindDispatcher(SidecarDispatcher *dispatcher) { m_dispatcher = dispatcher; }
+void AdapterFactory::cacheBootstrap(const BootstrapRequest &request)
 {
     m_bootstrap = request;
     m_hasBootstrap = true;
 }
+phicore::adapter::v1::Utf8String AdapterFactory::hostPluginType() const { return pluginType(); }
+AdapterDescriptor AdapterFactory::hostDescriptor() const { return descriptor(); }
+std::unique_ptr<AdapterInstance> AdapterFactory::hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId)
+{
+    return createInstance(externalId);
+}
+void AdapterFactory::hostDestroyInstance(std::unique_ptr<AdapterInstance> instance)
+{
+    destroyInstance(std::move(instance));
+}
+phicore::adapter::v1::ActionResponse AdapterFactory::hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request)
+{
+    return onFactoryActionInvoke(request);
+}
+void AdapterFactory::hostOnConnected() { onConnected(); }
+void AdapterFactory::hostOnDisconnected() { onDisconnected(); }
+void AdapterFactory::hostOnProtocolError(const phicore::adapter::v1::Utf8String &message) { onProtocolError(message); }
+void AdapterFactory::hostOnBootstrap(const BootstrapRequest &request)
+{
+    cacheBootstrap(request);
+    onBootstrap(request);
+}
 
-void AdapterSidecar::cacheConfig(const ConfigChangedRequest &request)
+int AdapterInstance::adapterId() const { return m_adapterId; }
+const phicore::adapter::v1::Utf8String &AdapterInstance::pluginType() const { return m_pluginType; }
+const phicore::adapter::v1::ExternalId &AdapterInstance::externalId() const { return m_externalId; }
+const ConfigChangedRequest &AdapterInstance::config() const { return m_config; }
+bool AdapterInstance::hasConfig() const { return m_hasConfig; }
+
+bool AdapterInstance::log(LogLevel level,
+                          const phicore::adapter::v1::Utf8String &message,
+                          const phicore::adapter::v1::Utf8String &ctx,
+                          const phicore::adapter::v1::ScalarList &params,
+                          const phicore::adapter::v1::JsonText &fieldsJson,
+                          std::int64_t tsMs,
+                          phicore::adapter::v1::Utf8String *error)
+{
+    if (!m_dispatcher) {
+        if (error)
+            *error = "Dispatcher not bound";
+        return false;
+    }
+    LogEntry entry;
+    entry.level = level;
+    entry.message = message;
+    entry.ctx = ctx;
+    entry.params = params;
+    entry.fieldsJson = fieldsJson;
+    entry.tsMs = tsMs;
+    return m_dispatcher->sendLog(m_externalId, m_pluginType, entry, error);
+}
+
+bool AdapterInstance::start() { return true; }
+void AdapterInstance::stop() {}
+bool AdapterInstance::restart()
+{
+    stop();
+    return start();
+}
+void AdapterInstance::onConnected() {}
+void AdapterInstance::onDisconnected() {}
+void AdapterInstance::onProtocolError(const phicore::adapter::v1::Utf8String &message) { (void)message; }
+void AdapterInstance::onConfigChanged(const ConfigChangedRequest &request) { (void)request; }
+CmdResponse AdapterInstance::onChannelInvoke(const ChannelInvokeRequest &request)
+{
+    return defaultCmdResponse(request.cmdId, "Channel invoke handler not implemented");
+}
+ActionResponse AdapterInstance::onAdapterActionInvoke(const AdapterActionInvokeRequest &request)
+{
+    return defaultActionResponse(request.cmdId, "Adapter action handler not implemented");
+}
+CmdResponse AdapterInstance::onDeviceNameUpdate(const DeviceNameUpdateRequest &request)
+{
+    return defaultCmdResponse(request.cmdId, "Device name update handler not implemented");
+}
+CmdResponse AdapterInstance::onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request)
+{
+    return defaultCmdResponse(request.cmdId, "Device effect handler not implemented");
+}
+CmdResponse AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
+{
+    return defaultCmdResponse(request.cmdId, "Scene invoke handler not implemented");
+}
+void AdapterInstance::onUnknownRequest(const UnknownRequest &request) { (void)request; }
+
+bool AdapterInstance::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendConnectionStateChanged(m_externalId, connected, error) : false;
+}
+bool AdapterInstance::sendError(const phicore::adapter::v1::Utf8String &message,
+                                const ScalarList &params,
+                                const phicore::adapter::v1::Utf8String &ctx,
+                                phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendError(m_externalId, message, params, ctx, error) : false;
+}
+bool AdapterInstance::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
+                                             phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated(m_externalId, metaPatchJson, error) : false;
+}
+bool AdapterInstance::sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                              const phicore::adapter::v1::ExternalId &channelExternalId,
+                                              const ScalarValue &value,
+                                              std::int64_t tsMs,
+                                              phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher
+        ? m_dispatcher->sendChannelStateUpdated(m_externalId, deviceExternalId, channelExternalId, value, tsMs, error)
+        : false;
+}
+bool AdapterInstance::sendDeviceUpdated(const Device &device,
+                                        const ChannelList &channels,
+                                        phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendDeviceUpdated(m_externalId, device, channels, error) : false;
+}
+bool AdapterInstance::sendDeviceRemoved(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                        phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendDeviceRemoved(m_externalId, deviceExternalId, error) : false;
+}
+bool AdapterInstance::sendChannelUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                         const Channel &channel,
+                                         phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendChannelUpdated(m_externalId, deviceExternalId, channel, error) : false;
+}
+bool AdapterInstance::sendRoomUpdated(const Room &room, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendRoomUpdated(m_externalId, room, error) : false;
+}
+bool AdapterInstance::sendRoomRemoved(const phicore::adapter::v1::ExternalId &roomExternalId,
+                                      phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendRoomRemoved(m_externalId, roomExternalId, error) : false;
+}
+bool AdapterInstance::sendGroupUpdated(const Group &group, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendGroupUpdated(m_externalId, group, error) : false;
+}
+bool AdapterInstance::sendGroupRemoved(const phicore::adapter::v1::ExternalId &groupExternalId,
+                                       phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendGroupRemoved(m_externalId, groupExternalId, error) : false;
+}
+bool AdapterInstance::sendSceneUpdated(const Scene &scene, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendSceneUpdated(m_externalId, scene, error) : false;
+}
+bool AdapterInstance::sendSceneRemoved(const phicore::adapter::v1::ExternalId &sceneExternalId,
+                                       phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendSceneRemoved(m_externalId, sceneExternalId, error) : false;
+}
+bool AdapterInstance::sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendFullSyncCompleted(m_externalId, error) : false;
+}
+
+void AdapterInstance::bindDispatcher(SidecarDispatcher *dispatcher) { m_dispatcher = dispatcher; }
+void AdapterInstance::bindContext(int adapterId,
+                                  phicore::adapter::v1::Utf8String pluginType,
+                                  phicore::adapter::v1::ExternalId externalId)
+{
+    m_adapterId = adapterId;
+    m_pluginType = std::move(pluginType);
+    m_externalId = std::move(externalId);
+}
+void AdapterInstance::cacheConfig(const ConfigChangedRequest &request)
 {
     m_config = request;
     m_hasConfig = true;
 }
-
-SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterSidecar> adapter)
-    : m_dispatcher(std::move(socketPath))
-    , m_adapter(std::move(adapter))
+bool AdapterInstance::hostStart() { return start(); }
+void AdapterInstance::hostStop() { stop(); }
+bool AdapterInstance::hostRestart() { return restart(); }
+void AdapterInstance::hostOnConnected() { onConnected(); }
+void AdapterInstance::hostOnDisconnected() { onDisconnected(); }
+void AdapterInstance::hostOnProtocolError(const phicore::adapter::v1::Utf8String &message) { onProtocolError(message); }
+void AdapterInstance::hostOnConfigChanged(const ConfigChangedRequest &request)
 {
-    if (m_adapter)
-        m_adapter->bindDispatcher(&m_dispatcher);
+    cacheConfig(request);
+    onConfigChanged(request);
+}
+CmdResponse AdapterInstance::hostOnChannelInvoke(const ChannelInvokeRequest &request) { return onChannelInvoke(request); }
+ActionResponse AdapterInstance::hostOnAdapterActionInvoke(const AdapterActionInvokeRequest &request) { return onAdapterActionInvoke(request); }
+CmdResponse AdapterInstance::hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request) { return onDeviceNameUpdate(request); }
+CmdResponse AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request) { return onDeviceEffectInvoke(request); }
+CmdResponse AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { return onSceneInvoke(request); }
+void AdapterInstance::hostOnUnknownRequest(const UnknownRequest &request) { onUnknownRequest(request); }
+
+SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory)
+    : m_dispatcher(std::move(socketPath))
+    , m_ownedFactory(std::move(factory))
+    , m_factory(m_ownedFactory.get())
+{
+    if (m_factory)
+        m_factory->bindDispatcher(&m_dispatcher);
     wireHandlers();
 }
 
-SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, const AdapterFactory &factory)
-    : SidecarHost(std::move(socketPath), factory.create())
+SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory)
+    : m_dispatcher(std::move(socketPath))
+    , m_factory(&factory)
 {
-    m_factoryPluginType = factory.pluginType();
+    m_factory->bindDispatcher(&m_dispatcher);
+    wireHandlers();
 }
 
 bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
 {
-    if (!m_adapter) {
+    if (!m_factory) {
         if (error)
-            *error = "SidecarHost has no adapter instance";
+            *error = "SidecarHost has no factory";
         return false;
     }
     return m_dispatcher.start(error);
@@ -1723,6 +1875,7 @@ bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
 
 void SidecarHost::stop()
 {
+    stopAndDestroyInstances();
     m_dispatcher.stop();
 }
 
@@ -1731,102 +1884,198 @@ bool SidecarHost::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::
     return m_dispatcher.pollOnce(timeout, error);
 }
 
-AdapterSidecar *SidecarHost::adapter()
+AdapterFactory *SidecarHost::factory() { return m_factory; }
+const AdapterFactory *SidecarHost::factory() const { return m_factory; }
+AdapterInstance *SidecarHost::instance(const phicore::adapter::v1::ExternalId &externalId) { return findInstance(externalId); }
+const AdapterInstance *SidecarHost::instance(const phicore::adapter::v1::ExternalId &externalId) const { return findInstance(externalId); }
+SidecarDispatcher *SidecarHost::dispatcher() { return &m_dispatcher; }
+const SidecarDispatcher *SidecarHost::dispatcher() const { return &m_dispatcher; }
+
+phicore::adapter::v1::CmdResponse SidecarHost::normalizeCmdResponse(phicore::adapter::v1::CmdId cmdId,
+                                                                    const phicore::adapter::v1::CmdResponse &response)
 {
-    return m_adapter.get();
+    CmdResponse out = response;
+    if (out.id == 0)
+        out.id = cmdId;
+    if (out.tsMs <= 0)
+        out.tsMs = nowMs();
+    return out;
 }
 
-const AdapterSidecar *SidecarHost::adapter() const
+phicore::adapter::v1::ActionResponse SidecarHost::normalizeActionResponse(phicore::adapter::v1::CmdId cmdId,
+                                                                          const phicore::adapter::v1::ActionResponse &response)
 {
-    return m_adapter.get();
+    ActionResponse out = response;
+    if (out.id == 0)
+        out.id = cmdId;
+    if (out.tsMs <= 0)
+        out.tsMs = nowMs();
+    return out;
 }
 
-SidecarDispatcher *SidecarHost::dispatcher()
+AdapterInstance *SidecarHost::findInstance(const phicore::adapter::v1::ExternalId &externalId)
 {
-    return &m_dispatcher;
+    auto it = m_instances.find(externalId);
+    return it == m_instances.end() ? nullptr : it->second.get();
 }
 
-const SidecarDispatcher *SidecarHost::dispatcher() const
+const AdapterInstance *SidecarHost::findInstance(const phicore::adapter::v1::ExternalId &externalId) const
 {
-    return &m_dispatcher;
+    auto it = m_instances.find(externalId);
+    return it == m_instances.end() ? nullptr : it->second.get();
+}
+
+AdapterInstance *SidecarHost::ensureInstance(const ConfigChangedRequest &request)
+{
+    if (!m_factory || request.adapter.externalId.empty())
+        return nullptr;
+    auto it = m_instances.find(request.adapter.externalId);
+    if (it != m_instances.end()) {
+        it->second->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
+        return it->second.get();
+    }
+    std::unique_ptr<AdapterInstance> created = m_factory->hostCreateInstance(request.adapter.externalId);
+    if (!created)
+        return nullptr;
+    created->bindDispatcher(&m_dispatcher);
+    created->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
+    if (!created->hostStart()) {
+        created->hostOnProtocolError("Instance start() failed");
+        m_factory->hostDestroyInstance(std::move(created));
+        return nullptr;
+    }
+    AdapterInstance *raw = created.get();
+    m_instances.emplace(request.adapter.externalId, std::move(created));
+    return raw;
+}
+
+void SidecarHost::stopAndDestroyInstances()
+{
+    if (!m_factory) {
+        m_instances.clear();
+        return;
+    }
+    for (auto &entry : m_instances) {
+        if (entry.second)
+            entry.second->hostStop();
+        m_factory->hostDestroyInstance(std::move(entry.second));
+    }
+    m_instances.clear();
 }
 
 void SidecarHost::wireHandlers()
 {
     SidecarHandlers handlers;
     handlers.onConnected = [this]() {
-        if (m_adapter)
-            m_adapter->onConnected();
-    };
-    handlers.onDisconnected = [this]() {
-        if (m_adapter)
-            m_adapter->onDisconnected();
-    };
-    handlers.onProtocolError = [this](const phicore::adapter::v1::Utf8String &message) {
-        if (m_adapter)
-            m_adapter->onProtocolError(message);
-    };
-    handlers.onBootstrap = [this](const BootstrapRequest &request) {
-        if (!m_adapter)
-            return;
-        BootstrapRequest normalized = request;
-        if (normalized.adapter.pluginType.empty())
-            normalized.adapter.pluginType = m_factoryPluginType;
-        m_adapter->cacheBootstrap(normalized);
-        m_adapter->onBootstrap(normalized);
-
-        AdapterDescriptor descriptor = m_adapter->descriptor();
-        if (descriptor.pluginType.empty())
-            descriptor.pluginType = normalized.adapter.pluginType;
-        if (descriptor.pluginType.empty())
-            descriptor.pluginType = m_factoryPluginType;
-        phicore::adapter::v1::Utf8String err;
-        if (!m_dispatcher.sendAdapterDescriptor(descriptor, normalized.correlationId, &err)
-            && m_adapter) {
-            m_adapter->onProtocolError("Failed to send bootstrap descriptor: " + err);
+        if (m_factory)
+            m_factory->hostOnConnected();
+        for (auto &entry : m_instances) {
+            if (entry.second)
+                entry.second->hostOnConnected();
         }
     };
+    handlers.onDisconnected = [this]() {
+        if (m_factory)
+            m_factory->hostOnDisconnected();
+        for (auto &entry : m_instances) {
+            if (entry.second)
+                entry.second->hostOnDisconnected();
+        }
+    };
+    handlers.onProtocolError = [this](const phicore::adapter::v1::Utf8String &message) {
+        if (m_factory)
+            m_factory->hostOnProtocolError(message);
+        for (auto &entry : m_instances) {
+            if (entry.second)
+                entry.second->hostOnProtocolError(message);
+        }
+    };
+    handlers.onBootstrap = [this](const BootstrapRequest &request) {
+        if (!m_factory)
+            return;
+        if (!request.adapter.externalId.empty()) {
+            m_factory->hostOnProtocolError("Bootstrap must target factory scope (externalId must be empty)");
+            return;
+        }
+        BootstrapRequest normalized = request;
+        if (normalized.adapter.pluginType.empty())
+            normalized.adapter.pluginType = m_factory->hostPluginType();
+        m_factory->hostOnBootstrap(normalized);
+
+        AdapterDescriptor descriptor = m_factory->hostDescriptor();
+        if (descriptor.pluginType.empty())
+            descriptor.pluginType = normalized.adapter.pluginType;
+        phicore::adapter::v1::Utf8String err;
+        if (!m_dispatcher.sendAdapterDescriptor({}, descriptor, normalized.correlationId, &err))
+            m_factory->hostOnProtocolError("Failed to send bootstrap descriptor: " + err);
+    };
     handlers.onConfigChanged = [this](const ConfigChangedRequest &request) {
-        if (!m_adapter)
+        if (!m_factory)
             return;
         ConfigChangedRequest normalized = request;
+        if (normalized.adapter.externalId.empty()) {
+            m_factory->hostOnProtocolError("ConfigChanged must target instance scope (externalId required)");
+            return;
+        }
         if (normalized.adapter.pluginType.empty())
-            normalized.adapter.pluginType = m_adapter->pluginType();
-        if (normalized.adapter.externalId.empty())
-            normalized.adapter.externalId = m_adapter->externalId();
-        if (normalized.adapterId <= 0)
-            normalized.adapterId = m_adapter->adapterId();
-        m_adapter->cacheConfig(normalized);
-        m_adapter->onConfigChanged(normalized);
+            normalized.adapter.pluginType = m_factory->hostPluginType();
+        AdapterInstance *instance = ensureInstance(normalized);
+        if (!instance) {
+            m_factory->hostOnProtocolError("Failed to create instance for externalId='" + normalized.adapter.externalId + "'");
+            return;
+        }
+        instance->hostOnConfigChanged(normalized);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
-        if (!m_adapter)
-            return defaultCmdResponse(request.cmdId, "Adapter sidecar not available");
-        return m_adapter->onChannelInvoke(request);
+        if (request.externalId.empty())
+            return invalidArgumentCmdResponse(request.cmdId, "externalId is required for CmdChannelInvoke");
+        AdapterInstance *inst = findInstance(request.externalId);
+        if (!inst)
+            return invalidArgumentCmdResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
+        return normalizeCmdResponse(request.cmdId, inst->hostOnChannelInvoke(request));
     };
     handlers.onAdapterActionInvoke = [this](const AdapterActionInvokeRequest &request) {
-        if (!m_adapter)
-            return defaultActionResponse(request.cmdId, "Adapter sidecar not available");
-        return m_adapter->onAdapterActionInvoke(request);
+        if (!m_factory)
+            return defaultActionResponse(request.cmdId, "Adapter factory not available");
+        if (request.externalId.empty())
+            return normalizeActionResponse(request.cmdId, m_factory->hostOnFactoryActionInvoke(request));
+        AdapterInstance *inst = findInstance(request.externalId);
+        if (!inst)
+            return invalidArgumentActionResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
+        return normalizeActionResponse(request.cmdId, inst->hostOnAdapterActionInvoke(request));
     };
     handlers.onDeviceNameUpdate = [this](const DeviceNameUpdateRequest &request) {
-        if (!m_adapter)
-            return defaultCmdResponse(request.cmdId, "Adapter sidecar not available");
-        return m_adapter->onDeviceNameUpdate(request);
+        if (request.externalId.empty())
+            return invalidArgumentCmdResponse(request.cmdId, "externalId is required for CmdDeviceNameUpdate");
+        AdapterInstance *inst = findInstance(request.externalId);
+        if (!inst)
+            return invalidArgumentCmdResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
+        return normalizeCmdResponse(request.cmdId, inst->hostOnDeviceNameUpdate(request));
     };
     handlers.onDeviceEffectInvoke = [this](const DeviceEffectInvokeRequest &request) {
-        if (!m_adapter)
-            return defaultCmdResponse(request.cmdId, "Adapter sidecar not available");
-        return m_adapter->onDeviceEffectInvoke(request);
+        if (request.externalId.empty())
+            return invalidArgumentCmdResponse(request.cmdId, "externalId is required for CmdDeviceEffectInvoke");
+        AdapterInstance *inst = findInstance(request.externalId);
+        if (!inst)
+            return invalidArgumentCmdResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
+        return normalizeCmdResponse(request.cmdId, inst->hostOnDeviceEffectInvoke(request));
     };
     handlers.onSceneInvoke = [this](const SceneInvokeRequest &request) {
-        if (!m_adapter)
-            return defaultCmdResponse(request.cmdId, "Adapter sidecar not available");
-        return m_adapter->onSceneInvoke(request);
+        if (request.externalId.empty())
+            return invalidArgumentCmdResponse(request.cmdId, "externalId is required for CmdSceneInvoke");
+        AdapterInstance *inst = findInstance(request.externalId);
+        if (!inst)
+            return invalidArgumentCmdResponse(request.cmdId, "Unknown instance externalId: " + request.externalId);
+        return normalizeCmdResponse(request.cmdId, inst->hostOnSceneInvoke(request));
     };
     handlers.onUnknownRequest = [this](const UnknownRequest &request) {
-        if (m_adapter)
-            m_adapter->onUnknownRequest(request);
+        if (request.externalId.empty()) {
+            if (m_factory)
+                m_factory->hostOnProtocolError("Unhandled IPC method: " + request.method);
+            return;
+        }
+        if (AdapterInstance *inst = findInstance(request.externalId))
+            inst->hostOnUnknownRequest(request);
     };
     m_dispatcher.setHandlers(std::move(handlers));
 }

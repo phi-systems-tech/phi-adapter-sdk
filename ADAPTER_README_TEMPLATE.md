@@ -78,8 +78,8 @@ Notes:
 
 ### SDK Integration
 
-- Use `AdapterSidecar` as the adapter base class.
-- Provide an `AdapterFactory` (`pluginType()`, `create()`).
+- Use `AdapterInstance` as the adapter instance base class.
+- Provide an `AdapterFactory` (`pluginType()`, `createInstance()`).
 - Run using `SidecarHost`.
 - Follow naming conventions:
   - inbound handlers: `on*`

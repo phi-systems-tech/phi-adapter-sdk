@@ -1,9 +1,11 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "phi/adapter/v1/contract.h"
 
@@ -52,6 +54,8 @@ struct ConfigChangedRequest {
 struct ChannelInvokeRequest {
     /// Command id assigned by phi-core.
     phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
     /// Adapter-domain device id.
     phicore::adapter::v1::ExternalId deviceExternalId;
     /// Adapter-domain channel id.
@@ -70,6 +74,8 @@ struct ChannelInvokeRequest {
 struct AdapterActionInvokeRequest {
     /// Command id assigned by phi-core.
     phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target external id (`""` => factory scope, non-empty => instance scope).
+    phicore::adapter::v1::ExternalId externalId;
     /// Action identifier from adapter capabilities.
     phicore::adapter::v1::Utf8String actionId;
     /// Raw JSON object for action params.
@@ -82,6 +88,8 @@ struct AdapterActionInvokeRequest {
 struct DeviceNameUpdateRequest {
     /// Command id assigned by phi-core.
     phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
     /// Adapter-domain device id.
     phicore::adapter::v1::ExternalId deviceExternalId;
     /// New user-facing name.
@@ -94,6 +102,8 @@ struct DeviceNameUpdateRequest {
 struct DeviceEffectInvokeRequest {
     /// Command id assigned by phi-core.
     phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
     /// Adapter-domain device id.
     phicore::adapter::v1::ExternalId deviceExternalId;
     /// Canonical effect enum, when provided by caller.
@@ -110,6 +120,8 @@ struct DeviceEffectInvokeRequest {
 struct SceneInvokeRequest {
     /// Command id assigned by phi-core.
     phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
     /// Adapter-domain scene id.
     phicore::adapter::v1::ExternalId sceneExternalId;
     /// Optional adapter-domain group id for scoped scene execution.
@@ -124,6 +136,8 @@ struct SceneInvokeRequest {
 struct UnknownRequest {
     /// Command id assigned by phi-core (0 when untracked).
     phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target external id (if present in request payload).
+    phicore::adapter::v1::ExternalId externalId;
     /// Raw request method name.
     phicore::adapter::v1::Utf8String method;
     /// Raw request payload as JSON text.
@@ -157,6 +171,23 @@ struct AdapterDescriptor {
     phicore::adapter::v1::AdapterCapabilities capabilities;
     /// Adapter config schema as JSON object text (UTF-8), expected object shape.
     phicore::adapter::v1::JsonText configSchemaJson;
+};
+
+enum class LogLevel : std::uint8_t {
+    Trace = 0,
+    Debug = 1,
+    Info = 2,
+    Warn = 3,
+    Error = 4,
+};
+
+struct LogEntry {
+    LogLevel level = LogLevel::Info;
+    phicore::adapter::v1::Utf8String message;
+    phicore::adapter::v1::Utf8String ctx;
+    phicore::adapter::v1::ScalarList params;
+    phicore::adapter::v1::JsonText fieldsJson;
+    std::int64_t tsMs = 0;
 };
 
 /**
@@ -249,15 +280,26 @@ public:
     /**
      * @brief Publish adapter connectivity state (`kind=connectionStateChanged`).
      */
-    bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendConnectionStateChanged(const phicore::adapter::v1::ExternalId &externalId,
+                                    bool connected,
+                                    phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish adapter error event (`kind=error`).
      */
-    bool sendError(const phicore::adapter::v1::Utf8String &message,
+    bool sendError(const phicore::adapter::v1::ExternalId &externalId,
+                   const phicore::adapter::v1::Utf8String &message,
                    const phicore::adapter::v1::ScalarList &params = {},
                    const phicore::adapter::v1::Utf8String &ctx = {},
                    phicore::adapter::v1::Utf8String *error = nullptr);
+
+    /**
+     * @brief Publish structured adapter log (`kind=log`).
+     */
+    bool sendLog(const phicore::adapter::v1::ExternalId &externalId,
+                 const phicore::adapter::v1::Utf8String &pluginType,
+                 const LogEntry &entry,
+                 phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish adapter meta patch (`kind=adapterMetaUpdated`).
@@ -266,21 +308,24 @@ public:
      * Static adapter identity/capabilities/schema belong to descriptor transport
      * (`adapterDescriptor` / `adapterDescriptorUpdated`).
      */
-    bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
+    bool sendAdapterMetaUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish runtime descriptor update (`kind=adapterDescriptorUpdated`).
      * @param descriptor First-class adapter descriptor payload.
      */
-    bool sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+    bool sendAdapterDescriptorUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                      const AdapterDescriptor &descriptor,
                                       phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish channel state update (`kind=channelStateUpdated`).
      * @param tsMs Timestamp in ms since epoch (`0` => now).
      */
-    bool sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+    bool sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                 const phicore::adapter::v1::ExternalId &deviceExternalId,
                                  const phicore::adapter::v1::ExternalId &channelExternalId,
                                  const phicore::adapter::v1::ScalarValue &value,
                                  std::int64_t tsMs = 0,
@@ -289,52 +334,73 @@ public:
     /**
      * @brief Publish full device snapshot (`kind=deviceUpdated`).
      */
-    bool sendDeviceUpdated(const phicore::adapter::v1::Device &device,
+    bool sendDeviceUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                           const phicore::adapter::v1::Device &device,
                            const phicore::adapter::v1::ChannelList &channels,
                            phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish device removal (`kind=deviceRemoved`).
      */
-    bool sendDeviceRemoved(const phicore::adapter::v1::ExternalId &deviceExternalId,
+    bool sendDeviceRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                           const phicore::adapter::v1::ExternalId &deviceExternalId,
                            phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish channel metadata update (`kind=channelUpdated`).
      */
-    bool sendChannelUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+    bool sendChannelUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                            const phicore::adapter::v1::ExternalId &deviceExternalId,
                             const phicore::adapter::v1::Channel &channel,
                             phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish room upsert (`kind=roomUpdated`).
      */
-    bool sendRoomUpdated(const phicore::adapter::v1::Room &room, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendRoomUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                         const phicore::adapter::v1::Room &room,
+                         phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish room removal (`kind=roomRemoved`).
      */
-    bool sendRoomRemoved(const phicore::adapter::v1::ExternalId &roomExternalId, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendRoomRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                         const phicore::adapter::v1::ExternalId &roomExternalId,
+                         phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish group upsert (`kind=groupUpdated`).
      */
-    bool sendGroupUpdated(const phicore::adapter::v1::Group &group, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendGroupUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                          const phicore::adapter::v1::Group &group,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish group removal (`kind=groupRemoved`).
      */
-    bool sendGroupRemoved(const phicore::adapter::v1::ExternalId &groupExternalId, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendGroupRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                          const phicore::adapter::v1::ExternalId &groupExternalId,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish adapter scene snapshot (`kind=scenesUpdated`).
      */
-    bool sendScenesUpdated(const phicore::adapter::v1::SceneList &scenes, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendSceneUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                          const phicore::adapter::v1::Scene &scene,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
+
+    /**
+     * @brief Publish scene removal (`kind=sceneRemoved`).
+     */
+    bool sendSceneRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                          const phicore::adapter::v1::ExternalId &sceneExternalId,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Signal completion of a full sync cycle (`kind=fullSyncCompleted`).
      */
-    bool sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendFullSyncCompleted(const phicore::adapter::v1::ExternalId &externalId,
+                               phicore::adapter::v1::Utf8String *error = nullptr);
 
 private:
     friend class SidecarHost;
@@ -344,7 +410,8 @@ private:
      *
      * Internal helper used by `SidecarHost` during bootstrap flow.
      */
-    bool sendAdapterDescriptor(const AdapterDescriptor &descriptor,
+    bool sendAdapterDescriptor(const phicore::adapter::v1::ExternalId &externalId,
+                               const AdapterDescriptor &descriptor,
                                phicore::adapter::v1::CorrelationId correlationId,
                                phicore::adapter::v1::Utf8String *error);
 
@@ -359,286 +426,188 @@ private:
     SidecarHandlers m_handlers;
 };
 
+class AdapterInstance;
+
 /**
- * @brief Polymorphic base class for C++ adapter sidecars.
+ * @brief Factory base class for adapter sidecar runtimes.
  *
- * The host (`SidecarHost`) wires IPC frames to these virtual handlers.
- * Outbound IPC helpers use the `send*` naming convention.
- */
-class AdapterSidecar
-{
-public:
-    virtual ~AdapterSidecar() = default;
-
-    /**
-     * @brief Returns last bootstrap payload.
-     */
-    const BootstrapRequest &bootstrap() const;
-
-    /**
-     * @brief Returns whether bootstrap payload was received.
-     */
-    bool hasBootstrap() const;
-
-    /**
-     * @brief Returns last runtime config payload.
-     */
-    const ConfigChangedRequest &config() const;
-
-    /**
-     * @brief Returns whether runtime config payload was received.
-     */
-    bool hasConfig() const;
-
-    /**
-     * @brief Database adapter id (`adapters.id`) after bootstrap.
-     */
-    int adapterId() const;
-
-    /**
-     * @brief Effective plugin type after bootstrap.
-     */
-    const phicore::adapter::v1::Utf8String &pluginType() const;
-
-    /**
-     * @brief Effective adapter external id after bootstrap.
-     */
-    const phicore::adapter::v1::ExternalId &externalId() const;
-
-protected:
-    /**
-     * @brief Called when phi-core connects to this sidecar socket.
-     */
-    virtual void onConnected();
-
-    /**
-     * @brief Called when phi-core disconnects from this sidecar socket.
-     */
-    virtual void onDisconnected();
-
-    /**
-     * @brief Called on protocol decode/validation errors.
-     */
-    virtual void onProtocolError(const phicore::adapter::v1::Utf8String &message);
-
-    /**
-     * @brief Called after bootstrap payload arrived from phi-core.
-     */
-    virtual void onBootstrap(const BootstrapRequest &request);
-
-    /**
-     * @brief Called when runtime config snapshot was updated by phi-core.
-     */
-    virtual void onConfigChanged(const ConfigChangedRequest &request);
-
-    /**
-     * @brief Handle `cmd.channel.invoke`.
-     */
-    virtual phicore::adapter::v1::CmdResponse onChannelInvoke(const ChannelInvokeRequest &request);
-
-    /**
-     * @brief Handle `cmd.adapter.action.invoke`.
-     */
-    virtual phicore::adapter::v1::ActionResponse onAdapterActionInvoke(const AdapterActionInvokeRequest &request);
-
-    /**
-     * @brief Handle `cmd.device.name.update`.
-     */
-    virtual phicore::adapter::v1::CmdResponse onDeviceNameUpdate(const DeviceNameUpdateRequest &request);
-
-    /**
-     * @brief Handle `cmd.device.effect.invoke`.
-     */
-    virtual phicore::adapter::v1::CmdResponse onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
-
-    /**
-     * @brief Handle `cmd.scene.invoke`.
-     */
-    virtual phicore::adapter::v1::CmdResponse onSceneInvoke(const SceneInvokeRequest &request);
-
-    /**
-     * @brief Called for unsupported request methods.
-     */
-    virtual void onUnknownRequest(const UnknownRequest &request);
-
-    /**
-     * @brief Returns adapter display name for bootstrap descriptor.
-     */
-    virtual phicore::adapter::v1::Utf8String displayName() const;
-
-    /**
-     * @brief Returns adapter description for bootstrap descriptor.
-     */
-    virtual phicore::adapter::v1::Utf8String description() const;
-
-    /**
-     * @brief Returns adapter API version for bootstrap descriptor.
-     */
-    virtual phicore::adapter::v1::Utf8String apiVersion() const;
-
-    /**
-     * @brief Returns inline adapter icon SVG for bootstrap descriptor.
-     */
-    virtual phicore::adapter::v1::Utf8String iconSvg() const;
-
-    /**
-     * @brief Returns optional adapter image payload for bootstrap descriptor.
-     */
-    virtual phicore::adapter::v1::Utf8String imageBase64() const;
-
-    /**
-     * @brief Returns default device timeout in milliseconds.
-     */
-    virtual int timeoutMs() const;
-
-    /**
-     * @brief Returns maximum supported adapter instances (`0` => unlimited).
-     */
-    virtual int maxInstances() const;
-
-    /**
-     * @brief Returns adapter capabilities.
-     */
-    virtual phicore::adapter::v1::AdapterCapabilities capabilities() const;
-
-    /**
-     * @brief Returns adapter config schema as JSON object text.
-     *
-     * This value is serialized into descriptor field `configSchema`.
-     */
-    virtual phicore::adapter::v1::JsonText configSchemaJson() const;
-
-    /**
-     * @brief Build first-class adapter descriptor from virtual overrides.
-     */
-    virtual AdapterDescriptor descriptor() const;
-    /**
-     * @brief Send command response (`kind=cmdResult`).
-     */
-    bool sendCmdResult(const phicore::adapter::v1::CmdResponse &response, phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send action response (`kind=actionResult`).
-     */
-    bool sendActionResult(const phicore::adapter::v1::ActionResponse &response, phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send adapter connectivity event.
-     */
-    bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send adapter error event (`kind=error`).
-     */
-    bool sendError(const phicore::adapter::v1::Utf8String &message,
-                   const phicore::adapter::v1::ScalarList &params = {},
-                   const phicore::adapter::v1::Utf8String &ctx = {},
-                   phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send adapter meta patch (`kind=adapterMetaUpdated`).
-     */
-    bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
-                                phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send descriptor update event (`kind=adapterDescriptorUpdated`).
-     */
-    bool sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
-                                      phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send channel state update (`kind=channelStateUpdated`).
-     */
-    bool sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
-                                 const phicore::adapter::v1::ExternalId &channelExternalId,
-                                 const phicore::adapter::v1::ScalarValue &value,
-                                 std::int64_t tsMs = 0,
-                                 phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send full device snapshot (`kind=deviceUpdated`).
-     */
-    bool sendDeviceUpdated(const phicore::adapter::v1::Device &device,
-                           const phicore::adapter::v1::ChannelList &channels,
-                           phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send device removal (`kind=deviceRemoved`).
-     */
-    bool sendDeviceRemoved(const phicore::adapter::v1::ExternalId &deviceExternalId,
-                           phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send channel metadata update (`kind=channelUpdated`).
-     */
-    bool sendChannelUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
-                            const phicore::adapter::v1::Channel &channel,
-                            phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send room upsert (`kind=roomUpdated`).
-     */
-    bool sendRoomUpdated(const phicore::adapter::v1::Room &room, phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send room removal (`kind=roomRemoved`).
-     */
-    bool sendRoomRemoved(const phicore::adapter::v1::ExternalId &roomExternalId,
-                         phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send group upsert (`kind=groupUpdated`).
-     */
-    bool sendGroupUpdated(const phicore::adapter::v1::Group &group, phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send group removal (`kind=groupRemoved`).
-     */
-    bool sendGroupRemoved(const phicore::adapter::v1::ExternalId &groupExternalId,
-                          phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send scene snapshot (`kind=scenesUpdated`).
-     */
-    bool sendScenesUpdated(const phicore::adapter::v1::SceneList &scenes, phicore::adapter::v1::Utf8String *error = nullptr);
-
-    /**
-     * @brief Send full sync completion (`kind=fullSyncCompleted`).
-     */
-    bool sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error = nullptr);
-
-private:
-    friend class SidecarHost;
-
-    void bindDispatcher(SidecarDispatcher *dispatcher);
-    void cacheBootstrap(const BootstrapRequest &request);
-    void cacheConfig(const ConfigChangedRequest &request);
-
-    SidecarDispatcher *m_dispatcher = nullptr;
-    BootstrapRequest m_bootstrap;
-    ConfigChangedRequest m_config;
-    bool m_hasBootstrap = false;
-    bool m_hasConfig = false;
-};
-
-/**
- * @brief Factory interface for sidecar adapter instances.
+ * Host dispatch enters through private NVI methods (`host*`), then forwards
+ * to protected virtual hooks with natural names.
  */
 class AdapterFactory
 {
 public:
     virtual ~AdapterFactory() = default;
 
-    /**
-     * @brief Adapter plugin type handled by this factory.
-     */
-    virtual phicore::adapter::v1::Utf8String pluginType() const = 0;
+    /// Last bootstrap payload (factory plane).
+    const BootstrapRequest &bootstrap() const;
+    /// Whether bootstrap payload has been received.
+    bool hasBootstrap() const;
 
-    /**
-     * @brief Create a new adapter sidecar instance.
-     */
-    virtual std::unique_ptr<AdapterSidecar> create() const = 0;
+    /// Structured log helper for adapter implementers.
+    bool log(LogLevel level,
+             const phicore::adapter::v1::Utf8String &message,
+             const phicore::adapter::v1::Utf8String &ctx = {},
+             const phicore::adapter::v1::ScalarList &params = {},
+             const phicore::adapter::v1::JsonText &fieldsJson = {},
+             std::int64_t tsMs = 0,
+             phicore::adapter::v1::Utf8String *error = nullptr);
+
+protected:
+    virtual phicore::adapter::v1::Utf8String pluginType() const = 0;
+    virtual phicore::adapter::v1::Utf8String displayName() const;
+    virtual phicore::adapter::v1::Utf8String description() const;
+    virtual phicore::adapter::v1::Utf8String apiVersion() const;
+    virtual phicore::adapter::v1::Utf8String iconSvg() const;
+    virtual phicore::adapter::v1::Utf8String imageBase64() const;
+    virtual int timeoutMs() const;
+    virtual int maxInstances() const;
+    virtual phicore::adapter::v1::AdapterCapabilities capabilities() const;
+    virtual phicore::adapter::v1::JsonText configSchemaJson() const;
+    virtual AdapterDescriptor descriptor() const;
+
+    virtual std::unique_ptr<AdapterInstance> createInstance(const phicore::adapter::v1::ExternalId &externalId) = 0;
+    virtual void destroyInstance(std::unique_ptr<AdapterInstance> instance);
+
+    virtual phicore::adapter::v1::ActionResponse onFactoryActionInvoke(const AdapterActionInvokeRequest &request);
+    virtual void onConnected();
+    virtual void onDisconnected();
+    virtual void onProtocolError(const phicore::adapter::v1::Utf8String &message);
+    virtual void onBootstrap(const BootstrapRequest &request);
+
+    bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendError(const phicore::adapter::v1::Utf8String &message,
+                   const phicore::adapter::v1::ScalarList &params = {},
+                   const phicore::adapter::v1::Utf8String &ctx = {},
+                   phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
+                                phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendAdapterDescriptorUpdated(const AdapterDescriptor &descriptor,
+                                      phicore::adapter::v1::Utf8String *error = nullptr);
+
+private:
+    friend class SidecarHost;
+
+    void bindDispatcher(SidecarDispatcher *dispatcher);
+    void cacheBootstrap(const BootstrapRequest &request);
+
+    phicore::adapter::v1::Utf8String hostPluginType() const;
+    AdapterDescriptor hostDescriptor() const;
+    std::unique_ptr<AdapterInstance> hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId);
+    void hostDestroyInstance(std::unique_ptr<AdapterInstance> instance);
+    phicore::adapter::v1::ActionResponse hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request);
+    void hostOnConnected();
+    void hostOnDisconnected();
+    void hostOnProtocolError(const phicore::adapter::v1::Utf8String &message);
+    void hostOnBootstrap(const BootstrapRequest &request);
+
+    SidecarDispatcher *m_dispatcher = nullptr;
+    BootstrapRequest m_bootstrap;
+    bool m_hasBootstrap = false;
+};
+
+/**
+ * @brief Adapter instance base class.
+ *
+ * Host dispatch enters through private NVI methods (`host*`) and forwards
+ * to protected virtual hooks (`start`, `onConfigChanged`, `onChannelInvoke`, ...).
+ */
+class AdapterInstance
+{
+public:
+    virtual ~AdapterInstance() = default;
+
+    int adapterId() const;
+    const phicore::adapter::v1::Utf8String &pluginType() const;
+    const phicore::adapter::v1::ExternalId &externalId() const;
+    const ConfigChangedRequest &config() const;
+    bool hasConfig() const;
+
+    /// Structured log helper for adapter implementers.
+    bool log(LogLevel level,
+             const phicore::adapter::v1::Utf8String &message,
+             const phicore::adapter::v1::Utf8String &ctx = {},
+             const phicore::adapter::v1::ScalarList &params = {},
+             const phicore::adapter::v1::JsonText &fieldsJson = {},
+             std::int64_t tsMs = 0,
+             phicore::adapter::v1::Utf8String *error = nullptr);
+
+protected:
+    virtual bool start();
+    virtual void stop();
+    virtual bool restart();
+
+    virtual void onConnected();
+    virtual void onDisconnected();
+    virtual void onProtocolError(const phicore::adapter::v1::Utf8String &message);
+    virtual void onConfigChanged(const ConfigChangedRequest &request);
+    virtual phicore::adapter::v1::CmdResponse onChannelInvoke(const ChannelInvokeRequest &request);
+    virtual phicore::adapter::v1::ActionResponse onAdapterActionInvoke(const AdapterActionInvokeRequest &request);
+    virtual phicore::adapter::v1::CmdResponse onDeviceNameUpdate(const DeviceNameUpdateRequest &request);
+    virtual phicore::adapter::v1::CmdResponse onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
+    virtual phicore::adapter::v1::CmdResponse onSceneInvoke(const SceneInvokeRequest &request);
+    virtual void onUnknownRequest(const UnknownRequest &request);
+
+    bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendError(const phicore::adapter::v1::Utf8String &message,
+                   const phicore::adapter::v1::ScalarList &params = {},
+                   const phicore::adapter::v1::Utf8String &ctx = {},
+                   phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
+                                phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                 const phicore::adapter::v1::ExternalId &channelExternalId,
+                                 const phicore::adapter::v1::ScalarValue &value,
+                                 std::int64_t tsMs = 0,
+                                 phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendDeviceUpdated(const phicore::adapter::v1::Device &device,
+                           const phicore::adapter::v1::ChannelList &channels,
+                           phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendDeviceRemoved(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                           phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendChannelUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                            const phicore::adapter::v1::Channel &channel,
+                            phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendRoomUpdated(const phicore::adapter::v1::Room &room, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendRoomRemoved(const phicore::adapter::v1::ExternalId &roomExternalId,
+                         phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendGroupUpdated(const phicore::adapter::v1::Group &group, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendGroupRemoved(const phicore::adapter::v1::ExternalId &groupExternalId,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendSceneUpdated(const phicore::adapter::v1::Scene &scene, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendSceneRemoved(const phicore::adapter::v1::ExternalId &sceneExternalId,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error = nullptr);
+
+private:
+    friend class SidecarHost;
+
+    void bindDispatcher(SidecarDispatcher *dispatcher);
+    void bindContext(int adapterId,
+                     phicore::adapter::v1::Utf8String pluginType,
+                     phicore::adapter::v1::ExternalId externalId);
+    void cacheConfig(const ConfigChangedRequest &request);
+
+    bool hostStart();
+    void hostStop();
+    bool hostRestart();
+    void hostOnConnected();
+    void hostOnDisconnected();
+    void hostOnProtocolError(const phicore::adapter::v1::Utf8String &message);
+    void hostOnConfigChanged(const ConfigChangedRequest &request);
+    phicore::adapter::v1::CmdResponse hostOnChannelInvoke(const ChannelInvokeRequest &request);
+    phicore::adapter::v1::ActionResponse hostOnAdapterActionInvoke(const AdapterActionInvokeRequest &request);
+    phicore::adapter::v1::CmdResponse hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request);
+    phicore::adapter::v1::CmdResponse hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
+    phicore::adapter::v1::CmdResponse hostOnSceneInvoke(const SceneInvokeRequest &request);
+    void hostOnUnknownRequest(const UnknownRequest &request);
+
+    SidecarDispatcher *m_dispatcher = nullptr;
+    int m_adapterId = 0;
+    phicore::adapter::v1::Utf8String m_pluginType;
+    phicore::adapter::v1::ExternalId m_externalId;
+    ConfigChangedRequest m_config;
+    bool m_hasConfig = false;
 };
 
 /**
@@ -647,15 +616,8 @@ public:
 class SidecarHost
 {
 public:
-    /**
-     * @brief Construct host with a concrete adapter sidecar instance.
-     */
-    SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterSidecar> adapter);
-
-    /**
-     * @brief Construct host from factory.
-     */
-    SidecarHost(phicore::adapter::v1::Utf8String socketPath, const AdapterFactory &factory);
+    explicit SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory);
+    SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory);
 
     /**
      * @brief Start IPC host.
@@ -672,15 +634,10 @@ public:
      */
     bool pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error = nullptr);
 
-    /**
-     * @brief Returns hosted adapter instance.
-     */
-    AdapterSidecar *adapter();
-
-    /**
-     * @brief Returns hosted adapter instance (const).
-     */
-    const AdapterSidecar *adapter() const;
+    AdapterFactory *factory();
+    const AdapterFactory *factory() const;
+    AdapterInstance *instance(const phicore::adapter::v1::ExternalId &externalId);
+    const AdapterInstance *instance(const phicore::adapter::v1::ExternalId &externalId) const;
 
     /**
      * @brief Returns underlying dispatcher.
@@ -693,11 +650,20 @@ public:
     const SidecarDispatcher *dispatcher() const;
 
 private:
+    static phicore::adapter::v1::CmdResponse normalizeCmdResponse(phicore::adapter::v1::CmdId cmdId,
+                                                                  const phicore::adapter::v1::CmdResponse &response);
+    static phicore::adapter::v1::ActionResponse normalizeActionResponse(phicore::adapter::v1::CmdId cmdId,
+                                                                        const phicore::adapter::v1::ActionResponse &response);
+    AdapterInstance *ensureInstance(const ConfigChangedRequest &request);
+    AdapterInstance *findInstance(const phicore::adapter::v1::ExternalId &externalId);
+    const AdapterInstance *findInstance(const phicore::adapter::v1::ExternalId &externalId) const;
+    void stopAndDestroyInstances();
     void wireHandlers();
 
     SidecarDispatcher m_dispatcher;
-    std::unique_ptr<AdapterSidecar> m_adapter;
-    phicore::adapter::v1::Utf8String m_factoryPluginType;
+    std::unique_ptr<AdapterFactory> m_ownedFactory;
+    AdapterFactory *m_factory = nullptr;
+    std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<AdapterInstance>> m_instances;
 };
 
 } // namespace phicore::adapter::sdk

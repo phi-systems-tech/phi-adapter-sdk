@@ -12,7 +12,7 @@ Linux-first SDK for phi adapter sidecars.
 - `phi::adapter-sdk`
   - Linux runtime helpers (UDS + epoll transport)
   - Typed dispatcher (`SidecarDispatcher`)
-  - C++ sidecar model (`AdapterSidecar`, `AdapterFactory`, `SidecarHost`)
+  - C++ sidecar model (`AdapterFactory`, `AdapterInstance`, `SidecarHost`)
 
 ## Scope
 
@@ -75,8 +75,8 @@ cmake --build build --parallel
 
 ## Recommended C++ Model
 
-`AdapterSidecar` is the polymorphic base class for sidecar adapters.
-`AdapterFactory` creates adapter instances for `SidecarHost`.
+`AdapterFactory` is the plugin-level runtime base class.
+`AdapterInstance` is the per-adapter-instance runtime base class.
 `SidecarHost` wires IPC transport and handler dispatch.
 `AdapterFactory::pluginType()` must match the adapter plugin type used by phi-core.
 
@@ -98,9 +98,9 @@ Factory methods (v1 SDK contract):
 - `displayName()`, `description()`, `apiVersion()`, `iconSvg()`, `imageBase64()`
 - `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchemaJson()`
 - `descriptor()` (default build from first-class overrides)
+- `onBootstrap(...)`
 - `onFactoryActionInvoke(...)`
-- `createInstance(...)`, `destroyInstance(...)`, `startInstance(...)`, `stopInstance(...)`,
-  `restartInstance(...)`
+- `createInstance(...)`, `destroyInstance(...)`
 
 Instance methods (v1 SDK contract):
 
@@ -141,7 +141,9 @@ Concurrency model (v1, mandatory):
 
 ### Naming Rules
 
-- Inbound request handlers: `on*` (`onBootstrap`, `onChannelInvoke`, ...)
+- Inbound request handlers:
+  - factory scope: `onBootstrap`, `onFactoryActionInvoke`
+  - instance scope: `onConfigChanged`, `onChannelInvoke`, `onAdapterActionInvoke`, ...
 - Outbound IPC calls: `send*` (`sendDeviceUpdated`, `sendChannelStateUpdated`, `sendError`, ...)
 - Static descriptor overrides: `displayName()`, `description()`, `iconSvg()`, `imageBase64()`,
   `apiVersion()`, `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchemaJson()`
@@ -149,18 +151,23 @@ Concurrency model (v1, mandatory):
 ### Minimal Structure
 
 ```cpp
-class MyAdapter final : public phicore::adapter::sdk::AdapterSidecar {
-public:
-    void onBootstrap(const BootstrapRequest &request) override {
-        AdapterSidecar::onBootstrap(request); // caches adapterId/pluginType/externalId
+class MyInstance final : public phicore::adapter::sdk::AdapterInstance {
+protected:
+    bool start() override {
+        return true;
+    }
+    void onConfigChanged(const ConfigChangedRequest &request) override {
+        (void)request;
     }
 };
 
 class MyFactory final : public phicore::adapter::sdk::AdapterFactory {
-public:
+protected:
     phicore::adapter::v1::Utf8String pluginType() const override { return "my-plugin"; }
-    std::unique_ptr<phicore::adapter::sdk::AdapterSidecar> create() const override {
-        return std::make_unique<MyAdapter>();
+    std::unique_ptr<phicore::adapter::sdk::AdapterInstance> createInstance(
+        const phicore::adapter::v1::ExternalId &externalId) override {
+        (void)externalId;
+        return std::make_unique<MyInstance>();
     }
 };
 
@@ -175,7 +182,7 @@ host.stop();
 
 ## Example Binary
 
-`phi_adapter_sidecar_example` demonstrates `AdapterFactory` + `AdapterSidecar` + `SidecarHost`.
+`phi_adapter_sidecar_example` demonstrates `AdapterFactory` + `AdapterInstance` + `SidecarHost`.
 
 ```bash
 ./build/phi_adapter_sidecar_example /tmp/phi-adapter-example.sock
@@ -250,7 +257,7 @@ Adapter -> Core (`Result*`):
 ## Bootstrap Descriptor
 
 On `sync.adapter.bootstrap`, `SidecarHost` automatically responds with `kind=adapterDescriptor`.
-The payload is built from `AdapterSidecar::descriptor()` (default implementation aggregates the
+The payload is built from `AdapterFactory::descriptor()` (default implementation aggregates the
 first-class override methods listed above).
 `adapterDescriptor` is host-managed and not intended to be sent manually by adapter code.
 
@@ -349,7 +356,7 @@ Rules:
 ## Schema Handling (v1)
 
 - Adapter config schema is part of the first-class descriptor field `configSchema`.
-- Implement schema via `AdapterSidecar::configSchemaJson()` as UTF-8 JSON object text.
+- Implement schema via `AdapterFactory::configSchemaJson()` as UTF-8 JSON object text.
 - Return an object (`{...}`), not arrays/scalars.
 - Keep schema keys stable across releases; treat key renames/removals as breaking changes.
 - Use `sendAdapterDescriptorUpdated(...)` when static descriptor data changes at runtime.
