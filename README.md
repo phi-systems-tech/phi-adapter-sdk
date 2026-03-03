@@ -105,6 +105,9 @@ cmake --build build --parallel
 - Adapter implementers override natural hook names (`start()`, `stop()`, `restart()`, ...)
   and MUST NOT implement or depend on `do*` naming.
 - Factory plane is strict `externalId == ""`; instance plane is strict `externalId != ""`.
+- Exactly one sidecar runtime process exists per adapter `pluginType`.
+- A sidecar runtime may host multiple adapter instances; each instance should run in its own
+  worker execution context/thread while IPC transport stays host-serialized.
 
 Factory methods (v1 SDK contract):
 
@@ -113,6 +116,7 @@ Factory methods (v1 SDK contract):
 - `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchemaJson()`
 - `descriptor()` (default build from first-class overrides)
 - `onBootstrap(...)`
+- `onFactoryConfigChanged(...)`
 - `onFactoryActionInvoke(...)`
 - `createInstance(...)`, `destroyInstance(...)`
 
@@ -127,11 +131,34 @@ Instance methods (v1 SDK contract):
 Logging API (v1 SDK contract):
 
 - `log(...)` is a public method on factory and instance classes for adapter implementers.
+- Signature is `log(level, category, message, ...)`.
 - SDK enriches and forwards logs to core automatically; adapters should only provide semantic
   message/context fields.
-- Mandatory normalized fields are SDK-managed: `tsMs`, `level`, `message`, `pluginType`,
+- Mandatory normalized fields are SDK-managed: `tsMs`, `level`, `category`, `message`, `pluginType`,
   `externalId` (empty for factory scope).
-- Optional fields may include `adapterId`, `ctx`, `params`, and structured metadata.
+- `ctx` is translation context (for translation engines), not source/module context.
+- `params` are placeholder replacements for `%1`, `%2`, ... in `message`.
+- Source/module information belongs into structured `fieldsJson` (for example `{"source":"poll"}`).
+- Optional fields may include `adapterId` and structured metadata.
+- Reserved source-location fields for debug/trace logs: `file`, `line`, `func`.
+- Use SDK macros for automatic source-location enrichment:
+  - `PHI_LOG_DEBUG(target, category, message, ctx, params)`
+  - `PHI_LOG_TRACE(target, category, message, ctx, params)`
+  - `PHI_LOG_WITH_SOURCE(target, level, category, message, ctx, params)`
+- `params` in macros is a `ScalarList` expression, e.g.
+  `phi::ScalarList{"bridge-1", 3000}`.
+- SDK log forwarding is gated by adapter flags from config:
+  - when `AdapterFlagEnableLogs` is absent, `log(...)` is suppressed for
+    `Trace`/`Debug`/`Info`/`Warn`
+  - `Error` is always forwarded to core, independent of log flag state
+  - when `AdapterFlagEnableLogs` is set, `log(...)` is forwarded
+- `sendError(...)` always emits:
+  - `EventError` (primary incident event)
+  - mirrored `EventLog` with `level=Error` and `category=Event`
+  - mirrored log metadata fields: `{"source":"event.error"}`
+- Canonical categories:
+  `Event`, `Lifecycle`, `Discovery`, `Network`, `Protocol`, `DeviceState`, `Config`,
+  `Performance`, `Security`, `Internal`.
 - Central SDK policy applies to all adapters (rate limiting/size limits/UTF-8 normalization/
   redaction); no adapter-specific fallback logging paths.
 
@@ -222,6 +249,7 @@ Core -> Adapter (`Sync*` / `Cmd*`):
 
 - `SyncAdapterBootstrap` (`0x0101`)
 - `SyncAdapterConfigChanged` (`0x0102`)
+- `SyncAdapterInstanceRemoved` (`0x0103`)
 - `CmdChannelInvoke` (`0x0201`)
 - `CmdAdapterActionInvoke` (`0x0202`)
 - `CmdDeviceNameUpdate` (`0x0203`)
@@ -235,6 +263,7 @@ Adapter -> Core (`Event*`):
 - `EventAdapterMetaUpdated` (`0x1003`)
 - `EventConnectionStateChanged` (`0x1004`)
 - `EventError` (`0x1005`)
+- `EventLog` (`0x1006`)
 - `EventDeviceUpdated` (`0x1101`)
 - `EventDeviceRemoved` (`0x1102`)
 - `EventChannelUpdated` (`0x1201`)
@@ -268,7 +297,10 @@ Adapter -> Core (`Result*`):
 - Instance plane (`externalId != ""`):
   - device/channel/room/group/scene runtime and command handling
   - state, topology and sync-completion events
-- One runtime process may host factory and multiple instances; target resolution still stays strict by `externalId`.
+- Runtime model is strict v1:
+  - exactly one sidecar process per `pluginType`
+  - one process hosts factory and all instances for that `pluginType`
+  - instance execution may be threaded; IPC routing stays strict by `externalId`
 
 ## Bootstrap Descriptor
 
@@ -283,7 +315,9 @@ not a partial field patch.
 
 - `sync.adapter.bootstrap` is factory-plane handshake (`externalId == ""`).
 - Effective runtime configuration is delivered via `sync.adapter.config.changed`.
-- `sync.adapter.config.changed` is instance-plane (`externalId != ""`).
+- `sync.adapter.config.changed` is dual-scope:
+  - `externalId == ""`: factory scope (`onFactoryConfigChanged(...)`)
+  - `externalId != ""`: instance scope (`onConfigChanged(...)`)
 - phi-core sends an initial `config.changed` right after bootstrap.
 - Subsequent `config.changed` messages are sent whenever runtime config changes
   (for example host re-resolve to a new DHCP IP).

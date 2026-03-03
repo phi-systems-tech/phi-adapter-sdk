@@ -54,8 +54,11 @@ struct BootstrapRequest {
 /**
  * @brief Runtime adapter configuration update payload.
  *
- * Sent by phi-core after bootstrap and whenever effective
- * runtime config changes (for example resolved `ip` changes after DHCP).
+ * Sent by phi-core after bootstrap and whenever effective runtime config changes.
+ *
+ * Scope is resolved by `adapter.externalId`:
+ * - `adapter.externalId == ""` -> factory scope
+ * - `adapter.externalId != ""` -> instance scope
  */
 struct ConfigChangedRequest {
     /// Database adapter id (`adapters.id`) in phi-core.
@@ -68,6 +71,22 @@ struct ConfigChangedRequest {
     phicore::adapter::v1::Adapter adapter;
     /// Static adapter config JSON (`AdapterStaticInfo::config`) as raw JSON text.
     phicore::adapter::v1::JsonText staticConfigJson;
+};
+
+/**
+ * @brief Instance removal payload (`sync.adapter.instance.removed`).
+ */
+struct InstanceRemovedRequest {
+    /// Database adapter id (`adapters.id`) in phi-core.
+    int adapterId = 0;
+    /// Request-side command id from envelope (`cmdId`).
+    phicore::adapter::v1::CmdId cmdId = 0;
+    /// Transport correlation id from frame header.
+    phicore::adapter::v1::CorrelationId correlationId = 0;
+    /// Adapter plugin type for runtime routing.
+    phicore::adapter::v1::Utf8String pluginType;
+    /// Target adapter instance external id.
+    phicore::adapter::v1::ExternalId externalId;
 };
 
 /**
@@ -203,14 +222,41 @@ enum class LogLevel : std::uint8_t {
     Error = 4,
 };
 
+enum class LogCategory : std::uint8_t {
+    Event = 0,
+    Lifecycle = 1,
+    Discovery = 2,
+    Network = 3,
+    Protocol = 4,
+    DeviceState = 5,
+    Config = 6,
+    Performance = 7,
+    Security = 8,
+    Internal = 9,
+};
+
 struct LogEntry {
     LogLevel level = LogLevel::Info;
+    LogCategory category = LogCategory::Internal;
+    /// Human-readable message text (UTF-8).
     phicore::adapter::v1::Utf8String message;
+    /// Translation context key used by translation engines (not source/module context).
     phicore::adapter::v1::Utf8String ctx;
+    /// Placeholder replacements for `%1`, `%2`, ... in `message`.
     phicore::adapter::v1::ScalarList params;
     phicore::adapter::v1::JsonText fieldsJson;
     std::int64_t tsMs = 0;
 };
+
+/**
+ * @brief Build canonical source-location fields JSON for debug/trace logs.
+ *
+ * Output shape:
+ * `{"file":"<basename>","line":<line>,"func":"<function>"}`
+ */
+phicore::adapter::v1::JsonText makeSourceLocationFieldsJson(const char *file,
+                                                            int line,
+                                                            const char *functionName);
 
 /**
  * @brief Callback set used by SidecarDispatcher.
@@ -228,8 +274,10 @@ struct SidecarHandlers {
 
     /// Called on `sync.adapter.bootstrap`.
     std::function<void(const BootstrapRequest &)> onBootstrap;
-    /// Called on `sync.adapter.config.changed`.
+    /// Called on `sync.adapter.config.changed` (factory if `externalId==""`, instance otherwise).
     std::function<void(const ConfigChangedRequest &)> onConfigChanged;
+    /// Called on `sync.adapter.instance.removed`.
+    std::function<void(const InstanceRemovedRequest &)> onInstanceRemoved;
     /// Called on `cmd.channel.invoke`.
     std::function<phicore::adapter::v1::CmdResponse(const ChannelInvokeRequest &)> onChannelInvoke;
     /// Called on `cmd.adapter.action.invoke`.
@@ -308,6 +356,11 @@ public:
 
     /**
      * @brief Publish adapter error event (`command=EventError`).
+     *
+     * Adapter wrapper APIs (`AdapterFactory::sendError`, `AdapterInstance::sendError`)
+     * additionally emit a mirrored `EventLog` with `level=Error`,
+     * `category=Event`, and `fields={"source":"event.error"}`.
+     * `ctx` is translation context; `params` replace `%1`, `%2`, ... in `message`.
      */
     bool sendError(const phicore::adapter::v1::ExternalId &externalId,
                    const phicore::adapter::v1::Utf8String &message,
@@ -467,7 +520,9 @@ public:
     bool hasBootstrap() const;
 
     /// Structured log helper for adapter implementers.
+    /// `ctx` is translation context; `params` replace `%1`, `%2`, ... in `message`.
     bool log(LogLevel level,
+             LogCategory category,
              const phicore::adapter::v1::Utf8String &message,
              const phicore::adapter::v1::Utf8String &ctx = {},
              const phicore::adapter::v1::ScalarList &params = {},
@@ -492,6 +547,7 @@ protected:
     virtual void destroyInstance(std::unique_ptr<AdapterInstance> instance);
 
     virtual phicore::adapter::v1::ActionResponse onFactoryActionInvoke(const AdapterActionInvokeRequest &request);
+    virtual void onFactoryConfigChanged(const ConfigChangedRequest &request);
     virtual void onConnected();
     virtual void onDisconnected();
     virtual void onProtocolError(const phicore::adapter::v1::Utf8String &message);
@@ -514,6 +570,7 @@ private:
 
     void bindDispatcher(SidecarDispatcher *dispatcher);
     void cacheBootstrap(const BootstrapRequest &request);
+    void cacheFactoryConfig(const ConfigChangedRequest &request);
 
     phicore::adapter::v1::Utf8String hostPluginType() const;
     AdapterDescriptor hostDescriptor() const;
@@ -524,10 +581,13 @@ private:
     void hostOnDisconnected();
     void hostOnProtocolError(const phicore::adapter::v1::Utf8String &message);
     void hostOnBootstrap(const BootstrapRequest &request);
+    void hostOnFactoryConfigChanged(const ConfigChangedRequest &request);
 
     SidecarDispatcher *m_dispatcher = nullptr;
     BootstrapRequest m_bootstrap;
     bool m_hasBootstrap = false;
+    ConfigChangedRequest m_factoryConfig;
+    bool m_hasFactoryConfig = false;
 };
 
 /**
@@ -548,7 +608,9 @@ public:
     bool hasConfig() const;
 
     /// Structured log helper for adapter implementers.
+    /// `ctx` is translation context; `params` replace `%1`, `%2`, ... in `message`.
     bool log(LogLevel level,
+             LogCategory category,
              const phicore::adapter::v1::Utf8String &message,
              const phicore::adapter::v1::Utf8String &ctx = {},
              const phicore::adapter::v1::ScalarList &params = {},
@@ -691,3 +753,33 @@ private:
 };
 
 } // namespace phicore::adapter::sdk
+
+#ifndef PHI_LOG_WITH_SOURCE
+#define PHI_LOG_WITH_SOURCE(target, level, category, message, ctx, ...)                                        \
+    (target).log((level),                                                                                      \
+                 (category),                                                                                   \
+                 (message),                                                                                    \
+                 (ctx),                                                                                        \
+                 __VA_ARGS__,                                                                                  \
+                 ::phicore::adapter::sdk::makeSourceLocationFieldsJson(__FILE__, __LINE__, __func__))
+#endif
+
+#ifndef PHI_LOG_DEBUG
+#define PHI_LOG_DEBUG(target, category, message, ctx, ...)                                                     \
+    PHI_LOG_WITH_SOURCE((target),                                                                              \
+                        ::phicore::adapter::sdk::LogLevel::Debug,                                              \
+                        (category),                                                                            \
+                        (message),                                                                             \
+                        (ctx),                                                                                 \
+                        __VA_ARGS__)
+#endif
+
+#ifndef PHI_LOG_TRACE
+#define PHI_LOG_TRACE(target, category, message, ctx, ...)                                                     \
+    PHI_LOG_WITH_SOURCE((target),                                                                              \
+                        ::phicore::adapter::sdk::LogLevel::Trace,                                              \
+                        (category),                                                                            \
+                        (message),                                                                             \
+                        (ctx),                                                                                 \
+                        __VA_ARGS__)
+#endif

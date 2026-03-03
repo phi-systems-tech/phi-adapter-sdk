@@ -1,6 +1,7 @@
 #include "phi/adapter/sdk/sidecar.h"
 #include "runtime_internal.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
@@ -58,6 +59,51 @@ std::string_view logLevelName(LogLevel level)
     return "info";
 }
 
+std::string_view logCategoryName(LogCategory category)
+{
+    switch (category) {
+    case LogCategory::Event:
+        return "event";
+    case LogCategory::Lifecycle:
+        return "lifecycle";
+    case LogCategory::Discovery:
+        return "discovery";
+    case LogCategory::Network:
+        return "network";
+    case LogCategory::Protocol:
+        return "protocol";
+    case LogCategory::DeviceState:
+        return "deviceState";
+    case LogCategory::Config:
+        return "config";
+    case LogCategory::Performance:
+        return "performance";
+    case LogCategory::Security:
+        return "security";
+    case LogCategory::Internal:
+        return "internal";
+    }
+    return "internal";
+}
+
+std::string jsonQuoted(std::string_view text);
+
+std::string_view fileNameOnly(std::string_view path)
+{
+    std::size_t slashPos = path.find_last_of('/');
+    std::size_t backslashPos = path.find_last_of('\\');
+    std::size_t pos = std::string_view::npos;
+    if (slashPos == std::string_view::npos)
+        pos = backslashPos;
+    else if (backslashPos == std::string_view::npos)
+        pos = slashPos;
+    else
+        pos = std::max(slashPos, backslashPos);
+    if (pos == std::string_view::npos || pos + 1 >= path.size())
+        return path;
+    return path.substr(pos + 1);
+}
+
 using MemberMap = std::unordered_map<std::string, std::string_view>;
 
 std::int64_t nowMs()
@@ -70,6 +116,26 @@ bool isWs(char c)
 {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
+
+} // namespace
+
+phicore::adapter::v1::JsonText makeSourceLocationFieldsJson(const char *file,
+                                                            int line,
+                                                            const char *functionName)
+{
+    const std::string_view fileView = file ? std::string_view(file) : std::string_view();
+    const std::string_view fnView = functionName ? std::string_view(functionName) : std::string_view();
+    const std::string body = std::string("{\"file\":")
+        + jsonQuoted(std::string(fileNameOnly(fileView)))
+        + ",\"line\":"
+        + std::to_string(line > 0 ? line : 0)
+        + ",\"func\":"
+        + jsonQuoted(std::string(fnView))
+        + "}";
+    return body;
+}
+
+namespace {
 
 void skipWs(std::string_view text, std::size_t &i)
 {
@@ -1148,6 +1214,19 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return true;
     }
 
+    if (command == IpcCommand::SyncAdapterInstanceRemoved) {
+        if (m_handlers.onInstanceRemoved) {
+            InstanceRemovedRequest request;
+            request.cmdId = cmdId;
+            request.correlationId = header.correlationId;
+            request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
+            request.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
+            request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+            m_handlers.onInstanceRemoved(request);
+        }
+        return true;
+    }
+
     if (command == IpcCommand::CmdChannelInvoke) {
         ChannelInvokeRequest request;
         request.cmdId = cmdId;
@@ -1378,6 +1457,8 @@ bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &external
     body += jsonQuoted(pluginType);
     appendFieldPrefix(body, first, "level");
     body += jsonQuoted(std::string(logLevelName(entry.level)));
+    appendFieldPrefix(body, first, "category");
+    body += jsonQuoted(std::string(logCategoryName(entry.category)));
     appendFieldPrefix(body, first, "message");
     body += jsonQuoted(entry.message);
     appendFieldPrefix(body, first, "ctx");
@@ -1622,6 +1703,7 @@ bool AdapterFactory::hasBootstrap() const
 }
 
 bool AdapterFactory::log(LogLevel level,
+                         LogCategory category,
                          const phicore::adapter::v1::Utf8String &message,
                          const phicore::adapter::v1::Utf8String &ctx,
                          const phicore::adapter::v1::ScalarList &params,
@@ -1634,8 +1716,15 @@ bool AdapterFactory::log(LogLevel level,
             *error = "Dispatcher not bound";
         return false;
     }
+    if (level != LogLevel::Error
+        && m_hasFactoryConfig
+        && !phicore::adapter::v1::hasFlag(m_factoryConfig.adapter.flags,
+                                          phicore::adapter::v1::AdapterFlag::EnableLogs)) {
+        return true;
+    }
     LogEntry entry;
     entry.level = level;
+    entry.category = category;
     entry.message = message;
     entry.ctx = ctx;
     entry.params = params;
@@ -1675,6 +1764,7 @@ phicore::adapter::v1::ActionResponse AdapterFactory::onFactoryActionInvoke(const
 {
     return defaultActionResponse(request.cmdId, "Factory action handler not implemented");
 }
+void AdapterFactory::onFactoryConfigChanged(const ConfigChangedRequest &request) { (void)request; }
 void AdapterFactory::onConnected() {}
 void AdapterFactory::onDisconnected() {}
 void AdapterFactory::onProtocolError(const phicore::adapter::v1::Utf8String &message) { (void)message; }
@@ -1689,7 +1779,21 @@ bool AdapterFactory::sendError(const phicore::adapter::v1::Utf8String &message,
                                const phicore::adapter::v1::Utf8String &ctx,
                                phicore::adapter::v1::Utf8String *error)
 {
-    return m_dispatcher ? m_dispatcher->sendError({}, message, params, ctx, error) : false;
+    if (!m_dispatcher) {
+        if (error)
+            *error = "Dispatcher not bound";
+        return false;
+    }
+    if (!m_dispatcher->sendError({}, message, params, ctx, error))
+        return false;
+    LogEntry mirrored;
+    mirrored.level = LogLevel::Error;
+    mirrored.category = LogCategory::Event;
+    mirrored.message = message;
+    mirrored.ctx = ctx;
+    mirrored.params = params;
+    mirrored.fieldsJson = R"({"source":"event.error"})";
+    return m_dispatcher->sendLog({}, hostPluginType(), mirrored, error);
 }
 bool AdapterFactory::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                             phicore::adapter::v1::Utf8String *error)
@@ -1724,6 +1828,11 @@ void AdapterFactory::cacheBootstrap(const BootstrapRequest &request)
     m_bootstrap = request;
     m_hasBootstrap = true;
 }
+void AdapterFactory::cacheFactoryConfig(const ConfigChangedRequest &request)
+{
+    m_factoryConfig = request;
+    m_hasFactoryConfig = true;
+}
 phicore::adapter::v1::Utf8String AdapterFactory::hostPluginType() const { return pluginType(); }
 AdapterDescriptor AdapterFactory::hostDescriptor() const { return descriptor(); }
 std::unique_ptr<AdapterInstance> AdapterFactory::hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId)
@@ -1746,6 +1855,11 @@ void AdapterFactory::hostOnBootstrap(const BootstrapRequest &request)
     cacheBootstrap(request);
     onBootstrap(request);
 }
+void AdapterFactory::hostOnFactoryConfigChanged(const ConfigChangedRequest &request)
+{
+    cacheFactoryConfig(request);
+    onFactoryConfigChanged(request);
+}
 
 int AdapterInstance::adapterId() const { return m_adapterId; }
 const phicore::adapter::v1::Utf8String &AdapterInstance::pluginType() const { return m_pluginType; }
@@ -1754,6 +1868,7 @@ const ConfigChangedRequest &AdapterInstance::config() const { return m_config; }
 bool AdapterInstance::hasConfig() const { return m_hasConfig; }
 
 bool AdapterInstance::log(LogLevel level,
+                          LogCategory category,
                           const phicore::adapter::v1::Utf8String &message,
                           const phicore::adapter::v1::Utf8String &ctx,
                           const phicore::adapter::v1::ScalarList &params,
@@ -1766,8 +1881,15 @@ bool AdapterInstance::log(LogLevel level,
             *error = "Dispatcher not bound";
         return false;
     }
+    if (level != LogLevel::Error
+        && m_hasConfig
+        && !phicore::adapter::v1::hasFlag(m_config.adapter.flags,
+                                          phicore::adapter::v1::AdapterFlag::EnableLogs)) {
+        return true;
+    }
     LogEntry entry;
     entry.level = level;
+    entry.category = category;
     entry.message = message;
     entry.ctx = ctx;
     entry.params = params;
@@ -1818,7 +1940,21 @@ bool AdapterInstance::sendError(const phicore::adapter::v1::Utf8String &message,
                                 const phicore::adapter::v1::Utf8String &ctx,
                                 phicore::adapter::v1::Utf8String *error)
 {
-    return m_dispatcher ? m_dispatcher->sendError(m_externalId, message, params, ctx, error) : false;
+    if (!m_dispatcher) {
+        if (error)
+            *error = "Dispatcher not bound";
+        return false;
+    }
+    if (!m_dispatcher->sendError(m_externalId, message, params, ctx, error))
+        return false;
+    LogEntry mirrored;
+    mirrored.level = LogLevel::Error;
+    mirrored.category = LogCategory::Event;
+    mirrored.message = message;
+    mirrored.ctx = ctx;
+    mirrored.params = params;
+    mirrored.fieldsJson = R"({"source":"event.error"})";
+    return m_dispatcher->sendLog(m_externalId, m_pluginType, mirrored, error);
 }
 bool AdapterInstance::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                              phicore::adapter::v1::Utf8String *error)
@@ -2085,7 +2221,9 @@ void SidecarHost::wireHandlers()
             return;
         ConfigChangedRequest normalized = request;
         if (normalized.adapter.externalId.empty()) {
-            m_factory->hostOnProtocolError("ConfigChanged must target instance scope (externalId required)");
+            if (normalized.adapter.pluginType.empty())
+                normalized.adapter.pluginType = m_factory->hostPluginType();
+            m_factory->hostOnFactoryConfigChanged(normalized);
             return;
         }
         if (normalized.adapter.pluginType.empty())
@@ -2096,6 +2234,21 @@ void SidecarHost::wireHandlers()
             return;
         }
         instance->hostOnConfigChanged(normalized);
+    };
+    handlers.onInstanceRemoved = [this](const InstanceRemovedRequest &request) {
+        if (!m_factory)
+            return;
+        if (request.externalId.empty()) {
+            m_factory->hostOnProtocolError("InstanceRemoved must target instance scope (externalId required)");
+            return;
+        }
+        auto it = m_instances.find(request.externalId);
+        if (it == m_instances.end())
+            return;
+        if (it->second)
+            it->second->hostStop();
+        m_factory->hostDestroyInstance(std::move(it->second));
+        m_instances.erase(it);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         if (request.externalId.empty())

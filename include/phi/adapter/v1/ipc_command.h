@@ -7,7 +7,11 @@ namespace phicore::adapter::v1 {
 enum class IpcCommand : std::uint16_t {
     // Sync (core -> adapter, no response)
     SyncAdapterBootstrap = 0x0101,
+    // Scope is resolved by payload `externalId`:
+    //   externalId == ""  -> factory scope
+    //   externalId != ""  -> instance scope
     SyncAdapterConfigChanged = 0x0102,
+    SyncAdapterInstanceRemoved = 0x0103,
 
     // Cmd (core -> adapter, always followed by Result*)
     CmdChannelInvoke = 0x0201,

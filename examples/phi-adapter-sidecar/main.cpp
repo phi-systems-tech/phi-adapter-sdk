@@ -37,6 +37,11 @@ protected:
     void onConnected() override
     {
         std::cerr << "core connected" << std::endl;
+        PHI_LOG_DEBUG(*this,
+                      phi::LogCategory::Lifecycle,
+                      "Core connected for %1",
+                      "adapter.example.lifecycle.connected",
+                      phi::ScalarList{externalId()});
     }
 
     void onDisconnected() override
@@ -47,6 +52,15 @@ protected:
     void onProtocolError(const phi::Utf8String &message) override
     {
         std::cerr << "protocol error: " << message << std::endl;
+        phi::Utf8String sendErr;
+        // `ctx` is translation context, params replace `%1`, `%2`, ...
+        // source/module context belongs to structured log fields (SDK mirrors event.error -> event.log).
+        sendError("Protocol error for %1: %2",
+                  {externalId(), message},
+                  "adapter.example.protocol.error",
+                  &sendErr);
+        if (!sendErr.empty())
+            std::cerr << "failed to send adapter error: " << sendErr << std::endl;
     }
 
     void onConfigChanged(const phi::ConfigChangedRequest &request) override
