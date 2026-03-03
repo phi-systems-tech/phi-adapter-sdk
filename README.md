@@ -80,6 +80,65 @@ cmake --build build --parallel
 `SidecarHost` wires IPC transport and handler dispatch.
 `AdapterFactory::pluginType()` must match the adapter plugin type used by phi-core.
 
+### Runtime Class Contract (v1, normative)
+
+- `SidecarHost` is the only dispatcher/lifecycle owner and MUST be declared `friend` for
+  both factory and instance runtime classes.
+- Host-triggered entry points are `private` and SDK-owned (NVI): adapter code must not call
+  them directly.
+- Private host entry points run invariant checks, common logging/enrichment, and then call the
+  adapter's virtual hooks.
+- Adapter implementers override natural hook names (`start()`, `stop()`, `restart()`, ...)
+  and MUST NOT implement or depend on `do*` naming.
+- Factory plane is strict `externalId == ""`; instance plane is strict `externalId != ""`.
+
+Factory methods (v1 SDK contract):
+
+- `pluginType()`
+- `displayName()`, `description()`, `apiVersion()`, `iconSvg()`, `imageBase64()`
+- `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchemaJson()`
+- `descriptor()` (default build from first-class overrides)
+- `onFactoryActionInvoke(...)`
+- `createInstance(...)`, `destroyInstance(...)`, `startInstance(...)`, `stopInstance(...)`,
+  `restartInstance(...)`
+
+Instance methods (v1 SDK contract):
+
+- lifecycle: `start()`, `stop()`, `restart()`
+- runtime: `onConfigChanged(...)`
+- command handlers: `onChannelInvoke(...)`, `onAdapterActionInvoke(...)`,
+  `onDeviceNameUpdate(...)`, `onDeviceEffectInvoke(...)`, `onSceneInvoke(...)`
+- outbound events: `send*` helpers from SDK base class
+
+Logging API (v1 SDK contract):
+
+- `log(...)` is a public method on factory and instance classes for adapter implementers.
+- SDK enriches and forwards logs to core automatically; adapters should only provide semantic
+  message/context fields.
+- Mandatory normalized fields are SDK-managed: `tsMs`, `level`, `message`, `pluginType`,
+  `externalId` (empty for factory scope).
+- Optional fields may include `adapterId`, `ctx`, `params`, and structured metadata.
+- Central SDK policy applies to all adapters (rate limiting/size limits/UTF-8 normalization/
+  redaction); no adapter-specific fallback logging paths.
+
+Cmd/Action Results (NVI, mandatory):
+
+- Host dispatch uses private NVI entry points for command/action processing.
+- Adapter command/action hooks are synchronous functions from host perspective.
+- Each accepted `Cmd*` request produces exactly one correlated `Result*`.
+- `cmdId` correlation is host-managed and always echoed.
+- SDK/host normalizes responses (required fields, `status`, `tsMs`, kind-specific payload).
+- Error mapping is centralized in SDK/host; adapter hooks return domain results.
+- Adapter code must not emit raw `Result*` frames directly.
+
+Concurrency model (v1, mandatory):
+
+- Background work (polling, network callbacks, event streams) may run on worker threads.
+- IPC write/dispatch to core MUST be serialized through one host-owned send path.
+- Worker threads MUST not emit IPC frames directly.
+- Worker threads should enqueue domain updates; host thread drains and sends `Event*`.
+- This guarantees deterministic ordering, one-result-per-command behavior, and safe correlation.
+
 ### Naming Rules
 
 - Inbound request handlers: `on*` (`onBootstrap`, `onChannelInvoke`, ...)
