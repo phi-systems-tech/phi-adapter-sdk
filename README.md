@@ -124,9 +124,10 @@ Instance methods (v1 SDK contract):
 
 - lifecycle: `start()`, `stop()`, `restart()`
 - runtime: `onConfigChanged(...)`
-- command handlers: `onChannelInvoke(...)`, `onAdapterActionInvoke(...)`,
+- command handlers are queued/asynchronous: `onChannelInvoke(...)`, `onAdapterActionInvoke(...)`,
   `onDeviceNameUpdate(...)`, `onDeviceEffectInvoke(...)`, `onSceneInvoke(...)`
 - outbound events: `send*` helpers from SDK base class
+- command/action completion is explicit via `sendResult(...)` helpers
 
 Logging API (v1 SDK contract):
 
@@ -170,15 +171,28 @@ Logging API (v1 SDK contract):
 Cmd/Action Results (NVI, mandatory):
 
 - Host dispatch uses private NVI entry points for command/action processing.
-- SDK runtime uses asynchronous **Variant B** processing for `Cmd*`:
-  - host accepts request and enqueues it to the target instance worker
-  - instance worker computes result and enqueues correlated `Result*`
-  - host sends `Result*` back to core on the host send path
-- Each accepted `Cmd*` request produces exactly one correlated `Result*`.
+- SDK runtime uses asynchronous queued processing for `Cmd*`/`Action*`:
+  - host accepts request and enqueues it to the target instance execution context
+  - adapter runtime completes later via explicit `sendResult(...)`
+  - host sends correlated `Result*` back to core on the host send path
+- Direct "fast-path" completion is allowed only as a degenerate async case:
+  - handler may compute result immediately and call `sendResult(...)` without additional wait
+  - result still traverses the same host-owned queue/send path
+  - no direct worker-thread IPC writes and no blocking remote I/O in handler fast-path
+- Return-value based command/action completion is non-compliant for the v1 contract model.
+- Each accepted `Cmd*`/`Action*` request produces exactly one correlated `Result*`.
 - `cmdId` correlation is host-managed and always echoed.
 - SDK/host normalizes responses (required fields, `status`, `tsMs`, kind-specific payload).
-- Error mapping is centralized in SDK/host; adapter hooks return domain results.
+- Error mapping is centralized in SDK/host; adapter hooks must not block on remote I/O.
 - Adapter code must not emit raw `Result*` frames directly.
+
+Result dispatch flow (normative):
+
+1. `HostThread` receives `Cmd*`/`Action*` and routes by `externalId`.
+2. Target instance execution context processes request.
+3. Instance publishes completion via `sendResult(...)` (cmd/action variant).
+4. SDK enqueues completion to host result queue (thread-safe).
+5. `HostThread` drains queue and emits correlated `Result*` IPC frame to phi-core.
 
 Concurrency model (v1, mandatory):
 
@@ -189,7 +203,7 @@ Concurrency model (v1, mandatory):
 - Each adapter instance (`externalId`) runs in its own SDK-owned worker thread.
 - `createInstance(externalId)` creates runtime object; SDK owns worker lifecycle.
 - `SyncAdapterInstanceRemoved` stops worker and destroys the instance.
-- `send*`, `log`, and `sendError` are thread-safe enqueue APIs.
+- `send*`, `log`, `sendError`, and `sendResult` are thread-safe enqueue APIs.
 - IPC write/dispatch to core MUST be serialized through one host-owned send path.
 - Worker threads MUST not emit IPC frames directly.
 - Worker threads enqueue events/results; `HostThread` drains queues and sends frames.
@@ -204,6 +218,15 @@ Concurrency model (v1, mandatory):
   - default timeout source is `AdapterFactory::timeoutMs()` (plugin-level)
   - timeout returns correlated `Result*` with timeout status
   - late worker results after timeout are dropped with debug log
+
+Optional Qt event loop model (v1, allowed):
+
+- Adapter builders may run a Qt event loop inside the instance execution thread.
+- Dispatcher remains independent in host runtime; instance execution may use Qt or non-Qt internals.
+- Command/action handlers should enqueue work to the instance loop and return immediately.
+- Immediate completion is allowed when no asynchronous wait is needed; even then, completion
+  must be emitted via `sendResult(...)` and host queue dispatch.
+- Completion must still happen via `sendResult(...)` (thread-safe), never by direct IPC writes.
 
 ### Naming Rules
 
@@ -338,16 +361,26 @@ not a partial field patch.
 
 ## Runtime Config Updates (v1)
 
-- `sync.adapter.bootstrap` is factory-plane handshake (`externalId == ""`).
+- `sync.adapter.bootstrap` is factory-plane handshake (`externalId == ""`) and includes
+  `staticConfig` (`<pluginType>-config.json`) from phi-core.
+- Factory code must be fully functional right after bootstrap using this `staticConfig`.
 - Effective runtime configuration is delivered via `sync.adapter.config.changed`.
+- `sync.adapter.config.changed` does not carry static adapter config in v1.
 - `sync.adapter.config.changed` is dual-scope:
   - `externalId == ""`: factory scope (`onFactoryConfigChanged(...)`)
   - `externalId != ""`: instance scope (`onConfigChanged(...)`)
-- phi-core sends an initial `config.changed` right after bootstrap.
+- phi-core may send an initial factory `config.changed` right after bootstrap
+  (for runtime policy fields like logging).
 - Subsequent `config.changed` messages are sent whenever runtime config changes
   (for example host re-resolve to a new DHCP IP).
-- Sidecars should consume network endpoints from `config().adapter.ip` and must not
-  perform adapter-local DNS resolution.
+- Adapter runtimes must not read `<pluginType>-config.json` directly from disk.
+  Static config source-of-truth is the bootstrap/config payload from phi-core.
+- Changes in `<pluginType>-config.json` require adapter process restart/re-bootstrap to take effect.
+- Sidecars should consume runtime network endpoints from `config().adapter.ip`.
+- Adapter-local DNS resolution is forbidden for runtime I/O paths (polling, channel invoke,
+  event streams, reconnect loops).
+- Exception: explicit factory probe/test actions (for example `id="probe"`) may resolve a
+  user-provided host value to validate connectivity before apply.
 
 ## Runtime Binary Replacement (v1)
 
@@ -443,11 +476,12 @@ Rules:
 
 ### Bootstrap Flow
 
-1. phi-core sends `sync.adapter.bootstrap`.
+1. phi-core sends `sync.adapter.bootstrap` with `staticConfig`.
 2. SDK host responds with `kind=factoryDescriptor` (includes `configSchema`).
-3. phi-core sends `sync.adapter.config.changed`.
+3. Optional: phi-core sends `sync.adapter.config.changed` (factory scope) for runtime policy/config.
+   `staticConfig` updates are not part of this message in v1.
 4. phi-core persists descriptor fields and exposes schema to UI/settings.
-5. Optional runtime static updates are sent via `kind=factoryDescriptorUpdated`.
+5. Optional runtime descriptor updates are sent via `kind=factoryDescriptorUpdated`.
 
 ### Action Form Patch Example
 

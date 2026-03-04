@@ -52,7 +52,8 @@ struct BootstrapRequest {
     phicore::adapter::v1::CorrelationId correlationId = 0;
     /// Adapter identity payload.
     phicore::adapter::v1::Adapter adapter;
-    /// Reserved legacy field; runtime config is delivered via `ConfigChangedRequest`.
+    /// Static adapter config JSON (`<pluginType>-config.json`) as raw JSON text.
+    /// This is provided during bootstrap so factory scope is immediately functional.
     phicore::adapter::v1::JsonText staticConfigJson;
 };
 
@@ -74,7 +75,8 @@ struct ConfigChangedRequest {
     phicore::adapter::v1::CorrelationId correlationId = 0;
     /// Effective adapter instance configuration snapshot.
     phicore::adapter::v1::Adapter adapter;
-    /// Static adapter config JSON (`AdapterStaticInfo::config`) as raw JSON text.
+    /// Reserved for future static-config delta transport.
+    /// In v1, phi-core sends static config only in `BootstrapRequest::staticConfigJson`.
     phicore::adapter::v1::JsonText staticConfigJson;
 };
 

@@ -82,6 +82,11 @@ Notes:
 - Provide an `AdapterFactory` (`pluginType()`, `createInstance()`).
 - Run using `SidecarHost`.
 - Recommended alias in adapter code: `namespace phi = phicore::adapter::sdk;`.
+- Treat `Cmd*`/`Action*` handling as asynchronous:
+  - complete via `sendResult(...)` (never by direct IPC writes)
+  - worker/instance threads enqueue results; host/main thread sends IPC frames to core
+  - "quasi sync" fast-path is allowed only if result is immediately available, but still
+    through `sendResult(...)` and the same host queue/send path
 - Follow naming conventions:
   - inbound handlers: `on*`
   - outbound IPC calls: `send*`
