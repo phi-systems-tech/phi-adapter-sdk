@@ -439,7 +439,7 @@ Minimal static discovery config example:
 - There is no default UI/core fallback for adapter factory actions.
 - If an adapter needs `Test connection`, it must expose action `id="probe"` in
   `capabilities().factoryActions`.
-- The adapter must implement `onAdapterActionInvoke(...)` for that action id.
+- The adapter must implement `onFactoryActionInvoke(...)` for that action id.
 - Factory target is selected by empty `externalId`.
 - Instance actions use non-empty `externalId`.
 - Keep factory/instance actions in descriptor+schema, not in legacy capability fallbacks.
@@ -497,7 +497,8 @@ resp.formValuesJson =
 resp.fieldChoicesJson =
     R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"}]})json";
 resp.reloadLayout = false;
-return resp;
+phicore::adapter::v1::Utf8String err;
+sendResult(resp, &err);
 ```
 
 ### Minimal Schema Example

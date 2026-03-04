@@ -71,7 +71,7 @@ protected:
                   << " port=" << request.adapter.port << std::endl;
     }
 
-    phi::CmdResponse onChannelInvoke(const phi::ChannelInvokeRequest &request) override
+    void onChannelInvoke(const phi::ChannelInvokeRequest &request) override
     {
         phi::CmdResponse response;
         response.id = request.cmdId;
@@ -83,10 +83,13 @@ protected:
         std::cerr << "channel invoke extId=" << request.externalId
                   << " device=" << request.deviceExternalId
                   << " channel=" << request.channelExternalId << std::endl;
-        return response;
+        phi::Utf8String err;
+        if (!sendResult(response, &err)) {
+            std::cerr << "failed to send channel result: " << err << std::endl;
+        }
     }
 
-    phi::ActionResponse onAdapterActionInvoke(const phi::AdapterActionInvokeRequest &request) override
+    void onAdapterActionInvoke(const phi::AdapterActionInvokeRequest &request) override
     {
         phi::ActionResponse response;
         response.id = request.cmdId;
@@ -107,7 +110,10 @@ protected:
                             .count();
         std::cerr << "adapter action invoke extId=" << request.externalId
                   << " actionId=" << request.actionId << std::endl;
-        return response;
+        phi::Utf8String err;
+        if (!sendResult(response, &err)) {
+            std::cerr << "failed to send action result: " << err << std::endl;
+        }
     }
 };
 
@@ -130,14 +136,17 @@ protected:
         return std::make_unique<ExampleAdapter>();
     }
 
-    phi::ActionResponse onFactoryActionInvoke(const phi::AdapterActionInvokeRequest &request) override
+    void onFactoryActionInvoke(const phi::AdapterActionInvokeRequest &request) override
     {
         phi::ActionResponse response;
         response.id = request.cmdId;
         response.status = phi::CmdStatus::Success;
         response.resultType = phi::ActionResultType::String;
         response.resultValue = phi::Utf8String("factory-ok");
-        return response;
+        phi::Utf8String err;
+        if (!sendResult(response, &err)) {
+            std::cerr << "failed to send factory action result: " << err << std::endl;
+        }
     }
 
     void onBootstrap(const phi::BootstrapRequest &request) override

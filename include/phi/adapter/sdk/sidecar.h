@@ -554,7 +554,7 @@ protected:
     virtual std::unique_ptr<AdapterInstance> createInstance(const phicore::adapter::v1::ExternalId &externalId) = 0;
     virtual void destroyInstance(std::unique_ptr<AdapterInstance> instance);
 
-    virtual phicore::adapter::v1::ActionResponse onFactoryActionInvoke(const AdapterActionInvokeRequest &request);
+    virtual void onFactoryActionInvoke(const AdapterActionInvokeRequest &request);
     virtual void onFactoryConfigChanged(const ConfigChangedRequest &request);
     virtual void onConnected();
     virtual void onDisconnected();
@@ -572,11 +572,14 @@ protected:
     bool sendFactoryDescriptorUpdated(phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendFactoryDescriptorUpdated(const AdapterDescriptor &descriptor,
                                       phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendResult(const phicore::adapter::v1::ActionResponse &response,
+                    phicore::adapter::v1::Utf8String *error = nullptr);
 
 private:
     friend class SidecarHost;
 
     void bindDispatcher(SidecarDispatcher *dispatcher);
+    void bindResultSubmitter(std::function<void(const phicore::adapter::v1::ActionResponse &)> actionSubmitter);
     void cacheBootstrap(const BootstrapRequest &request);
     void cacheFactoryConfig(const ConfigChangedRequest &request);
 
@@ -584,7 +587,7 @@ private:
     AdapterDescriptor hostDescriptor() const;
     std::unique_ptr<AdapterInstance> hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId);
     void hostDestroyInstance(std::unique_ptr<AdapterInstance> instance);
-    phicore::adapter::v1::ActionResponse hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request);
+    void hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request);
     void hostOnConnected();
     void hostOnDisconnected();
     void hostOnProtocolError(const phicore::adapter::v1::Utf8String &message);
@@ -596,6 +599,7 @@ private:
     bool m_hasBootstrap = false;
     ConfigChangedRequest m_factoryConfig;
     bool m_hasFactoryConfig = false;
+    std::function<void(const phicore::adapter::v1::ActionResponse &)> m_actionResultSubmitter;
 };
 
 /**
@@ -635,11 +639,11 @@ protected:
     virtual void onDisconnected();
     virtual void onProtocolError(const phicore::adapter::v1::Utf8String &message);
     virtual void onConfigChanged(const ConfigChangedRequest &request);
-    virtual phicore::adapter::v1::CmdResponse onChannelInvoke(const ChannelInvokeRequest &request);
-    virtual phicore::adapter::v1::ActionResponse onAdapterActionInvoke(const AdapterActionInvokeRequest &request);
-    virtual phicore::adapter::v1::CmdResponse onDeviceNameUpdate(const DeviceNameUpdateRequest &request);
-    virtual phicore::adapter::v1::CmdResponse onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
-    virtual phicore::adapter::v1::CmdResponse onSceneInvoke(const SceneInvokeRequest &request);
+    virtual void onChannelInvoke(const ChannelInvokeRequest &request);
+    virtual void onAdapterActionInvoke(const AdapterActionInvokeRequest &request);
+    virtual void onDeviceNameUpdate(const DeviceNameUpdateRequest &request);
+    virtual void onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
+    virtual void onSceneInvoke(const SceneInvokeRequest &request);
     virtual void onUnknownRequest(const UnknownRequest &request);
 
     bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
@@ -672,11 +676,17 @@ protected:
     bool sendSceneRemoved(const phicore::adapter::v1::ExternalId &sceneExternalId,
                           phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendResult(const phicore::adapter::v1::CmdResponse &response,
+                    phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendResult(const phicore::adapter::v1::ActionResponse &response,
+                    phicore::adapter::v1::Utf8String *error = nullptr);
 
 private:
     friend class SidecarHost;
 
     void bindDispatcher(SidecarDispatcher *dispatcher);
+    void bindResultSubmitters(std::function<void(const phicore::adapter::v1::CmdResponse &)> cmdSubmitter,
+                              std::function<void(const phicore::adapter::v1::ActionResponse &)> actionSubmitter);
     void bindContext(int adapterId,
                      phicore::adapter::v1::Utf8String pluginType,
                      phicore::adapter::v1::ExternalId externalId);
@@ -689,11 +699,11 @@ private:
     void hostOnDisconnected();
     void hostOnProtocolError(const phicore::adapter::v1::Utf8String &message);
     void hostOnConfigChanged(const ConfigChangedRequest &request);
-    phicore::adapter::v1::CmdResponse hostOnChannelInvoke(const ChannelInvokeRequest &request);
-    phicore::adapter::v1::ActionResponse hostOnAdapterActionInvoke(const AdapterActionInvokeRequest &request);
-    phicore::adapter::v1::CmdResponse hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request);
-    phicore::adapter::v1::CmdResponse hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
-    phicore::adapter::v1::CmdResponse hostOnSceneInvoke(const SceneInvokeRequest &request);
+    void hostOnChannelInvoke(const ChannelInvokeRequest &request);
+    void hostOnAdapterActionInvoke(const AdapterActionInvokeRequest &request);
+    void hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request);
+    void hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
+    void hostOnSceneInvoke(const SceneInvokeRequest &request);
     void hostOnUnknownRequest(const UnknownRequest &request);
 
     SidecarDispatcher *m_dispatcher = nullptr;
@@ -702,6 +712,8 @@ private:
     phicore::adapter::v1::ExternalId m_externalId;
     ConfigChangedRequest m_config;
     bool m_hasConfig = false;
+    std::function<void(const phicore::adapter::v1::CmdResponse &)> m_cmdResultSubmitter;
+    std::function<void(const phicore::adapter::v1::ActionResponse &)> m_actionResultSubmitter;
 };
 
 /**
@@ -794,10 +806,8 @@ private:
         std::int64_t deadlineMs = 0;
     };
 
-    static phicore::adapter::v1::CmdResponse normalizeCmdResponse(phicore::adapter::v1::CmdId cmdId,
-                                                                  const phicore::adapter::v1::CmdResponse &response);
-    static phicore::adapter::v1::ActionResponse normalizeActionResponse(phicore::adapter::v1::CmdId cmdId,
-                                                                        const phicore::adapter::v1::ActionResponse &response);
+    static phicore::adapter::v1::CmdResponse normalizeCmdResponse(const phicore::adapter::v1::CmdResponse &response);
+    static phicore::adapter::v1::ActionResponse normalizeActionResponse(const phicore::adapter::v1::ActionResponse &response);
     AdapterInstance *ensureInstance(const ConfigChangedRequest &request);
     bool createInstanceWorker(const ConfigChangedRequest &request,
                               phicore::adapter::v1::Utf8String *error = nullptr);

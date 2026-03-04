@@ -1997,9 +1997,12 @@ AdapterDescriptor AdapterFactory::descriptor() const
 }
 
 void AdapterFactory::destroyInstance(std::unique_ptr<AdapterInstance> instance) { (void)instance; }
-phicore::adapter::v1::ActionResponse AdapterFactory::onFactoryActionInvoke(const AdapterActionInvokeRequest &request)
+void AdapterFactory::onFactoryActionInvoke(const AdapterActionInvokeRequest &request)
 {
-    return defaultActionResponse(request.cmdId, "Factory action handler not implemented");
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultActionResponse(request.cmdId, "Factory action handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default factory action result: " + err);
 }
 void AdapterFactory::onFactoryConfigChanged(const ConfigChangedRequest &request) { (void)request; }
 void AdapterFactory::onConnected() {}
@@ -2061,8 +2064,28 @@ bool AdapterFactory::sendFactoryDescriptorUpdated(const AdapterDescriptor &descr
 {
     return m_dispatcher ? m_dispatcher->sendAdapterDescriptorUpdated({}, descriptor, error) : false;
 }
+bool AdapterFactory::sendResult(const phicore::adapter::v1::ActionResponse &response,
+                                phicore::adapter::v1::Utf8String *error)
+{
+    if (!m_actionResultSubmitter) {
+        if (error)
+            *error = "Factory action result submitter not bound";
+        return false;
+    }
+    if (response.id == 0) {
+        if (error)
+            *error = "ActionResponse.id must be > 0";
+        return false;
+    }
+    m_actionResultSubmitter(response);
+    return true;
+}
 
 void AdapterFactory::bindDispatcher(SidecarDispatcher *dispatcher) { m_dispatcher = dispatcher; }
+void AdapterFactory::bindResultSubmitter(std::function<void(const phicore::adapter::v1::ActionResponse &)> actionSubmitter)
+{
+    m_actionResultSubmitter = std::move(actionSubmitter);
+}
 void AdapterFactory::cacheBootstrap(const BootstrapRequest &request)
 {
     m_bootstrap = request;
@@ -2083,9 +2106,9 @@ void AdapterFactory::hostDestroyInstance(std::unique_ptr<AdapterInstance> instan
 {
     destroyInstance(std::move(instance));
 }
-phicore::adapter::v1::ActionResponse AdapterFactory::hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request)
+void AdapterFactory::hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request)
 {
-    return onFactoryActionInvoke(request);
+    onFactoryActionInvoke(request);
 }
 void AdapterFactory::hostOnConnected() { onConnected(); }
 void AdapterFactory::hostOnDisconnected() { onDisconnected(); }
@@ -2150,25 +2173,40 @@ void AdapterInstance::onProtocolError(const phicore::adapter::v1::Utf8String &me
               << " message=" << message << std::endl;
 }
 void AdapterInstance::onConfigChanged(const ConfigChangedRequest &request) { (void)request; }
-CmdResponse AdapterInstance::onChannelInvoke(const ChannelInvokeRequest &request)
+void AdapterInstance::onChannelInvoke(const ChannelInvokeRequest &request)
 {
-    return defaultCmdResponse(request.cmdId, "Channel invoke handler not implemented");
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId, "Channel invoke handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default channel invoke result: " + err);
 }
-ActionResponse AdapterInstance::onAdapterActionInvoke(const AdapterActionInvokeRequest &request)
+void AdapterInstance::onAdapterActionInvoke(const AdapterActionInvokeRequest &request)
 {
-    return defaultActionResponse(request.cmdId, "Adapter action handler not implemented");
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultActionResponse(request.cmdId, "Adapter action handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default adapter action result: " + err);
 }
-CmdResponse AdapterInstance::onDeviceNameUpdate(const DeviceNameUpdateRequest &request)
+void AdapterInstance::onDeviceNameUpdate(const DeviceNameUpdateRequest &request)
 {
-    return defaultCmdResponse(request.cmdId, "Device name update handler not implemented");
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId, "Device name update handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default device name update result: " + err);
 }
-CmdResponse AdapterInstance::onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request)
+void AdapterInstance::onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request)
 {
-    return defaultCmdResponse(request.cmdId, "Device effect handler not implemented");
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId, "Device effect handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default device effect result: " + err);
 }
-CmdResponse AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
+void AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
 {
-    return defaultCmdResponse(request.cmdId, "Scene invoke handler not implemented");
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId, "Scene invoke handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default scene invoke result: " + err);
 }
 void AdapterInstance::onUnknownRequest(const UnknownRequest &request) { (void)request; }
 
@@ -2260,8 +2298,47 @@ bool AdapterInstance::sendFullSyncCompleted(phicore::adapter::v1::Utf8String *er
 {
     return m_dispatcher ? m_dispatcher->sendFullSyncCompleted(m_externalId, error) : false;
 }
+bool AdapterInstance::sendResult(const phicore::adapter::v1::CmdResponse &response,
+                                 phicore::adapter::v1::Utf8String *error)
+{
+    if (!m_cmdResultSubmitter) {
+        if (error)
+            *error = "Command result submitter not bound";
+        return false;
+    }
+    if (response.id == 0) {
+        if (error)
+            *error = "CmdResponse.id must be > 0";
+        return false;
+    }
+    m_cmdResultSubmitter(response);
+    return true;
+}
+bool AdapterInstance::sendResult(const phicore::adapter::v1::ActionResponse &response,
+                                 phicore::adapter::v1::Utf8String *error)
+{
+    if (!m_actionResultSubmitter) {
+        if (error)
+            *error = "Action result submitter not bound";
+        return false;
+    }
+    if (response.id == 0) {
+        if (error)
+            *error = "ActionResponse.id must be > 0";
+        return false;
+    }
+    m_actionResultSubmitter(response);
+    return true;
+}
 
 void AdapterInstance::bindDispatcher(SidecarDispatcher *dispatcher) { m_dispatcher = dispatcher; }
+void AdapterInstance::bindResultSubmitters(
+    std::function<void(const phicore::adapter::v1::CmdResponse &)> cmdSubmitter,
+    std::function<void(const phicore::adapter::v1::ActionResponse &)> actionSubmitter)
+{
+    m_cmdResultSubmitter = std::move(cmdSubmitter);
+    m_actionResultSubmitter = std::move(actionSubmitter);
+}
 void AdapterInstance::bindContext(int adapterId,
                                   phicore::adapter::v1::Utf8String pluginType,
                                   phicore::adapter::v1::ExternalId externalId)
@@ -2286,11 +2363,11 @@ void AdapterInstance::hostOnConfigChanged(const ConfigChangedRequest &request)
     cacheConfig(request);
     onConfigChanged(request);
 }
-CmdResponse AdapterInstance::hostOnChannelInvoke(const ChannelInvokeRequest &request) { return onChannelInvoke(request); }
-ActionResponse AdapterInstance::hostOnAdapterActionInvoke(const AdapterActionInvokeRequest &request) { return onAdapterActionInvoke(request); }
-CmdResponse AdapterInstance::hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request) { return onDeviceNameUpdate(request); }
-CmdResponse AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request) { return onDeviceEffectInvoke(request); }
-CmdResponse AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { return onSceneInvoke(request); }
+void AdapterInstance::hostOnChannelInvoke(const ChannelInvokeRequest &request) { onChannelInvoke(request); }
+void AdapterInstance::hostOnAdapterActionInvoke(const AdapterActionInvokeRequest &request) { onAdapterActionInvoke(request); }
+void AdapterInstance::hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request) { onDeviceNameUpdate(request); }
+void AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request) { onDeviceEffectInvoke(request); }
+void AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { onSceneInvoke(request); }
 void AdapterInstance::hostOnUnknownRequest(const UnknownRequest &request) { onUnknownRequest(request); }
 
 
@@ -2299,8 +2376,12 @@ SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::uniqu
     , m_ownedFactory(std::move(factory))
     , m_factory(m_ownedFactory.get())
 {
-    if (m_factory)
+    if (m_factory) {
         m_factory->bindDispatcher(&m_dispatcher);
+        m_factory->bindResultSubmitter([this](const phicore::adapter::v1::ActionResponse &response) {
+            queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
+        });
+    }
     wireHandlers();
 }
 
@@ -2309,6 +2390,9 @@ SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFac
     , m_factory(&factory)
 {
     m_factory->bindDispatcher(&m_dispatcher);
+    m_factory->bindResultSubmitter([this](const phicore::adapter::v1::ActionResponse &response) {
+        queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
+    });
     wireHandlers();
 }
 
@@ -2336,6 +2420,8 @@ void SidecarHost::stop()
         std::lock_guard<std::mutex> lock(m_resultMutex);
         m_resultQueue.clear();
     }
+    if (m_factory)
+        m_factory->bindResultSubmitter({});
     m_dispatcher.stop();
 }
 
@@ -2355,23 +2441,17 @@ const AdapterInstance *SidecarHost::instance(const phicore::adapter::v1::Externa
 SidecarDispatcher *SidecarHost::dispatcher() { return &m_dispatcher; }
 const SidecarDispatcher *SidecarHost::dispatcher() const { return &m_dispatcher; }
 
-phicore::adapter::v1::CmdResponse SidecarHost::normalizeCmdResponse(phicore::adapter::v1::CmdId cmdId,
-                                                                    const phicore::adapter::v1::CmdResponse &response)
+phicore::adapter::v1::CmdResponse SidecarHost::normalizeCmdResponse(const phicore::adapter::v1::CmdResponse &response)
 {
     CmdResponse out = response;
-    if (out.id == 0)
-        out.id = cmdId;
     if (out.tsMs <= 0)
         out.tsMs = nowMs();
     return out;
 }
 
-phicore::adapter::v1::ActionResponse SidecarHost::normalizeActionResponse(phicore::adapter::v1::CmdId cmdId,
-                                                                          const phicore::adapter::v1::ActionResponse &response)
+phicore::adapter::v1::ActionResponse SidecarHost::normalizeActionResponse(const phicore::adapter::v1::ActionResponse &response)
 {
     ActionResponse out = response;
-    if (out.id == 0)
-        out.id = cmdId;
     if (out.tsMs <= 0)
         out.tsMs = nowMs();
     return out;
@@ -2439,6 +2519,13 @@ bool SidecarHost::createInstanceWorker(const ConfigChangedRequest &request, phic
     }
 
     created->bindDispatcher(&m_dispatcher);
+    created->bindResultSubmitters(
+        [this](const phicore::adapter::v1::CmdResponse &response) {
+            queueDeferredResult(DeferredCmdResult{normalizeCmdResponse(response)});
+        },
+        [this](const phicore::adapter::v1::ActionResponse &response) {
+            queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
+        });
     created->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
 
     auto worker = std::make_unique<InstanceWorker>();
@@ -2539,38 +2626,23 @@ void SidecarHost::workerMain(InstanceWorker *worker)
             continue;
         }
         if (const auto *payload = std::get_if<WorkerTaskChannelInvoke>(&task)) {
-            CmdResponse response = normalizeCmdResponse(
-                payload->request.cmdId,
-                worker->instance->hostOnChannelInvoke(payload->request));
-            queueDeferredResult(DeferredCmdResult{std::move(response)});
+            worker->instance->hostOnChannelInvoke(payload->request);
             continue;
         }
         if (const auto *payload = std::get_if<WorkerTaskAdapterActionInvoke>(&task)) {
-            ActionResponse response = normalizeActionResponse(
-                payload->request.cmdId,
-                worker->instance->hostOnAdapterActionInvoke(payload->request));
-            queueDeferredResult(DeferredActionResult{std::move(response)});
+            worker->instance->hostOnAdapterActionInvoke(payload->request);
             continue;
         }
         if (const auto *payload = std::get_if<WorkerTaskDeviceNameUpdate>(&task)) {
-            CmdResponse response = normalizeCmdResponse(
-                payload->request.cmdId,
-                worker->instance->hostOnDeviceNameUpdate(payload->request));
-            queueDeferredResult(DeferredCmdResult{std::move(response)});
+            worker->instance->hostOnDeviceNameUpdate(payload->request);
             continue;
         }
         if (const auto *payload = std::get_if<WorkerTaskDeviceEffectInvoke>(&task)) {
-            CmdResponse response = normalizeCmdResponse(
-                payload->request.cmdId,
-                worker->instance->hostOnDeviceEffectInvoke(payload->request));
-            queueDeferredResult(DeferredCmdResult{std::move(response)});
+            worker->instance->hostOnDeviceEffectInvoke(payload->request);
             continue;
         }
         if (const auto *payload = std::get_if<WorkerTaskSceneInvoke>(&task)) {
-            CmdResponse response = normalizeCmdResponse(
-                payload->request.cmdId,
-                worker->instance->hostOnSceneInvoke(payload->request));
-            queueDeferredResult(DeferredCmdResult{std::move(response)});
+            worker->instance->hostOnSceneInvoke(payload->request);
             continue;
         }
     }
@@ -2625,9 +2697,19 @@ void SidecarHost::drainDeferredResults()
 
     for (auto &result : local) {
         if (auto *cmd = std::get_if<DeferredCmdResult>(&result)) {
-            auto it = m_pendingCommands.find(cmd->response.id);
-            if (it == m_pendingCommands.end() || it->second.kind != PendingKind::Cmd)
+            if (cmd->response.id == 0) {
+                if (m_factory)
+                    m_factory->hostOnProtocolError("Dropped command result with id=0");
                 continue;
+            }
+            auto it = m_pendingCommands.find(cmd->response.id);
+            if (it == m_pendingCommands.end() || it->second.kind != PendingKind::Cmd) {
+                if (m_factory) {
+                    m_factory->hostOnProtocolError("Dropped command result with unknown/non-pending cmdId="
+                                                   + std::to_string(cmd->response.id));
+                }
+                continue;
+            }
             m_pendingCommands.erase(it);
             phicore::adapter::v1::Utf8String sendError;
             if (!m_dispatcher.sendCmdResult(cmd->response, &sendError) && m_factory)
@@ -2635,9 +2717,19 @@ void SidecarHost::drainDeferredResults()
             continue;
         }
         if (auto *action = std::get_if<DeferredActionResult>(&result)) {
-            auto it = m_pendingCommands.find(action->response.id);
-            if (it == m_pendingCommands.end() || it->second.kind != PendingKind::Action)
+            if (action->response.id == 0) {
+                if (m_factory)
+                    m_factory->hostOnProtocolError("Dropped action result with id=0");
                 continue;
+            }
+            auto it = m_pendingCommands.find(action->response.id);
+            if (it == m_pendingCommands.end() || it->second.kind != PendingKind::Action) {
+                if (m_factory) {
+                    m_factory->hostOnProtocolError("Dropped action result with unknown/non-pending cmdId="
+                                                   + std::to_string(action->response.id));
+                }
+                continue;
+            }
             m_pendingCommands.erase(it);
             phicore::adapter::v1::Utf8String sendError;
             if (!m_dispatcher.sendActionResult(action->response, &sendError) && m_factory)
@@ -2911,10 +3003,14 @@ void SidecarHost::wireHandlers()
             return;
         }
         if (request.externalId.empty()) {
-            m_dispatcher.sendActionResult(normalizeActionResponse(
-                                              request.cmdId,
-                                              m_factory->hostOnFactoryActionInvoke(request)),
-                                          nullptr);
+            phicore::adapter::v1::Utf8String error;
+            if (!trackPending(request.cmdId, PendingKind::Action, {}, &error)) {
+                response.status = CmdStatus::Failure;
+                response.error = "Failed to track pending action: " + error;
+                m_dispatcher.sendActionResult(response, nullptr);
+                return;
+            }
+            m_factory->hostOnFactoryActionInvoke(request);
             return;
         }
         phicore::adapter::v1::Utf8String error;
