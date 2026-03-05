@@ -24,7 +24,7 @@ target_include_directories(phi_adapter_contract
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-add_library(phi_adapter_sdk STATIC
+add_library(phi_adapter_sdk SHARED
     src/runtime.cpp
     src/sidecar.cpp
     src/linux/uds_epoll_transport.cpp
@@ -33,6 +33,8 @@ add_library(phi::adapter-sdk ALIAS phi_adapter_sdk)
 
 set_target_properties(phi_adapter_sdk PROPERTIES
     EXPORT_NAME adapter-sdk
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
 target_compile_features(phi_adapter_sdk PUBLIC cxx_std_20)

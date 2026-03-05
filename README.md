@@ -13,6 +13,7 @@ Linux-first SDK for phi adapter sidecars.
   - Linux runtime helpers (UDS + epoll transport)
   - Typed dispatcher (`SidecarDispatcher`)
   - C++ sidecar model (`AdapterFactory`, `AdapterInstance`, `SidecarHost`)
+  - Shared runtime library (`libphi_adapter_sdk.so`)
 
 ## Scope
 
@@ -87,6 +88,14 @@ cmake -S . -B build
 cmake --build build --parallel
 ```
 
+## Runtime Linking (.so)
+
+- `phi::adapter-sdk` is shipped as `libphi_adapter_sdk.so`.
+- Sidecar executables must be able to resolve this library at runtime.
+- Supported deployment patterns:
+  - install library into a system loader path (`/usr/lib`, `/usr/local/lib`, ...)
+  - ship library with adapter bundle and configure `RPATH` (for example `$ORIGIN/../../../`)
+
 ## Recommended C++ Model
 
 `AdapterFactory` is the plugin-level runtime base class.
@@ -118,6 +127,7 @@ Factory methods (v1 SDK contract):
 - `onBootstrap(...)`
 - `onFactoryConfigChanged(...)`
 - `onFactoryActionInvoke(...)`
+- `createInstanceExecutionBackend(externalId)` (optional override for custom threading/event loop)
 - `createInstance(...)`, `destroyInstance(...)`
 
 Instance methods (v1 SDK contract):
@@ -200,9 +210,12 @@ Concurrency model (v1, mandatory):
 - IPC read/write and frame dispatch run on `HostThread`.
 - Exactly one runtime process exists per `pluginType`.
 - One runtime process hosts factory scope and all instance scopes for that `pluginType`.
-- Each adapter instance (`externalId`) runs in its own SDK-owned worker thread.
-- `createInstance(externalId)` creates runtime object; SDK owns worker lifecycle.
-- `SyncAdapterInstanceRemoved` stops worker and destroys the instance.
+- Each adapter instance (`externalId`) runs in its own execution context.
+- Default SDK execution context is a dedicated worker thread per instance.
+- Factory may override `createInstanceExecutionBackend(externalId)` to provide a custom backend
+  (for example Qt event-loop execution).
+- `createInstance(externalId)` creates runtime object; SDK owns execution lifecycle.
+- `SyncAdapterInstanceRemoved` stops execution context and destroys the instance.
 - `send*`, `log`, `sendError`, and `sendResult` are thread-safe enqueue APIs.
 - IPC write/dispatch to core MUST be serialized through one host-owned send path.
 - Worker threads MUST not emit IPC frames directly.
@@ -221,7 +234,7 @@ Concurrency model (v1, mandatory):
 
 Optional Qt event loop model (v1, allowed):
 
-- Adapter builders may run a Qt event loop inside the instance execution thread.
+- Adapter builders may run a Qt event loop via custom `InstanceExecutionBackend`.
 - Dispatcher remains independent in host runtime; instance execution may use Qt or non-Qt internals.
 - Command/action handlers should enqueue work to the instance loop and return immediately.
 - Immediate completion is allowed when no asynchronous wait is needed; even then, completion

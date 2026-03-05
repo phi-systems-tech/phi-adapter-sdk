@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cmath>
 #include <cctype>
+#include <condition_variable>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
@@ -14,6 +15,7 @@
 #include <locale>
 #include <sstream>
 #include <string_view>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -118,6 +120,107 @@ bool isWs(char c)
 {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
+
+class DefaultInstanceExecutionBackend final : public InstanceExecutionBackend
+{
+public:
+    ~DefaultInstanceExecutionBackend() override
+    {
+        stop();
+    }
+
+    bool start(phicore::adapter::v1::Utf8String *error = nullptr) override
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_started)
+            return true;
+        m_stopRequested = false;
+        m_thread = std::thread([this]() {
+            run();
+        });
+        m_started = true;
+        return true;
+    }
+
+    bool execute(std::function<void()> task, phicore::adapter::v1::Utf8String *error = nullptr) override
+    {
+        if (!task) {
+            if (error)
+                *error = "Execution task is empty";
+            return false;
+        }
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (!m_started) {
+                if (error)
+                    *error = "Execution backend not started";
+                return false;
+            }
+            if (m_stopRequested) {
+                if (error)
+                    *error = "Execution backend is stopping";
+                return false;
+            }
+            m_tasks.push_back(std::move(task));
+        }
+        m_cv.notify_one();
+        return true;
+    }
+
+    void stop() override
+    {
+        std::thread thread;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (!m_started)
+                return;
+            m_stopRequested = true;
+            thread = std::move(m_thread);
+        }
+        m_cv.notify_one();
+        if (thread.joinable())
+            thread.join();
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_started = false;
+            m_stopRequested = false;
+            m_tasks.clear();
+        }
+    }
+
+private:
+    void run()
+    {
+        while (true) {
+            std::function<void()> task;
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_cv.wait(lock, [this]() {
+                    return m_stopRequested || !m_tasks.empty();
+                });
+                if (m_tasks.empty() && m_stopRequested)
+                    break;
+                if (m_tasks.empty())
+                    continue;
+                task = std::move(m_tasks.front());
+                m_tasks.pop_front();
+            }
+
+            try {
+                task();
+            } catch (...) {
+                // Adapter exceptions are contained so the runtime thread remains alive.
+            }
+        }
+    }
+
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    std::thread m_thread;
+    std::deque<std::function<void()>> m_tasks;
+    bool m_started = false;
+    bool m_stopRequested = false;
+};
 
 } // namespace
 
@@ -1996,6 +2099,13 @@ AdapterDescriptor AdapterFactory::descriptor() const
     return out;
 }
 
+std::unique_ptr<InstanceExecutionBackend> AdapterFactory::createInstanceExecutionBackend(
+    const phicore::adapter::v1::ExternalId &externalId)
+{
+    (void)externalId;
+    return std::make_unique<DefaultInstanceExecutionBackend>();
+}
+
 void AdapterFactory::destroyInstance(std::unique_ptr<AdapterInstance> instance) { (void)instance; }
 void AdapterFactory::onFactoryActionInvoke(const AdapterActionInvokeRequest &request)
 {
@@ -2098,6 +2208,11 @@ void AdapterFactory::cacheFactoryConfig(const ConfigChangedRequest &request)
 }
 phicore::adapter::v1::Utf8String AdapterFactory::hostPluginType() const { return pluginType(); }
 AdapterDescriptor AdapterFactory::hostDescriptor() const { return descriptor(); }
+std::unique_ptr<InstanceExecutionBackend> AdapterFactory::hostCreateInstanceExecutionBackend(
+    const phicore::adapter::v1::ExternalId &externalId)
+{
+    return createInstanceExecutionBackend(externalId);
+}
 std::unique_ptr<AdapterInstance> AdapterFactory::hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId)
 {
     return createInstance(externalId);
@@ -2414,7 +2529,6 @@ bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
 void SidecarHost::stop()
 {
     stopAndDestroyInstances();
-    drainDeferredInstanceRemovals();
     m_pendingCommands.clear();
     {
         std::lock_guard<std::mutex> lock(m_resultMutex);
@@ -2428,7 +2542,6 @@ void SidecarHost::stop()
 bool SidecarHost::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
 {
     const bool ok = m_dispatcher.pollOnce(timeout, error);
-    drainDeferredInstanceRemovals();
     drainDeferredResults();
     completePendingTimeouts();
     return ok;
@@ -2477,10 +2590,10 @@ AdapterInstance *SidecarHost::ensureInstance(const ConfigChangedRequest &request
 {
     if (!m_factory || request.adapter.externalId.empty())
         return nullptr;
-    if (!findWorker(request.adapter.externalId)) {
+    if (!findRuntime(request.adapter.externalId)) {
         phicore::adapter::v1::Utf8String error;
-        if (!createInstanceWorker(request, &error)) {
-            m_factory->hostOnProtocolError("Failed to create instance worker for externalId='"
+        if (!createInstanceRuntime(request, &error)) {
+            m_factory->hostOnProtocolError("Failed to create instance runtime for externalId='"
                                            + request.adapter.externalId + "': " + error);
             return nullptr;
         }
@@ -2488,7 +2601,7 @@ AdapterInstance *SidecarHost::ensureInstance(const ConfigChangedRequest &request
     return findInstance(request.adapter.externalId);
 }
 
-bool SidecarHost::createInstanceWorker(const ConfigChangedRequest &request, phicore::adapter::v1::Utf8String *error)
+bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phicore::adapter::v1::Utf8String *error)
 {
     if (!m_factory) {
         if (error)
@@ -2500,7 +2613,7 @@ bool SidecarHost::createInstanceWorker(const ConfigChangedRequest &request, phic
             *error = "externalId is required";
         return false;
     }
-    if (findWorker(request.adapter.externalId))
+    if (findRuntime(request.adapter.externalId))
         return true;
 
     const AdapterDescriptor descriptor = m_factory->hostDescriptor();
@@ -2511,173 +2624,144 @@ bool SidecarHost::createInstanceWorker(const ConfigChangedRequest &request, phic
         return false;
     }
 
-    std::unique_ptr<AdapterInstance> created = m_factory->hostCreateInstance(request.adapter.externalId);
-    if (!created) {
+    std::unique_ptr<AdapterInstance> createdInstance = m_factory->hostCreateInstance(request.adapter.externalId);
+    if (!createdInstance) {
         if (error)
             *error = "Factory createInstance returned null";
         return false;
     }
 
-    created->bindDispatcher(&m_dispatcher);
-    created->bindResultSubmitters(
+    std::unique_ptr<InstanceExecutionBackend> execution
+        = m_factory->hostCreateInstanceExecutionBackend(request.adapter.externalId);
+    if (!execution) {
+        if (error)
+            *error = "Factory createInstanceExecutionBackend returned null";
+        m_factory->hostDestroyInstance(std::move(createdInstance));
+        return false;
+    }
+
+    phicore::adapter::v1::Utf8String backendError;
+    if (!execution->start(&backendError)) {
+        if (error)
+            *error = "Failed to start instance execution backend: " + backendError;
+        m_factory->hostDestroyInstance(std::move(createdInstance));
+        return false;
+    }
+
+    createdInstance->bindDispatcher(&m_dispatcher);
+    createdInstance->bindResultSubmitters(
         [this](const phicore::adapter::v1::CmdResponse &response) {
             queueDeferredResult(DeferredCmdResult{normalizeCmdResponse(response)});
         },
         [this](const phicore::adapter::v1::ActionResponse &response) {
             queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
         });
-    created->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
+    createdInstance->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
 
-    auto worker = std::make_unique<InstanceWorker>();
-    worker->externalId = request.adapter.externalId;
-    worker->instance = std::move(created);
+    auto runtime = std::make_unique<InstanceRuntime>();
+    runtime->externalId = request.adapter.externalId;
+    runtime->instance = std::move(createdInstance);
+    runtime->execution = std::move(execution);
 
-    InstanceWorker *rawWorker = worker.get();
-    auto [it, inserted] = m_instances.emplace(request.adapter.externalId, std::move(worker));
-    if (!inserted) {
+    bool started = false;
+    bool startDone = false;
+    std::mutex startMutex;
+    std::condition_variable startCv;
+    AdapterInstance *instance = runtime->instance.get();
+    backendError.clear();
+    if (!runtime->execution->execute(
+            [instance, &started, &startDone, &startMutex, &startCv]() {
+                const bool ok = instance->hostStart();
+                if (!ok)
+                    instance->hostOnProtocolError("Instance start() failed");
+                {
+                    std::lock_guard<std::mutex> lock(startMutex);
+                    started = ok;
+                    startDone = true;
+                }
+                startCv.notify_one();
+            },
+            &backendError)) {
+        runtime->execution->stop();
         if (error)
-            *error = "Instance worker already exists";
+            *error = "Failed to schedule instance start on execution backend: " + backendError;
+        m_factory->hostDestroyInstance(std::move(runtime->instance));
         return false;
     }
-
-    rawWorker->thread = std::thread([this, rawWorker]() {
-        workerMain(rawWorker);
-    });
-
-    std::unique_lock<std::mutex> lock(rawWorker->mutex);
-    rawWorker->cv.wait(lock, [rawWorker]() { return rawWorker->started; });
-    if (!rawWorker->startOk) {
-        lock.unlock();
-        if (rawWorker->thread.joinable())
-            rawWorker->thread.join();
-        std::unique_ptr<AdapterInstance> failedInstance = std::move(rawWorker->instance);
-        m_instances.erase(it);
-        if (m_factory && failedInstance)
-            m_factory->hostDestroyInstance(std::move(failedInstance));
+    {
+        std::unique_lock<std::mutex> lock(startMutex);
+        startCv.wait(lock, [&startDone]() {
+            return startDone;
+        });
+    }
+    if (!started) {
+        runtime->execution->stop();
         if (error)
             *error = "Instance start() failed for externalId='" + request.adapter.externalId + "'";
+        m_factory->hostDestroyInstance(std::move(runtime->instance));
         return false;
     }
 
+    auto [it, inserted] = m_instances.try_emplace(request.adapter.externalId, nullptr);
+    if (!inserted) {
+        if (runtime && runtime->execution) {
+            phicore::adapter::v1::Utf8String ignoreError;
+            if (runtime->instance) {
+                runtime->execution->execute([instance = runtime->instance.get()]() {
+                    instance->hostStop();
+                }, &ignoreError);
+            }
+            runtime->execution->stop();
+        }
+        if (runtime && m_factory && runtime->instance)
+            m_factory->hostDestroyInstance(std::move(runtime->instance));
+        if (error)
+            *error = "Instance runtime already exists";
+        return false;
+    }
+    it->second = std::move(runtime);
     return true;
 }
 
-SidecarHost::InstanceWorker *SidecarHost::findWorker(const phicore::adapter::v1::ExternalId &externalId)
+SidecarHost::InstanceRuntime *SidecarHost::findRuntime(const phicore::adapter::v1::ExternalId &externalId)
 {
     const auto it = m_instances.find(externalId);
     return it == m_instances.end() ? nullptr : it->second.get();
 }
 
-const SidecarHost::InstanceWorker *SidecarHost::findWorker(const phicore::adapter::v1::ExternalId &externalId) const
+const SidecarHost::InstanceRuntime *SidecarHost::findRuntime(const phicore::adapter::v1::ExternalId &externalId) const
 {
     const auto it = m_instances.find(externalId);
     return it == m_instances.end() ? nullptr : it->second.get();
 }
 
-void SidecarHost::workerMain(InstanceWorker *worker)
+bool SidecarHost::executeOnRuntime(const phicore::adapter::v1::ExternalId &externalId,
+                                   std::function<void()> task,
+                                   phicore::adapter::v1::Utf8String *error)
 {
-    if (!worker || !worker->instance)
-        return;
-
-    const bool started = worker->instance->hostStart();
-    if (!started)
-        worker->instance->hostOnProtocolError("Instance start() failed");
-
-    {
-        std::lock_guard<std::mutex> lock(worker->mutex);
-        worker->started = true;
-        worker->startOk = started;
-        if (!started)
-            worker->stopRequested = true;
-    }
-    worker->cv.notify_all();
-
-    while (true) {
-        WorkerTask task;
-        {
-            std::unique_lock<std::mutex> lock(worker->mutex);
-            worker->cv.wait(lock, [worker]() {
-                return worker->stopRequested || !worker->tasks.empty();
-            });
-            if (worker->stopRequested && worker->tasks.empty())
-                break;
-            task = std::move(worker->tasks.front());
-            worker->tasks.pop_front();
-        }
-
-        if (std::holds_alternative<WorkerTaskConnected>(task)) {
-            worker->instance->hostOnConnected();
-            continue;
-        }
-        if (std::holds_alternative<WorkerTaskDisconnected>(task)) {
-            worker->instance->hostOnDisconnected();
-            continue;
-        }
-        if (const auto *payload = std::get_if<WorkerTaskProtocolError>(&task)) {
-            worker->instance->hostOnProtocolError(payload->message);
-            continue;
-        }
-        if (const auto *payload = std::get_if<WorkerTaskConfigChanged>(&task)) {
-            worker->instance->hostOnConfigChanged(payload->request);
-            continue;
-        }
-        if (const auto *payload = std::get_if<WorkerTaskUnknown>(&task)) {
-            worker->instance->hostOnUnknownRequest(payload->request);
-            continue;
-        }
-        if (const auto *payload = std::get_if<WorkerTaskChannelInvoke>(&task)) {
-            worker->instance->hostOnChannelInvoke(payload->request);
-            continue;
-        }
-        if (const auto *payload = std::get_if<WorkerTaskAdapterActionInvoke>(&task)) {
-            worker->instance->hostOnAdapterActionInvoke(payload->request);
-            continue;
-        }
-        if (const auto *payload = std::get_if<WorkerTaskDeviceNameUpdate>(&task)) {
-            worker->instance->hostOnDeviceNameUpdate(payload->request);
-            continue;
-        }
-        if (const auto *payload = std::get_if<WorkerTaskDeviceEffectInvoke>(&task)) {
-            worker->instance->hostOnDeviceEffectInvoke(payload->request);
-            continue;
-        }
-        if (const auto *payload = std::get_if<WorkerTaskSceneInvoke>(&task)) {
-            worker->instance->hostOnSceneInvoke(payload->request);
-            continue;
-        }
-    }
-
-    worker->instance->hostStop();
-}
-
-bool SidecarHost::enqueueWorkerTask(const phicore::adapter::v1::ExternalId &externalId, WorkerTask task)
-{
-    InstanceWorker *worker = findWorker(externalId);
-    if (!worker)
+    InstanceRuntime *runtime = findRuntime(externalId);
+    if (!runtime || !runtime->execution) {
+        if (error)
+            *error = "Unknown instance externalId: " + externalId;
         return false;
-    {
-        std::lock_guard<std::mutex> lock(worker->mutex);
-        if (worker->stopRequested)
-            return false;
-        worker->tasks.push_back(std::move(task));
     }
-    worker->cv.notify_one();
-    return true;
+    return runtime->execution->execute(std::move(task), error);
 }
 
-void SidecarHost::enqueueWorkerTaskBroadcast(const WorkerTask &task)
+void SidecarHost::executeOnAllRuntimes(const std::function<void(AdapterInstance &)> &fn)
 {
-    for (auto &entry : m_instances) {
-        InstanceWorker *worker = entry.second.get();
-        if (!worker)
+    for (const auto &entry : m_instances) {
+        InstanceRuntime *runtime = entry.second.get();
+        if (!runtime || !runtime->instance || !runtime->execution)
             continue;
-        {
-            std::lock_guard<std::mutex> lock(worker->mutex);
-            if (worker->stopRequested)
-                continue;
-            worker->tasks.push_back(task);
+        AdapterInstance *instance = runtime->instance.get();
+        phicore::adapter::v1::Utf8String error;
+        if (!runtime->execution->execute([instance, fn]() {
+                fn(*instance);
+            }, &error) && m_factory) {
+            m_factory->hostOnProtocolError("Failed to dispatch runtime callback for externalId='"
+                                           + runtime->externalId + "': " + error);
         }
-        worker->cv.notify_one();
     }
 }
 
@@ -2856,42 +2940,31 @@ void SidecarHost::clearPendingForInstance(const phicore::adapter::v1::ExternalId
 
 void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId)
 {
-    scheduleInstanceRemoval(externalId);
-    drainDeferredInstanceRemovals();
-}
-
-void SidecarHost::scheduleInstanceRemoval(const phicore::adapter::v1::ExternalId &externalId)
-{
     const auto it = m_instances.find(externalId);
     if (it == m_instances.end())
         return;
 
-    std::unique_ptr<InstanceWorker> worker = std::move(it->second);
+    std::unique_ptr<InstanceRuntime> runtime = std::move(it->second);
     m_instances.erase(it);
-    if (!worker)
+    if (!runtime)
         return;
 
-    {
-        std::lock_guard<std::mutex> lock(worker->mutex);
-        worker->stopRequested = true;
-    }
-    worker->cv.notify_one();
-    m_instancesPendingRemoval.push_back(std::move(worker));
-}
+    clearPendingForInstance(externalId, "Instance removed");
 
-void SidecarHost::drainDeferredInstanceRemovals()
-{
-    while (!m_instancesPendingRemoval.empty()) {
-        std::unique_ptr<InstanceWorker> worker = std::move(m_instancesPendingRemoval.front());
-        m_instancesPendingRemoval.pop_front();
-        if (!worker)
-            continue;
-        if (worker->thread.joinable())
-            worker->thread.join();
-        clearPendingForInstance(worker->externalId, "Instance removed");
-        if (m_factory && worker->instance)
-            m_factory->hostDestroyInstance(std::move(worker->instance));
+    if (runtime->execution && runtime->instance) {
+        phicore::adapter::v1::Utf8String error;
+        if (!runtime->execution->execute([instance = runtime->instance.get()]() {
+                instance->hostStop();
+            }, &error) && m_factory) {
+            m_factory->hostOnProtocolError("Failed to schedule stop for externalId='"
+                                           + externalId + "': " + error);
+        }
     }
+
+    if (runtime->execution)
+        runtime->execution->stop();
+    if (m_factory && runtime->instance)
+        m_factory->hostDestroyInstance(std::move(runtime->instance));
 }
 
 void SidecarHost::stopAndDestroyInstances()
@@ -2911,17 +2984,23 @@ void SidecarHost::wireHandlers()
     handlers.onConnected = [this]() {
         if (m_factory)
             m_factory->hostOnConnected();
-        enqueueWorkerTaskBroadcast(WorkerTaskConnected{});
+        executeOnAllRuntimes([](AdapterInstance &instance) {
+            instance.hostOnConnected();
+        });
     };
     handlers.onDisconnected = [this]() {
         if (m_factory)
             m_factory->hostOnDisconnected();
-        enqueueWorkerTaskBroadcast(WorkerTaskDisconnected{});
+        executeOnAllRuntimes([](AdapterInstance &instance) {
+            instance.hostOnDisconnected();
+        });
     };
     handlers.onProtocolError = [this](const phicore::adapter::v1::Utf8String &message) {
         if (m_factory)
             m_factory->hostOnProtocolError(message);
-        enqueueWorkerTaskBroadcast(WorkerTaskProtocolError{message});
+        executeOnAllRuntimes([message](AdapterInstance &instance) {
+            instance.hostOnProtocolError(message);
+        });
     };
     handlers.onBootstrap = [this](const BootstrapRequest &request) {
         if (!m_factory)
@@ -2954,9 +3033,16 @@ void SidecarHost::wireHandlers()
         }
         if (!ensureInstance(normalized))
             return;
-        if (!enqueueWorkerTask(normalized.adapter.externalId, WorkerTaskConfigChanged{normalized}))
-            m_factory->hostOnProtocolError("Failed to enqueue config.changed for externalId='"
-                                           + normalized.adapter.externalId + "'");
+        phicore::adapter::v1::Utf8String error;
+        if (!executeOnRuntime(normalized.adapter.externalId,
+                              [instance = findInstance(normalized.adapter.externalId), normalized]() {
+                                  if (instance)
+                                      instance->hostOnConfigChanged(normalized);
+                              },
+                              &error)) {
+            m_factory->hostOnProtocolError("Failed to dispatch config.changed for externalId='"
+                                           + normalized.adapter.externalId + "': " + error);
+        }
     };
     handlers.onInstanceRemoved = [this](const InstanceRemovedRequest &request) {
         if (!m_factory)
@@ -2965,7 +3051,7 @@ void SidecarHost::wireHandlers()
             m_factory->hostOnProtocolError("InstanceRemoved must target instance scope (externalId required)");
             return;
         }
-        scheduleInstanceRemoval(request.externalId);
+        stopAndDestroyInstance(request.externalId);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         CmdResponse response;
@@ -2984,10 +3070,16 @@ void SidecarHost::wireHandlers()
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
-        if (!enqueueWorkerTask(request.externalId, WorkerTaskChannelInvoke{request})) {
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnChannelInvoke(request);
+                              },
+                              &dispatchError)) {
             m_pendingCommands.erase(request.cmdId);
             response.status = CmdStatus::InvalidArgument;
-            response.error = "Unknown instance externalId: " + request.externalId;
+            response.error = "Failed to dispatch channel invoke: " + dispatchError;
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
@@ -3020,10 +3112,16 @@ void SidecarHost::wireHandlers()
             m_dispatcher.sendActionResult(response, nullptr);
             return;
         }
-        if (!enqueueWorkerTask(request.externalId, WorkerTaskAdapterActionInvoke{request})) {
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnAdapterActionInvoke(request);
+                              },
+                              &dispatchError)) {
             m_pendingCommands.erase(request.cmdId);
             response.status = CmdStatus::InvalidArgument;
-            response.error = "Unknown instance externalId: " + request.externalId;
+            response.error = "Failed to dispatch adapter action: " + dispatchError;
             m_dispatcher.sendActionResult(response, nullptr);
         }
     };
@@ -3044,10 +3142,16 @@ void SidecarHost::wireHandlers()
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
-        if (!enqueueWorkerTask(request.externalId, WorkerTaskDeviceNameUpdate{request})) {
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnDeviceNameUpdate(request);
+                              },
+                              &dispatchError)) {
             m_pendingCommands.erase(request.cmdId);
             response.status = CmdStatus::InvalidArgument;
-            response.error = "Unknown instance externalId: " + request.externalId;
+            response.error = "Failed to dispatch device.name.update: " + dispatchError;
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
@@ -3068,10 +3172,16 @@ void SidecarHost::wireHandlers()
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
-        if (!enqueueWorkerTask(request.externalId, WorkerTaskDeviceEffectInvoke{request})) {
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnDeviceEffectInvoke(request);
+                              },
+                              &dispatchError)) {
             m_pendingCommands.erase(request.cmdId);
             response.status = CmdStatus::InvalidArgument;
-            response.error = "Unknown instance externalId: " + request.externalId;
+            response.error = "Failed to dispatch device.effect.invoke: " + dispatchError;
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
@@ -3092,10 +3202,16 @@ void SidecarHost::wireHandlers()
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
-        if (!enqueueWorkerTask(request.externalId, WorkerTaskSceneInvoke{request})) {
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnSceneInvoke(request);
+                              },
+                              &dispatchError)) {
             m_pendingCommands.erase(request.cmdId);
             response.status = CmdStatus::InvalidArgument;
-            response.error = "Unknown instance externalId: " + request.externalId;
+            response.error = "Failed to dispatch scene invoke: " + dispatchError;
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
@@ -3106,8 +3222,16 @@ void SidecarHost::wireHandlers()
             m_factory->hostOnProtocolError("Unhandled IPC command: " + std::to_string(request.command));
             return;
         }
-        if (!enqueueWorkerTask(request.externalId, WorkerTaskUnknown{request}))
-            m_factory->hostOnProtocolError("Unknown instance externalId for unknown request: " + request.externalId);
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnUnknownRequest(request);
+                              },
+                              &dispatchError)) {
+            m_factory->hostOnProtocolError("Failed to dispatch unknown request for externalId='"
+                                           + request.externalId + "': " + dispatchError);
+        }
     };
     m_dispatcher.setHandlers(std::move(handlers));
 }

@@ -75,6 +75,9 @@ Notes:
 
 - Output sidecar executable name (for `ipc.command`)
 - Deployment location (`/opt/phi/plugins/adapters/`)
+- Deploy `libphi_adapter_sdk.so*` with the adapter package, or ensure it is available in a system
+  library path.
+- Ensure runtime lookup is configured (for example via `RPATH` like `$ORIGIN/../../../`).
 
 ### SDK Integration
 
@@ -82,9 +85,11 @@ Notes:
 - Provide an `AdapterFactory` (`pluginType()`, `createInstance()`).
 - Run using `SidecarHost`.
 - Recommended alias in adapter code: `namespace phi = phicore::adapter::sdk;`.
+- Optional: override `createInstanceExecutionBackend(externalId)` in `AdapterFactory` to provide
+  a custom execution model (for example a Qt event loop backend).
 - Treat `Cmd*`/`Action*` handling as asynchronous:
   - complete via `sendResult(...)` (never by direct IPC writes)
-  - worker/instance threads enqueue results; host/main thread sends IPC frames to core
+  - instance execution contexts enqueue results; host/main thread sends IPC frames to core
   - "quasi sync" fast-path is allowed only if result is immediately available, but still
     through `sendResult(...)` and the same host queue/send path
 - Follow naming conventions:

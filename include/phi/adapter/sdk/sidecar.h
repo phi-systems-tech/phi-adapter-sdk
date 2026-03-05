@@ -1,14 +1,12 @@
 #pragma once
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <variant>
 
@@ -509,6 +507,23 @@ private:
     std::recursive_mutex m_runtimeMutex;
 };
 
+/**
+ * @brief Optional instance execution backend (thread/event-loop abstraction).
+ *
+ * SDK core remains Qt-free. Adapters may provide custom backends (for example
+ * Qt-based event-loop execution) without changing sidecar host code.
+ */
+class InstanceExecutionBackend
+{
+public:
+    virtual ~InstanceExecutionBackend() = default;
+
+    virtual bool start(phicore::adapter::v1::Utf8String *error = nullptr) = 0;
+    virtual bool execute(std::function<void()> task,
+                         phicore::adapter::v1::Utf8String *error = nullptr) = 0;
+    virtual void stop() = 0;
+};
+
 class AdapterInstance;
 
 /**
@@ -550,6 +565,8 @@ protected:
     virtual phicore::adapter::v1::AdapterCapabilities capabilities() const;
     virtual phicore::adapter::v1::JsonText configSchemaJson() const;
     virtual AdapterDescriptor descriptor() const;
+    virtual std::unique_ptr<InstanceExecutionBackend> createInstanceExecutionBackend(
+        const phicore::adapter::v1::ExternalId &externalId);
 
     virtual std::unique_ptr<AdapterInstance> createInstance(const phicore::adapter::v1::ExternalId &externalId) = 0;
     virtual void destroyInstance(std::unique_ptr<AdapterInstance> instance);
@@ -585,6 +602,8 @@ private:
 
     phicore::adapter::v1::Utf8String hostPluginType() const;
     AdapterDescriptor hostDescriptor() const;
+    std::unique_ptr<InstanceExecutionBackend> hostCreateInstanceExecutionBackend(
+        const phicore::adapter::v1::ExternalId &externalId);
     std::unique_ptr<AdapterInstance> hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId);
     void hostDestroyInstance(std::unique_ptr<AdapterInstance> instance);
     void hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request);
@@ -757,42 +776,14 @@ public:
     const SidecarDispatcher *dispatcher() const;
 
 private:
-    struct WorkerTaskConnected {};
-    struct WorkerTaskDisconnected {};
-    struct WorkerTaskProtocolError { phicore::adapter::v1::Utf8String message; };
-    struct WorkerTaskConfigChanged { ConfigChangedRequest request; };
-    struct WorkerTaskUnknown { UnknownRequest request; };
-    struct WorkerTaskChannelInvoke { ChannelInvokeRequest request; };
-    struct WorkerTaskAdapterActionInvoke { AdapterActionInvokeRequest request; };
-    struct WorkerTaskDeviceNameUpdate { DeviceNameUpdateRequest request; };
-    struct WorkerTaskDeviceEffectInvoke { DeviceEffectInvokeRequest request; };
-    struct WorkerTaskSceneInvoke { SceneInvokeRequest request; };
-
-    using WorkerTask = std::variant<WorkerTaskConnected,
-                                    WorkerTaskDisconnected,
-                                    WorkerTaskProtocolError,
-                                    WorkerTaskConfigChanged,
-                                    WorkerTaskUnknown,
-                                    WorkerTaskChannelInvoke,
-                                    WorkerTaskAdapterActionInvoke,
-                                    WorkerTaskDeviceNameUpdate,
-                                    WorkerTaskDeviceEffectInvoke,
-                                    WorkerTaskSceneInvoke>;
-
     struct DeferredCmdResult { phicore::adapter::v1::CmdResponse response; };
     struct DeferredActionResult { phicore::adapter::v1::ActionResponse response; };
     using DeferredResult = std::variant<DeferredCmdResult, DeferredActionResult>;
 
-    struct InstanceWorker {
+    struct InstanceRuntime {
         phicore::adapter::v1::ExternalId externalId;
         std::unique_ptr<AdapterInstance> instance;
-        std::thread thread;
-        std::mutex mutex;
-        std::condition_variable cv;
-        std::deque<WorkerTask> tasks;
-        bool stopRequested = false;
-        bool started = false;
-        bool startOk = false;
+        std::unique_ptr<InstanceExecutionBackend> execution;
     };
 
     enum class PendingKind : std::uint8_t {
@@ -809,15 +800,16 @@ private:
     static phicore::adapter::v1::CmdResponse normalizeCmdResponse(const phicore::adapter::v1::CmdResponse &response);
     static phicore::adapter::v1::ActionResponse normalizeActionResponse(const phicore::adapter::v1::ActionResponse &response);
     AdapterInstance *ensureInstance(const ConfigChangedRequest &request);
-    bool createInstanceWorker(const ConfigChangedRequest &request,
-                              phicore::adapter::v1::Utf8String *error = nullptr);
+    bool createInstanceRuntime(const ConfigChangedRequest &request,
+                               phicore::adapter::v1::Utf8String *error = nullptr);
     AdapterInstance *findInstance(const phicore::adapter::v1::ExternalId &externalId);
     const AdapterInstance *findInstance(const phicore::adapter::v1::ExternalId &externalId) const;
-    InstanceWorker *findWorker(const phicore::adapter::v1::ExternalId &externalId);
-    const InstanceWorker *findWorker(const phicore::adapter::v1::ExternalId &externalId) const;
-    void workerMain(InstanceWorker *worker);
-    bool enqueueWorkerTask(const phicore::adapter::v1::ExternalId &externalId, WorkerTask task);
-    void enqueueWorkerTaskBroadcast(const WorkerTask &task);
+    InstanceRuntime *findRuntime(const phicore::adapter::v1::ExternalId &externalId);
+    const InstanceRuntime *findRuntime(const phicore::adapter::v1::ExternalId &externalId) const;
+    bool executeOnRuntime(const phicore::adapter::v1::ExternalId &externalId,
+                          std::function<void()> task,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
+    void executeOnAllRuntimes(const std::function<void(AdapterInstance &)> &fn);
     void queueDeferredResult(DeferredResult result);
     void drainDeferredResults();
     void completePendingTimeouts();
@@ -828,8 +820,6 @@ private:
                       phicore::adapter::v1::Utf8String *error = nullptr);
     void clearPendingForInstance(const phicore::adapter::v1::ExternalId &externalId,
                                  const phicore::adapter::v1::Utf8String &reason);
-    void scheduleInstanceRemoval(const phicore::adapter::v1::ExternalId &externalId);
-    void drainDeferredInstanceRemovals();
     void stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId);
     void stopAndDestroyInstances();
     void wireHandlers();
@@ -837,8 +827,7 @@ private:
     SidecarDispatcher m_dispatcher;
     std::unique_ptr<AdapterFactory> m_ownedFactory;
     AdapterFactory *m_factory = nullptr;
-    std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<InstanceWorker>> m_instances;
-    std::deque<std::unique_ptr<InstanceWorker>> m_instancesPendingRemoval;
+    std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<InstanceRuntime>> m_instances;
     std::unordered_map<phicore::adapter::v1::CmdId, PendingCommand> m_pendingCommands;
     std::mutex m_resultMutex;
     std::deque<DeferredResult> m_resultQueue;
