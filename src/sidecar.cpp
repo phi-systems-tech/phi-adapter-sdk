@@ -2119,7 +2119,7 @@ void AdapterFactory::onConnected() {}
 void AdapterFactory::onDisconnected() {}
 void AdapterFactory::onProtocolError(const phicore::adapter::v1::Utf8String &message)
 {
-    std::cerr << "[sidecar][protocolError][factory] " << message << std::endl;
+    std::cerr << "[sidecar][protocolError][host] " << message << std::endl;
 }
 void AdapterFactory::onBootstrap(const BootstrapRequest &request) { (void)request; }
 

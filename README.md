@@ -14,6 +14,10 @@ Linux-first SDK for phi adapter sidecars.
   - Typed dispatcher (`SidecarDispatcher`)
   - C++ sidecar model (`AdapterFactory`, `AdapterInstance`, `SidecarHost`)
   - Shared runtime library (`libphi_adapter_sdk.so`)
+- `phi::adapter-sdk-qt` (optional)
+  - Qt helper layer for adapters that want Qt event-loop based instance execution
+  - Exposes `phi/adapter/sdk/qt/instance_execution_backend_qt.h`
+  - Built only when Qt6 Core is available
 
 ## Scope
 
@@ -88,6 +92,12 @@ cmake -S . -B build
 cmake --build build --parallel
 ```
 
+Optional Qt helper target:
+
+- Configure with `-DPHI_ADAPTER_SDK_BUILD_QT_HELPERS=ON` (default).
+- If `Qt6::Core` is found, `phi::adapter-sdk-qt` is built and exported.
+- If Qt is missing, base SDK (`phi::adapter-sdk`) still builds and remains fully usable.
+
 ## Runtime Linking (.so)
 
 - `phi::adapter-sdk` is shipped as `libphi_adapter_sdk.so`.
@@ -129,6 +139,19 @@ Factory methods (v1 SDK contract):
 - `onFactoryActionInvoke(...)`
 - `createInstanceExecutionBackend(externalId)` (optional override for custom threading/event loop)
 - `createInstance(...)`, `destroyInstance(...)`
+
+Qt helper usage example:
+
+```cpp
+#include "phi/adapter/sdk/qt/instance_execution_backend_qt.h"
+
+std::unique_ptr<phi::InstanceExecutionBackend> createInstanceExecutionBackend(
+    const phi::ExternalId &externalId) override
+{
+    (void)externalId;
+    return phicore::adapter::sdk::qt::createInstanceExecutionBackend();
+}
+```
 
 Instance methods (v1 SDK contract):
 

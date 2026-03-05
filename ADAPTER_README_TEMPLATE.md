@@ -87,6 +87,8 @@ Notes:
 - Recommended alias in adapter code: `namespace phi = phicore::adapter::sdk;`.
 - Optional: override `createInstanceExecutionBackend(externalId)` in `AdapterFactory` to provide
   a custom execution model (for example a Qt event loop backend).
+- For Qt-based execution, prefer shared helper target `phi::adapter-sdk-qt` and
+  `phicore::adapter::sdk::qt::createInstanceExecutionBackend()`.
 - Treat `Cmd*`/`Action*` handling as asynchronous:
   - complete via `sendResult(...)` (never by direct IPC writes)
   - instance execution contexts enqueue results; host/main thread sends IPC frames to core

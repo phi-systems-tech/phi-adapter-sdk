@@ -9,6 +9,11 @@ project(phi-adapter-sdk
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+option(PHI_ADAPTER_SDK_BUILD_QT_HELPERS
+    "Build optional Qt helper target phi::adapter-sdk-qt"
+    ON
+)
+
 add_library(phi_adapter_contract INTERFACE)
 add_library(phi::adapter-contract ALIAS phi_adapter_contract)
 
@@ -63,6 +68,38 @@ else()
     message(FATAL_ERROR "phi_adapter_sdk runtime currently supports Linux only")
 endif()
 
+if(PHI_ADAPTER_SDK_BUILD_QT_HELPERS)
+    find_package(Qt6 QUIET COMPONENTS Core)
+    if(Qt6Core_FOUND)
+        add_library(phi_adapter_sdk_qt SHARED
+            src/qt/instance_execution_backend_qt.cpp
+        )
+        add_library(phi::adapter-sdk-qt ALIAS phi_adapter_sdk_qt)
+
+        set_target_properties(phi_adapter_sdk_qt PROPERTIES
+            EXPORT_NAME adapter-sdk-qt
+            VERSION ${PROJECT_VERSION}
+            SOVERSION ${PROJECT_VERSION_MAJOR}
+        )
+
+        target_compile_features(phi_adapter_sdk_qt PUBLIC cxx_std_20)
+
+        target_include_directories(phi_adapter_sdk_qt
+            PUBLIC
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+        )
+
+        target_link_libraries(phi_adapter_sdk_qt
+            PUBLIC
+                phi::adapter-sdk
+                Qt6::Core
+        )
+    else()
+        message(STATUS "Qt6::Core not found, skipping optional target phi::adapter-sdk-qt")
+    endif()
+endif()
+
 add_executable(phi_adapter_sidecar_example
     examples/phi-adapter-sidecar/main.cpp
 )
@@ -78,10 +115,16 @@ install(
     FILES_MATCHING PATTERN "*.h"
 )
 
+set(PHI_ADAPTER_SDK_INSTALL_TARGETS
+    phi_adapter_contract
+    phi_adapter_sdk
+)
+if(TARGET phi_adapter_sdk_qt)
+    list(APPEND PHI_ADAPTER_SDK_INSTALL_TARGETS phi_adapter_sdk_qt)
+endif()
+
 install(
-    TARGETS
-        phi_adapter_contract
-        phi_adapter_sdk
+    TARGETS ${PHI_ADAPTER_SDK_INSTALL_TARGETS}
     EXPORT phi-adapter-sdkTargets
 )
 
