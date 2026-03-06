@@ -3,3 +3,18 @@
 /.vscode/
 /.DS_Store
 CMakeUserPresets.json
+
+# Common build artifacts
+/obj-*/
+debian/tmp/
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+
+# Local package build outputs
+/*.deb
+/*.changes
+/*.buildinfo
+/*.dsc
+/*.tar.*
+/*.build
