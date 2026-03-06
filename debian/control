@@ -1,0 +1,36 @@
+Source: phi-adapter-sdk
+Section: libs
+Priority: optional
+Maintainer: Marius Schumacher <marius.schumacher@phisys.com>
+Build-Depends: debhelper-compat (= 13), cmake, qt6-base-dev
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/phi-systems-tech/phi-adapter-sdk
+
+Package: phi-adapter-sdk
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: PHI adapter SDK runtime
+ Shared runtime library for PHI adapters.
+ .
+ Package provides runtime transport and sidecar helpers.
+
+Package: phi-adapter-sdk-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends}, phi-adapter-sdk (= ${binary:Version})
+Description: PHI adapter SDK development files
+ Headers, CMake config files and helper macros for PHI adapters.
+
+Package: phi-adapter-sdk-qt
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, phi-adapter-sdk (= ${binary:Version})
+Description: PHI adapter SDK Qt backend runtime
+ Qt event-loop based execution backend helper library.
+
+Package: phi-adapter-sdk-qt-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends}, phi-adapter-sdk-qt (= ${binary:Version}), phi-adapter-sdk-dev (= ${binary:Version})
+Description: PHI adapter SDK Qt backend development files
+ Qt helper headers and CMake config for PHI adapters.

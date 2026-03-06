@@ -15,9 +15,10 @@ Linux-first SDK for phi adapter sidecars.
   - C++ sidecar model (`AdapterFactory`, `AdapterInstance`, `SidecarHost`)
   - Shared runtime library (`libphi_adapter_sdk.so`)
 - `phi::adapter-sdk-qt` (optional)
-  - Qt helper layer for adapters that want Qt event-loop based instance execution
+  - Qt event-loop helper layer for adapters that want event-loop based instance execution
   - Exposes `phi/adapter/sdk/qt/instance_execution_backend_qt.h`
   - Built only when Qt6 Core is available
+  - Packaged as separate runtime/dev binary packages (`phi-adapter-sdk-qt`, `phi-adapter-sdk-qt-dev`)
 
 ## Scope
 
@@ -96,7 +97,7 @@ cmake --build build --parallel
 Optional Qt helper target:
 
 - Configure with `-DPHI_ADAPTER_SDK_BUILD_QT_HELPERS=ON` (default).
-- If `Qt6::Core` is found, `phi::adapter-sdk-qt` is built and exported.
+- If `Qt6::Core` is found, `phi::adapter-sdk-qt` is built and exported as a separate shared-lib package pair.
 - If Qt is missing, base SDK (`phi::adapter-sdk`) still builds and remains fully usable.
 
 ## Runtime Linking (.so)

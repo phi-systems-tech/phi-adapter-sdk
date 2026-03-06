@@ -1,0 +1,26 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DPHI_ADAPTER_SDK_BUILD_QT_HELPERS=ON \
+		-DCMAKE_INSTALL_LIBDIR=lib
+
+override_dh_install:
+	@if [ -f debian/tmp/usr/lib/libphi_adapter_sdk_qt.so ] || \
+		[ -f debian/tmp/usr/lib/libphi_adapter_sdk_qt.so.0 ] || \
+		[ -f debian/tmp/usr/lib/libphi_adapter_sdk_qt.so.0.1.0 ]; then \
+		printf "usr/lib/libphi_adapter_sdk_qt.so*\n" > debian/phi-adapter-sdk-qt.install; \
+		printf "usr/include/phi/adapter/sdk/qt\nusr/lib/cmake/phi-adapter-sdk-qt\n" > debian/phi-adapter-sdk-qt-dev.install; \
+	else \
+		echo "ERROR: PHI_ADAPTER_SDK_BUILD_QT_HELPERS is enabled but phi_adapter_sdk_qt was not built" >&2; \
+		echo "       Ensure Qt6 Core development package is available and rebuild." >&2; \
+		rm -f debian/phi-adapter-sdk-qt.install debian/phi-adapter-sdk-qt-dev.install; \
+		exit 1; \
+	fi
+	dh_install

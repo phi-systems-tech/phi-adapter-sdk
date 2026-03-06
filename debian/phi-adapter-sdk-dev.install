@@ -1,0 +1,3 @@
+usr/include/phi/adapter/v1
+usr/include/phi/adapter/sdk/sidecar.h
+usr/lib/cmake/phi-adapter-sdk
