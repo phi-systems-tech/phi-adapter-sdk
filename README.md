@@ -46,6 +46,7 @@ With that alias, common contract types are available as:
 
 ## STRICT V1 POLICY: NO FALLBACKS, NO BACKWARD COMPATIBILITY
 
+- SDK ABI/API changes are intentional in v1 cleanup; compatibility shims are not provided.
 - Do not implement legacy aliases for schema keys, action ids, channel ids, or enum names.
 - Do not add implicit key mapping (`port` -> `iscpPort`, etc.) in adapter handlers.
 - Treat missing required keys as `InvalidArgument`.
@@ -133,6 +134,7 @@ Factory methods (v1 SDK contract):
 - `pluginType()`
 - `displayName()`, `description()`, `apiVersion()`, `iconSvg()`, `imageBase64()`
 - `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchemaJson()`
+  - `timeoutMs()` is adapter/device default timeout metadata (descriptor), not sidecar command timeout ownership
 - `descriptor()` (default build from first-class overrides)
 - `onBootstrap(...)`
 - `onFactoryConfigChanged(...)`
@@ -218,6 +220,9 @@ Cmd/Action Results (NVI, mandatory):
 - SDK/host normalizes responses (required fields, `status`, `tsMs`, kind-specific payload).
 - Error mapping is centralized in SDK/host; adapter hooks must not block on remote I/O.
 - Adapter code must not emit raw `Result*` frames directly.
+- SDK does **not** own command timeout/drop policy.
+  - timeout, retry, and stale-result handling are owned by phi-core adapter manager
+  - sidecar SDK only dispatches inbound commands and forwards adapter-produced `Result*`
 
 Result dispatch flow (normative):
 
@@ -243,17 +248,15 @@ Concurrency model (v1, mandatory):
 - IPC write/dispatch to core MUST be serialized through one host-owned send path.
 - Worker threads MUST not emit IPC frames directly.
 - Worker threads enqueue events/results; `HostThread` drains queues and sends frames.
+- `send*` success means "enqueued for host send path", not transport-level delivery ACK.
 - Per-instance outbound ordering is FIFO and deterministic.
 - Backpressure policy:
-  - queues are bounded per instance
-  - drop first: low-priority logs (`Trace`/`Debug`)
-  - never drop: `EventError`
-  - coalescing of rapid state updates is SDK-controlled
+  - sidecar SDK provides central host-serialized outbound queue
+  - adapters should avoid flooding low-value logs/events from worker contexts
+  - coalescing/dedupe/rate-limit enforcement is owned by phi-core
 - Timeout policy:
-  - pending command timeout is tracked by host
-  - default timeout source is `AdapterFactory::timeoutMs()` (plugin-level)
-  - timeout returns correlated `Result*` with timeout status
-  - late worker results after timeout are dropped with debug log
+  - SDK does not synthesize timeout `Result*` responses
+  - phi-core is the single owner of request timeout and late-result policy
 
 Optional Qt event loop model (v1, allowed):
 

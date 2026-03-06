@@ -1,6 +1,7 @@
 #include "linux/uds_epoll_transport.h"
 
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 
 #include <fcntl.h>
@@ -236,7 +237,6 @@ bool UdsEpollServer::send(const phicore::adapter::v1::FrameHeader &header,
 
     phicore::adapter::v1::FrameHeader wireHeader = header;
     wireHeader.payloadSize = static_cast<std::uint32_t>(payload.size());
-
     if (!writeAll(reinterpret_cast<const std::byte *>(&wireHeader),
                   phicore::adapter::v1::kFrameHeaderSize,
                   error)) {

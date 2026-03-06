@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <deque>
@@ -304,6 +305,9 @@ struct SidecarHandlers {
  * - typed inbound request decoding
  * - default response behavior for missing handlers
  * - typed outbound event/result helpers
+ *
+ * Outbound `send*` calls are enqueue operations. Actual transport writes are
+ * serialized on the host poll thread.
  */
 class SidecarDispatcher
 {
@@ -485,6 +489,12 @@ public:
 private:
     friend class SidecarHost;
 
+    struct OutboundFrame {
+        phicore::adapter::v1::MessageType type = phicore::adapter::v1::MessageType::Event;
+        phicore::adapter::v1::CorrelationId correlationId = 0;
+        std::string payload;
+    };
+
     /**
      * @brief Send bootstrap descriptor response (`command=EventFactoryDescriptor`).
      *
@@ -501,10 +511,15 @@ private:
                   phicore::adapter::v1::CorrelationId correlationId,
                   std::string_view json,
                   phicore::adapter::v1::Utf8String *error);
+    bool queueOutboundFrame(OutboundFrame frame, phicore::adapter::v1::Utf8String *error = nullptr);
+    bool flushSendQueue(phicore::adapter::v1::Utf8String *error = nullptr);
 
     std::unique_ptr<SidecarRuntime> m_runtime;
     SidecarHandlers m_handlers;
-    std::recursive_mutex m_runtimeMutex;
+    std::mutex m_runtimeMutex;
+    std::mutex m_sendQueueMutex;
+    std::deque<OutboundFrame> m_sendQueue;
+    std::atomic<bool> m_started{false};
 };
 
 /**
@@ -786,17 +801,6 @@ private:
         std::unique_ptr<InstanceExecutionBackend> execution;
     };
 
-    enum class PendingKind : std::uint8_t {
-        Cmd = 0,
-        Action = 1,
-    };
-
-    struct PendingCommand {
-        PendingKind kind = PendingKind::Cmd;
-        phicore::adapter::v1::ExternalId externalId;
-        std::int64_t deadlineMs = 0;
-    };
-
     static phicore::adapter::v1::CmdResponse normalizeCmdResponse(const phicore::adapter::v1::CmdResponse &response);
     static phicore::adapter::v1::ActionResponse normalizeActionResponse(const phicore::adapter::v1::ActionResponse &response);
     AdapterInstance *ensureInstance(const ConfigChangedRequest &request);
@@ -812,14 +816,6 @@ private:
     void executeOnAllRuntimes(const std::function<void(AdapterInstance &)> &fn);
     void queueDeferredResult(DeferredResult result);
     void drainDeferredResults();
-    void completePendingTimeouts();
-    int commandTimeoutMs(phicore::adapter::v1::Utf8String *error = nullptr) const;
-    bool trackPending(phicore::adapter::v1::CmdId cmdId,
-                      PendingKind kind,
-                      const phicore::adapter::v1::ExternalId &externalId,
-                      phicore::adapter::v1::Utf8String *error = nullptr);
-    void clearPendingForInstance(const phicore::adapter::v1::ExternalId &externalId,
-                                 const phicore::adapter::v1::Utf8String &reason);
     void stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId);
     void stopAndDestroyInstances();
     void wireHandlers();
@@ -828,7 +824,6 @@ private:
     std::unique_ptr<AdapterFactory> m_ownedFactory;
     AdapterFactory *m_factory = nullptr;
     std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<InstanceRuntime>> m_instances;
-    std::unordered_map<phicore::adapter::v1::CmdId, PendingCommand> m_pendingCommands;
     std::mutex m_resultMutex;
     std::deque<DeferredResult> m_resultQueue;
 };
