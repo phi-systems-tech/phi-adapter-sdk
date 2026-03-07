@@ -566,12 +566,8 @@ private:
     bool queueOutboundFrame(OutboundFrame frame, phicore::adapter::v1::Utf8String *error = nullptr);
     bool flushSendQueue(phicore::adapter::v1::Utf8String *error = nullptr);
 
-    std::unique_ptr<SidecarRuntime> m_runtime;
-    SidecarHandlers m_handlers;
-    std::mutex m_runtimeMutex;
-    std::mutex m_sendQueueMutex;
-    std::deque<OutboundFrame> m_sendQueue;
-    std::atomic<bool> m_started{false};
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 /**
@@ -883,11 +879,8 @@ private:
     struct DeferredActionResult { phicore::adapter::v1::ActionResponse response; };
     using DeferredResult = std::variant<DeferredCmdResult, DeferredActionResult>;
 
-    struct InstanceRuntime {
-        phicore::adapter::v1::ExternalId externalId;
-        std::unique_ptr<AdapterInstance> instance;
-        std::unique_ptr<InstanceExecutionBackend> execution;
-    };
+    struct InstanceRuntime;
+    struct Impl;
 
     static phicore::adapter::v1::CmdResponse normalizeCmdResponse(const phicore::adapter::v1::CmdResponse &response);
     static phicore::adapter::v1::ActionResponse normalizeActionResponse(const phicore::adapter::v1::ActionResponse &response);
@@ -908,12 +901,7 @@ private:
     void stopAndDestroyInstances();
     void wireHandlers();
 
-    SidecarDispatcher m_dispatcher;
-    std::unique_ptr<AdapterFactory> m_ownedFactory;
-    AdapterFactory *m_factory = nullptr;
-    std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<InstanceRuntime>> m_instances;
-    std::mutex m_resultMutex;
-    std::deque<DeferredResult> m_resultQueue;
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace phicore::adapter::sdk

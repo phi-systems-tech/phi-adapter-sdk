@@ -1486,8 +1486,29 @@ ActionResponse invalidArgumentActionResponse(CmdId cmdId, const std::string &mes
 
 } // namespace
 
+struct SidecarDispatcher::Impl {
+    explicit Impl(phicore::adapter::v1::Utf8String socketPath)
+        : runtime(std::make_unique<SidecarRuntime>(std::move(socketPath)))
+    {
+    }
+
+    std::unique_ptr<SidecarRuntime> runtime;
+    SidecarHandlers handlers;
+    std::mutex runtimeMutex;
+    std::mutex sendQueueMutex;
+    std::deque<SidecarDispatcher::OutboundFrame> sendQueue;
+    std::atomic<bool> started{false};
+};
+
+#define m_runtime m_impl->runtime
+#define m_handlers m_impl->handlers
+#define m_runtimeMutex m_impl->runtimeMutex
+#define m_sendQueueMutex m_impl->sendQueueMutex
+#define m_sendQueue m_impl->sendQueue
+#define m_started m_impl->started
+
 SidecarDispatcher::SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath)
-    : m_runtime(std::make_unique<SidecarRuntime>(std::move(socketPath)))
+    : m_impl(std::make_unique<Impl>(std::move(socketPath)))
 {
     RuntimeCallbacks callbacks;
     callbacks.onConnected = [this]() {
@@ -2323,6 +2344,13 @@ bool SidecarDispatcher::sendStreamEnd(const phicore::adapter::v1::ExternalId &ex
     return sendJson(MessageType::Event, 0, body, error);
 }
 
+#undef m_started
+#undef m_sendQueue
+#undef m_sendQueueMutex
+#undef m_runtimeMutex
+#undef m_handlers
+#undef m_runtime
+
 const BootstrapRequest &AdapterFactory::bootstrap() const
 {
     return m_bootstrap;
@@ -2829,14 +2857,34 @@ void AdapterInstance::hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &
 void AdapterInstance::hostOnUnknownRequest(const UnknownRequest &request) { onUnknownRequest(request); }
 
 
+struct SidecarHost::InstanceRuntime {
+    phicore::adapter::v1::ExternalId externalId;
+    std::unique_ptr<AdapterInstance> instance;
+    std::unique_ptr<InstanceExecutionBackend> execution;
+};
+
+struct SidecarHost::Impl {
+    explicit Impl(phicore::adapter::v1::Utf8String socketPath)
+        : dispatcher(std::move(socketPath))
+    {
+    }
+
+    SidecarDispatcher dispatcher;
+    std::unique_ptr<AdapterFactory> ownedFactory;
+    AdapterFactory *factory = nullptr;
+    std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<InstanceRuntime>> instances;
+    std::mutex resultMutex;
+    std::deque<DeferredResult> resultQueue;
+};
+
 SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory)
-    : m_dispatcher(std::move(socketPath))
-    , m_ownedFactory(std::move(factory))
-    , m_factory(m_ownedFactory.get())
+    : m_impl(std::make_unique<Impl>(std::move(socketPath)))
 {
-    if (m_factory) {
-        m_factory->bindDispatcher(&m_dispatcher);
-        m_factory->bindResultSubmitter([this](const phicore::adapter::v1::ActionResponse &response) {
+    m_impl->ownedFactory = std::move(factory);
+    m_impl->factory = m_impl->ownedFactory.get();
+    if (m_impl->factory) {
+        m_impl->factory->bindDispatcher(&m_impl->dispatcher);
+        m_impl->factory->bindResultSubmitter([this](const phicore::adapter::v1::ActionResponse &response) {
             queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
         });
     }
@@ -2844,15 +2892,22 @@ SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::uniqu
 }
 
 SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory)
-    : m_dispatcher(std::move(socketPath))
-    , m_factory(&factory)
+    : m_impl(std::make_unique<Impl>(std::move(socketPath)))
 {
-    m_factory->bindDispatcher(&m_dispatcher);
-    m_factory->bindResultSubmitter([this](const phicore::adapter::v1::ActionResponse &response) {
+    m_impl->factory = &factory;
+    m_impl->factory->bindDispatcher(&m_impl->dispatcher);
+    m_impl->factory->bindResultSubmitter([this](const phicore::adapter::v1::ActionResponse &response) {
         queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
     });
     wireHandlers();
 }
+
+#define m_dispatcher m_impl->dispatcher
+#define m_ownedFactory m_impl->ownedFactory
+#define m_factory m_impl->factory
+#define m_instances m_impl->instances
+#define m_resultMutex m_impl->resultMutex
+#define m_resultQueue m_impl->resultQueue
 
 SidecarHost::~SidecarHost()
 {
@@ -3460,5 +3515,12 @@ void SidecarHost::wireHandlers()
     };
     m_dispatcher.setHandlers(std::move(handlers));
 }
+
+#undef m_resultQueue
+#undef m_resultMutex
+#undef m_instances
+#undef m_factory
+#undef m_ownedFactory
+#undef m_dispatcher
 
 } // namespace phicore::adapter::sdk
