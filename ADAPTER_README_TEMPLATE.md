@@ -98,6 +98,18 @@ Notes:
   - inbound handlers: `on*`
   - outbound IPC calls: `send*`
 
+### Reload & Lifecycle Contract
+
+- `cmd.adapter.reload` is plugin/runtime scope (`pluginType`); instance `start/stop/restart`
+  remain per `adapterId`.
+- Implement lifecycle hooks as bounded and idempotent operations:
+  - `start()`: fast init, fail fast on invalid config/dependency errors
+  - `stop()`: graceful shutdown (cancel timers/IO/retries, close sessions/sockets)
+  - `restart()`: clean `stop()` + `start()` semantics
+- SDK handles transport/dispatch and instance execution backend teardown; adapter code must
+  ensure resource cleanup and cancellation on shutdown.
+- Do not rely on SDK-generated timeout results; timeout/drop policy is owned by `phi-core`.
+
 ### Troubleshooting
 
 - Common error -> cause -> fix

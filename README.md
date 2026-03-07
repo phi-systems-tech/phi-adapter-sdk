@@ -441,6 +441,32 @@ not a partial field patch.
 - New/old adapter generations may coexist during controlled rolling restarts.
 - On contract incompatibility, fail fast (reject start/reload) instead of fallback behavior.
 
+### Reload / Shutdown Responsibilities (Adapter Builder Checklist)
+
+What the SDK/host does for you:
+
+- Owns IPC transport lifecycle (`SidecarHost`, dispatch, frame I/O).
+- Routes factory/instance lifecycle messages and enforces `externalId` scope.
+- Stops execution backend and destroys instances on `SyncAdapterInstanceRemoved`.
+- Keeps command/result correlation and host-thread send serialization.
+
+What adapter code must provide:
+
+- `start()` must initialize quickly and fail fast on invalid config/dependencies.
+- `stop()` must be idempotent and graceful:
+  - stop timers/event subscriptions/reconnect loops
+  - cancel inflight network/device operations
+  - release sockets/file descriptors/device sessions
+- `restart()` should be equivalent to `stop()` + `start()` with clean state boundaries.
+- Do not block host thread work in lifecycle hooks; use instance execution context for long work.
+
+Timeout model:
+
+- SDK does not invent timeout responses.
+- Request timeout, stale-result policy, and reload orchestration are owned by `phi-core`.
+- Adapter implementations should still use bounded internal waits and cancellation to avoid
+  prolonged shutdown/reload windows.
+
 ## Discovery Queries From Static Adapter Config (v1)
 
 - Discovery provider queries are defined in static adapter config `<pluginType>-config.json`.
