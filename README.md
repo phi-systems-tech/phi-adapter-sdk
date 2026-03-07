@@ -220,7 +220,7 @@ Cmd/Action Results (NVI, mandatory):
   - host accepts request and enqueues it to the target instance execution context
   - adapter runtime completes later via explicit `sendResult(...)`
   - host sends correlated `Result*` back to core on the host send path
-- Direct "fast-path" completion is allowed only as a degenerate async case:
+- A “quasi-sync fast-path” is allowed for immediate completions:
   - handler may compute result immediately and call `sendResult(...)` without additional wait
   - result still traverses the same host-owned queue/send path
   - no direct worker-thread IPC writes and no blocking remote I/O in handler fast-path
@@ -371,12 +371,14 @@ Adapter -> Core (`Event*`):
 - `EventGroupRemoved` (`0x1402`)
 - `EventSceneUpdated` (`0x1501`)
 - `EventSceneRemoved` (`0x1502`)
-- `EventFullSyncCompleted` (`0x1FFF`)
 
 Adapter -> Core (`Result*`):
 
 - `ResultCmd` (`0x2001`)
 - `ResultAction` (`0x2002`)
+
+For v1 lifecycle and topology synchronization, completion is signaled via
+`ResultCmd`/`ResultAction`; `EventFullSyncCompleted` is not part of the contract.
 
 ## Target Resolution (v1, strict)
 
@@ -393,11 +395,20 @@ Adapter -> Core (`Result*`):
   - no device/channel topology events
 - Instance plane (`externalId != ""`):
   - device/channel/room/group/scene runtime and command handling
-  - state, topology and sync-completion events
+  - state and topology events; full sync completion is reported through command/action results, not events
 - Runtime model is strict v1:
   - exactly one sidecar process per `pluginType`
   - one process hosts factory and all instances for that `pluginType`
   - instance execution may be threaded; IPC routing stays strict by `externalId`
+
+UI metadata rule (v1):
+
+- The instance metadata inspect button is a core/UI-owned generic feature.
+- It is backed by adapter metadata payload (`metaAdapter` / runtime metadata), not by
+  adapter action descriptors in `capabilities()`.
+- Do not add a synthetic `metadata` action to `factoryActions`/`instanceActions`.
+- `capabilities().*Actions` are reserved for adapter domain operations (for example
+  `probe`, `resync`, discovery/maintenance commands), not UI inspect helpers.
 
 ## Bootstrap Descriptor
 
@@ -518,6 +529,8 @@ Minimal static discovery config example:
 - Factory target is selected by empty `externalId`.
 - Instance actions use non-empty `externalId`.
 - Keep factory/instance actions in descriptor+schema, not in legacy capability fallbacks.
+- Do not model generic UI metadata inspection as an adapter action; metadata inspection
+  remains a UI/core concern and is not part of adapter capabilities.
 
 ## Action Result Form Patch (v1)
 

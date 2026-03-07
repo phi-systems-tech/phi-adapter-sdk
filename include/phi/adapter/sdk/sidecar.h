@@ -480,12 +480,6 @@ public:
                           const phicore::adapter::v1::ExternalId &sceneExternalId,
                           phicore::adapter::v1::Utf8String *error = nullptr);
 
-    /**
-     * @brief Signal completion of a full sync cycle (`command=EventFullSyncCompleted`).
-     */
-    bool sendFullSyncCompleted(const phicore::adapter::v1::ExternalId &externalId,
-                               phicore::adapter::v1::Utf8String *error = nullptr);
-
 private:
     friend class SidecarHost;
 
@@ -718,7 +712,6 @@ protected:
     bool sendSceneUpdated(const phicore::adapter::v1::Scene &scene, phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendSceneRemoved(const phicore::adapter::v1::ExternalId &sceneExternalId,
                           phicore::adapter::v1::Utf8String *error = nullptr);
-    bool sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendResult(const phicore::adapter::v1::CmdResponse &response,
                     phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendResult(const phicore::adapter::v1::ActionResponse &response,

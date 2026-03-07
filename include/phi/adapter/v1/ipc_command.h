@@ -43,8 +43,6 @@ enum class IpcCommand : std::uint16_t {
     EventSceneUpdated = 0x1501,
     EventSceneRemoved = 0x1502,
 
-    EventFullSyncCompleted = 0x1FFF,
-
     // Result (adapter -> core, correlated response to Cmd*)
     ResultCmd = 0x2001,
     ResultAction = 0x2002,

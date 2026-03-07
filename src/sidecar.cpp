@@ -2169,17 +2169,6 @@ bool SidecarDispatcher::sendSceneRemoved(const phicore::adapter::v1::ExternalId 
     return sendJson(MessageType::Event, 0, body, error);
 }
 
-bool SidecarDispatcher::sendFullSyncCompleted(const phicore::adapter::v1::ExternalId &externalId,
-                                              phicore::adapter::v1::Utf8String *error)
-{
-    const std::string body = std::string("{\"command\":")
-        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventFullSyncCompleted))
-        + ",\"externalId\":"
-        + jsonQuoted(externalId)
-        + "}";
-    return sendJson(MessageType::Event, 0, body, error);
-}
-
 const BootstrapRequest &AdapterFactory::bootstrap() const
 {
     return m_bootstrap;
@@ -2553,10 +2542,6 @@ bool AdapterInstance::sendSceneRemoved(const phicore::adapter::v1::ExternalId &s
                                        phicore::adapter::v1::Utf8String *error)
 {
     return m_dispatcher ? m_dispatcher->sendSceneRemoved(m_externalId, sceneExternalId, error) : false;
-}
-bool AdapterInstance::sendFullSyncCompleted(phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendFullSyncCompleted(m_externalId, error) : false;
 }
 bool AdapterInstance::sendResult(const phicore::adapter::v1::CmdResponse &response,
                                  phicore::adapter::v1::Utf8String *error)
