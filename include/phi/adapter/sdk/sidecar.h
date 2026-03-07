@@ -178,6 +178,32 @@ struct SceneInvokeRequest {
 };
 
 /**
+ * @brief Typed payload for `cmd.adapters.stream.start`.
+ */
+struct AdaptersStreamStartRequest {
+    /// Command id assigned by phi-core.
+    phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
+    /// Stream kind (`adapter.log`, `camera.live`, ...).
+    phicore::adapter::v1::Utf8String kind;
+    /// Raw JSON object for stream params.
+    phicore::adapter::v1::JsonText paramsJson;
+};
+
+/**
+ * @brief Typed payload for `cmd.adapters.stream.stop`.
+ */
+struct AdaptersStreamStopRequest {
+    /// Command id assigned by phi-core.
+    phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
+    /// Stream id to stop.
+    phicore::adapter::v1::Utf8String streamId;
+};
+
+/**
  * @brief Fallback payload for unsupported/unknown request commands.
  */
 struct UnknownRequest {
@@ -294,6 +320,10 @@ struct SidecarHandlers {
     std::function<void(const DeviceEffectInvokeRequest &)> onDeviceEffectInvoke;
     /// Called on `cmd.scene.invoke`.
     std::function<void(const SceneInvokeRequest &)> onSceneInvoke;
+    /// Called on `cmd.adapters.stream.start`.
+    std::function<void(const AdaptersStreamStartRequest &)> onAdaptersStreamStart;
+    /// Called on `cmd.adapters.stream.stop`.
+    std::function<void(const AdaptersStreamStopRequest &)> onAdaptersStreamStop;
     /// Called when no typed handler exists for a request method.
     std::function<void(const UnknownRequest &)> onUnknownRequest;
 };
@@ -479,6 +509,34 @@ public:
     bool sendSceneRemoved(const phicore::adapter::v1::ExternalId &externalId,
                           const phicore::adapter::v1::ExternalId &sceneExternalId,
                           phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendStreamOpen(const phicore::adapter::v1::ExternalId &externalId,
+                        const phicore::adapter::v1::Utf8String &streamId,
+                        const phicore::adapter::v1::Utf8String &cmd,
+                        const phicore::adapter::v1::Utf8String &kind,
+                        const phicore::adapter::v1::Utf8String &contentType = "application/json",
+                        const phicore::adapter::v1::Utf8String &contentEncoding = {},
+                        const phicore::adapter::v1::JsonText &metaJson = "{}",
+                        phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendStreamData(const phicore::adapter::v1::ExternalId &externalId,
+                        const phicore::adapter::v1::Utf8String &streamId,
+                        const phicore::adapter::v1::Utf8String &cmd,
+                        std::int64_t seq,
+                        const phicore::adapter::v1::JsonText &payloadJson,
+                        std::int64_t tsMs = 0,
+                        phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendStreamError(const phicore::adapter::v1::ExternalId &externalId,
+                         const phicore::adapter::v1::Utf8String &streamId,
+                         const phicore::adapter::v1::Utf8String &cmd,
+                         const phicore::adapter::v1::Utf8String &message,
+                         const phicore::adapter::v1::Utf8String &code = {},
+                         const phicore::adapter::v1::ScalarList &params = {},
+                         const phicore::adapter::v1::Utf8String &ctx = {},
+                         phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendStreamEnd(const phicore::adapter::v1::ExternalId &externalId,
+                       const phicore::adapter::v1::Utf8String &streamId,
+                       const phicore::adapter::v1::Utf8String &cmd,
+                       const phicore::adapter::v1::Utf8String &reason,
+                       phicore::adapter::v1::Utf8String *error = nullptr);
 
 private:
     friend class SidecarHost;
@@ -681,6 +739,8 @@ protected:
     virtual void onDeviceNameUpdate(const DeviceNameUpdateRequest &request);
     virtual void onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
     virtual void onSceneInvoke(const SceneInvokeRequest &request);
+    virtual void onAdaptersStreamStart(const AdaptersStreamStartRequest &request);
+    virtual void onAdaptersStreamStop(const AdaptersStreamStopRequest &request);
     virtual void onUnknownRequest(const UnknownRequest &request);
 
     bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
@@ -712,6 +772,30 @@ protected:
     bool sendSceneUpdated(const phicore::adapter::v1::Scene &scene, phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendSceneRemoved(const phicore::adapter::v1::ExternalId &sceneExternalId,
                           phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendStreamOpen(const phicore::adapter::v1::Utf8String &streamId,
+                        const phicore::adapter::v1::Utf8String &cmd,
+                        const phicore::adapter::v1::Utf8String &kind,
+                        const phicore::adapter::v1::Utf8String &contentType = "application/json",
+                        const phicore::adapter::v1::Utf8String &contentEncoding = {},
+                        const phicore::adapter::v1::JsonText &metaJson = "{}",
+                        phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendStreamData(const phicore::adapter::v1::Utf8String &streamId,
+                        const phicore::adapter::v1::Utf8String &cmd,
+                        std::int64_t seq,
+                        const phicore::adapter::v1::JsonText &payloadJson,
+                        std::int64_t tsMs = 0,
+                        phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendStreamError(const phicore::adapter::v1::Utf8String &streamId,
+                         const phicore::adapter::v1::Utf8String &cmd,
+                         const phicore::adapter::v1::Utf8String &message,
+                         const phicore::adapter::v1::Utf8String &code = {},
+                         const phicore::adapter::v1::ScalarList &params = {},
+                         const phicore::adapter::v1::Utf8String &ctx = {},
+                         phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendStreamEnd(const phicore::adapter::v1::Utf8String &streamId,
+                       const phicore::adapter::v1::Utf8String &cmd,
+                       const phicore::adapter::v1::Utf8String &reason,
+                       phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendResult(const phicore::adapter::v1::CmdResponse &response,
                     phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendResult(const phicore::adapter::v1::ActionResponse &response,
@@ -740,6 +824,8 @@ private:
     void hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request);
     void hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
     void hostOnSceneInvoke(const SceneInvokeRequest &request);
+    void hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request);
+    void hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request);
     void hostOnUnknownRequest(const UnknownRequest &request);
 
     SidecarDispatcher *m_dispatcher = nullptr;

@@ -1752,6 +1752,37 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return sendCmdResult(response, nullptr);
     }
 
+    if (command == IpcCommand::CmdAdaptersStreamStart) {
+        AdaptersStreamStartRequest request;
+        request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+        request.kind = decodeStringOrDefault(member(payloadMap, "kind"));
+        request.paramsJson = std::string(member(payloadMap, "params"));
+        if (trim(request.paramsJson).empty())
+            request.paramsJson = "{}";
+
+        if (m_handlers.onAdaptersStreamStart) {
+            m_handlers.onAdaptersStreamStart(request);
+            return true;
+        }
+        CmdResponse response = defaultCmdResponse(cmdId, "Adapters stream start handler not registered");
+        return sendCmdResult(response, nullptr);
+    }
+
+    if (command == IpcCommand::CmdAdaptersStreamStop) {
+        AdaptersStreamStopRequest request;
+        request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+        request.streamId = decodeStringOrDefault(member(payloadMap, "streamId"));
+
+        if (m_handlers.onAdaptersStreamStop) {
+            m_handlers.onAdaptersStreamStop(request);
+            return true;
+        }
+        CmdResponse response = defaultCmdResponse(cmdId, "Adapters stream stop handler not registered");
+        return sendCmdResult(response, nullptr);
+    }
+
     if (m_handlers.onUnknownRequest) {
         UnknownRequest request;
         request.cmdId = cmdId;
@@ -2169,6 +2200,129 @@ bool SidecarDispatcher::sendSceneRemoved(const phicore::adapter::v1::ExternalId 
     return sendJson(MessageType::Event, 0, body, error);
 }
 
+bool SidecarDispatcher::sendStreamOpen(const phicore::adapter::v1::ExternalId &externalId,
+                                       const phicore::adapter::v1::Utf8String &streamId,
+                                       const phicore::adapter::v1::Utf8String &cmd,
+                                       const phicore::adapter::v1::Utf8String &kind,
+                                       const phicore::adapter::v1::Utf8String &contentType,
+                                       const phicore::adapter::v1::Utf8String &contentEncoding,
+                                       const phicore::adapter::v1::JsonText &metaJson,
+                                       phicore::adapter::v1::Utf8String *error)
+{
+    std::string body;
+    body.push_back('{');
+    bool first = true;
+    appendCommandField(body, first, IpcCommand::EventStreamOpen);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "streamId");
+    body += jsonQuoted(streamId);
+    appendFieldPrefix(body, first, "cmd");
+    body += jsonQuoted(cmd);
+    appendFieldPrefix(body, first, "kind");
+    body += jsonQuoted(kind);
+    appendFieldPrefix(body, first, "contentType");
+    body += jsonQuoted(contentType.empty() ? "application/json" : contentType);
+    if (!trim(contentEncoding).empty()) {
+        appendFieldPrefix(body, first, "contentEncoding");
+        body += jsonQuoted(contentEncoding);
+    }
+    appendFieldPrefix(body, first, "meta");
+    body += jsonTokenOrDefault(std::string(metaJson), "{}");
+    body.push_back('}');
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
+bool SidecarDispatcher::sendStreamData(const phicore::adapter::v1::ExternalId &externalId,
+                                       const phicore::adapter::v1::Utf8String &streamId,
+                                       const phicore::adapter::v1::Utf8String &cmd,
+                                       std::int64_t seq,
+                                       const phicore::adapter::v1::JsonText &payloadJson,
+                                       std::int64_t tsMs,
+                                       phicore::adapter::v1::Utf8String *error)
+{
+    const std::int64_t timestamp = tsMs > 0 ? tsMs : nowMs();
+    std::string body;
+    body.push_back('{');
+    bool first = true;
+    appendCommandField(body, first, IpcCommand::EventStreamData);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "streamId");
+    body += jsonQuoted(streamId);
+    appendFieldPrefix(body, first, "cmd");
+    body += jsonQuoted(cmd);
+    appendFieldPrefix(body, first, "seq");
+    body += std::to_string(seq);
+    appendFieldPrefix(body, first, "tsMs");
+    body += std::to_string(timestamp);
+    appendFieldPrefix(body, first, "payload");
+    body += jsonTokenOrDefault(std::string(payloadJson), "{}");
+    body.push_back('}');
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
+bool SidecarDispatcher::sendStreamError(const phicore::adapter::v1::ExternalId &externalId,
+                                        const phicore::adapter::v1::Utf8String &streamId,
+                                        const phicore::adapter::v1::Utf8String &cmd,
+                                        const phicore::adapter::v1::Utf8String &message,
+                                        const phicore::adapter::v1::Utf8String &code,
+                                        const phicore::adapter::v1::ScalarList &params,
+                                        const phicore::adapter::v1::Utf8String &ctx,
+                                        phicore::adapter::v1::Utf8String *error)
+{
+    std::string body;
+    body.push_back('{');
+    bool first = true;
+    appendCommandField(body, first, IpcCommand::EventStreamError);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "streamId");
+    body += jsonQuoted(streamId);
+    appendFieldPrefix(body, first, "cmd");
+    body += jsonQuoted(cmd);
+    appendFieldPrefix(body, first, "error");
+    body.push_back('{');
+    bool errorFirst = true;
+    if (!trim(code).empty()) {
+        appendFieldPrefix(body, errorFirst, "code");
+        body += jsonQuoted(code);
+    }
+    appendFieldPrefix(body, errorFirst, "msg");
+    body += jsonQuoted(message);
+    if (!trim(ctx).empty()) {
+        appendFieldPrefix(body, errorFirst, "ctx");
+        body += jsonQuoted(ctx);
+    }
+    if (!params.empty()) {
+        appendFieldPrefix(body, errorFirst, "params");
+        appendScalarListJson(body, params);
+    }
+    body.push_back('}');
+    body.push_back('}');
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
+bool SidecarDispatcher::sendStreamEnd(const phicore::adapter::v1::ExternalId &externalId,
+                                      const phicore::adapter::v1::Utf8String &streamId,
+                                      const phicore::adapter::v1::Utf8String &cmd,
+                                      const phicore::adapter::v1::Utf8String &reason,
+                                      phicore::adapter::v1::Utf8String *error)
+{
+    const std::string body = std::string("{\"command\":")
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventStreamEnd))
+        + ",\"externalId\":"
+        + jsonQuoted(externalId)
+        + ",\"streamId\":"
+        + jsonQuoted(streamId)
+        + ",\"cmd\":"
+        + jsonQuoted(cmd)
+        + ",\"reason\":"
+        + jsonQuoted(reason)
+        + "}";
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
 const BootstrapRequest &AdapterFactory::bootstrap() const
 {
     return m_bootstrap;
@@ -2457,6 +2611,20 @@ void AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
     if (!err.empty())
         onProtocolError("Failed to send default scene invoke result: " + err);
 }
+void AdapterInstance::onAdaptersStreamStart(const AdaptersStreamStartRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId, "Adapters stream start handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default adapters stream.start result: " + err);
+}
+void AdapterInstance::onAdaptersStreamStop(const AdaptersStreamStopRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId, "Adapters stream stop handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default adapters stream.stop result: " + err);
+}
 void AdapterInstance::onUnknownRequest(const UnknownRequest &request) { (void)request; }
 
 bool AdapterInstance::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
@@ -2543,6 +2711,49 @@ bool AdapterInstance::sendSceneRemoved(const phicore::adapter::v1::ExternalId &s
 {
     return m_dispatcher ? m_dispatcher->sendSceneRemoved(m_externalId, sceneExternalId, error) : false;
 }
+bool AdapterInstance::sendStreamOpen(const phicore::adapter::v1::Utf8String &streamId,
+                                     const phicore::adapter::v1::Utf8String &cmd,
+                                     const phicore::adapter::v1::Utf8String &kind,
+                                     const phicore::adapter::v1::Utf8String &contentType,
+                                     const phicore::adapter::v1::Utf8String &contentEncoding,
+                                     const phicore::adapter::v1::JsonText &metaJson,
+                                     phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher
+        ? m_dispatcher->sendStreamOpen(
+            m_externalId, streamId, cmd, kind, contentType, contentEncoding, metaJson, error)
+        : false;
+}
+bool AdapterInstance::sendStreamData(const phicore::adapter::v1::Utf8String &streamId,
+                                     const phicore::adapter::v1::Utf8String &cmd,
+                                     std::int64_t seq,
+                                     const phicore::adapter::v1::JsonText &payloadJson,
+                                     std::int64_t tsMs,
+                                     phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher
+        ? m_dispatcher->sendStreamData(m_externalId, streamId, cmd, seq, payloadJson, tsMs, error)
+        : false;
+}
+bool AdapterInstance::sendStreamError(const phicore::adapter::v1::Utf8String &streamId,
+                                      const phicore::adapter::v1::Utf8String &cmd,
+                                      const phicore::adapter::v1::Utf8String &message,
+                                      const phicore::adapter::v1::Utf8String &code,
+                                      const phicore::adapter::v1::ScalarList &params,
+                                      const phicore::adapter::v1::Utf8String &ctx,
+                                      phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher
+        ? m_dispatcher->sendStreamError(m_externalId, streamId, cmd, message, code, params, ctx, error)
+        : false;
+}
+bool AdapterInstance::sendStreamEnd(const phicore::adapter::v1::Utf8String &streamId,
+                                    const phicore::adapter::v1::Utf8String &cmd,
+                                    const phicore::adapter::v1::Utf8String &reason,
+                                    phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendStreamEnd(m_externalId, streamId, cmd, reason, error) : false;
+}
 bool AdapterInstance::sendResult(const phicore::adapter::v1::CmdResponse &response,
                                  phicore::adapter::v1::Utf8String *error)
 {
@@ -2613,6 +2824,8 @@ void AdapterInstance::hostOnAdapterActionInvoke(const AdapterActionInvokeRequest
 void AdapterInstance::hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request) { onDeviceNameUpdate(request); }
 void AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request) { onDeviceEffectInvoke(request); }
 void AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { onSceneInvoke(request); }
+void AdapterInstance::hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request) { onAdaptersStreamStart(request); }
+void AdapterInstance::hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request) { onAdaptersStreamStop(request); }
 void AdapterInstance::hostOnUnknownRequest(const UnknownRequest &request) { onUnknownRequest(request); }
 
 
@@ -3180,6 +3393,50 @@ void SidecarHost::wireHandlers()
                               &dispatchError)) {
             response.status = CmdStatus::InvalidArgument;
             response.error = "Failed to dispatch scene invoke: " + dispatchError;
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onAdaptersStreamStart = [this](const AdaptersStreamStartRequest &request) {
+        CmdResponse response;
+        response.id = request.cmdId;
+        response.tsMs = nowMs();
+        if (request.externalId.empty()) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdAdaptersStreamStart";
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnAdaptersStreamStart(request);
+                              },
+                              &dispatchError)) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Failed to dispatch adapters stream.start: " + dispatchError;
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onAdaptersStreamStop = [this](const AdaptersStreamStopRequest &request) {
+        CmdResponse response;
+        response.id = request.cmdId;
+        response.tsMs = nowMs();
+        if (request.externalId.empty()) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdAdaptersStreamStop";
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnAdaptersStreamStop(request);
+                              },
+                              &dispatchError)) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Failed to dispatch adapters stream.stop: " + dispatchError;
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };

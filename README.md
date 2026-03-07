@@ -170,7 +170,8 @@ Instance methods (v1 SDK contract):
 - lifecycle: `start()`, `stop()`, `restart()`
 - runtime: `onConfigChanged(...)`
 - command handlers are queued/asynchronous: `onChannelInvoke(...)`, `onAdapterActionInvoke(...)`,
-  `onDeviceNameUpdate(...)`, `onDeviceEffectInvoke(...)`, `onSceneInvoke(...)`
+  `onDeviceNameUpdate(...)`, `onDeviceEffectInvoke(...)`, `onSceneInvoke(...)`,
+  `onAdaptersStreamStart(...)`, `onAdaptersStreamStop(...)`
 - outbound events: `send*` helpers from SDK base class
 - command/action completion is explicit via `sendResult(...)` helpers
 
@@ -352,6 +353,8 @@ Core -> Adapter (`Sync*` / `Cmd*`):
 - `CmdDeviceNameUpdate` (`0x0203`)
 - `CmdDeviceEffectInvoke` (`0x0204`)
 - `CmdSceneInvoke` (`0x0205`)
+- `CmdAdaptersStreamStart` (`0x0206`)
+- `CmdAdaptersStreamStop` (`0x0207`)
 
 Adapter -> Core (`Event*`):
 
@@ -371,6 +374,10 @@ Adapter -> Core (`Event*`):
 - `EventGroupRemoved` (`0x1402`)
 - `EventSceneUpdated` (`0x1501`)
 - `EventSceneRemoved` (`0x1502`)
+- `EventStreamOpen` (`0x1601`)
+- `EventStreamData` (`0x1602`)
+- `EventStreamError` (`0x1603`)
+- `EventStreamEnd` (`0x1604`)
 
 Adapter -> Core (`Result*`):
 

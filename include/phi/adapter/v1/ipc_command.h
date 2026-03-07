@@ -19,6 +19,8 @@ enum class IpcCommand : std::uint16_t {
     CmdDeviceNameUpdate = 0x0203,
     CmdDeviceEffectInvoke = 0x0204,
     CmdSceneInvoke = 0x0205,
+    CmdAdaptersStreamStart = 0x0206,
+    CmdAdaptersStreamStop = 0x0207,
 
     // Event (adapter -> core, unsolicited)
     EventFactoryDescriptor = 0x1001,
@@ -42,6 +44,10 @@ enum class IpcCommand : std::uint16_t {
 
     EventSceneUpdated = 0x1501,
     EventSceneRemoved = 0x1502,
+    EventStreamOpen = 0x1601,
+    EventStreamData = 0x1602,
+    EventStreamError = 0x1603,
+    EventStreamEnd = 0x1604,
 
     // Result (adapter -> core, correlated response to Cmd*)
     ResultCmd = 0x2001,
