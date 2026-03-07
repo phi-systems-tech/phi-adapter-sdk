@@ -17,6 +17,11 @@ namespace {
 class QtInstanceExecutionBackend final : public phicore::adapter::sdk::InstanceExecutionBackend
 {
 public:
+    QtInstanceExecutionBackend()
+        : m_impl(std::make_unique<Impl>())
+    {
+    }
+
     ~QtInstanceExecutionBackend() override
     {
         phicore::adapter::v1::Utf8String ignoreError;
@@ -25,8 +30,8 @@ public:
 
     bool start(phicore::adapter::v1::Utf8String *error = nullptr) override
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_started)
+        std::lock_guard<std::mutex> lock(m_impl->mutex);
+        if (m_impl->started)
             return true;
 
         auto thread = std::make_unique<QThread>();
@@ -39,9 +44,9 @@ public:
             return false;
         }
 
-        m_thread = std::move(thread);
-        m_target = std::move(target);
-        m_started = true;
+        m_impl->thread = std::move(thread);
+        m_impl->target = std::move(target);
+        m_impl->started = true;
         return true;
     }
 
@@ -55,13 +60,13 @@ public:
 
         QObject *target = nullptr;
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            if (!m_started || !m_thread || !m_target || !m_thread->isRunning()) {
+            std::lock_guard<std::mutex> lock(m_impl->mutex);
+            if (!m_impl->started || !m_impl->thread || !m_impl->target || !m_impl->thread->isRunning()) {
                 if (error)
                     *error = "Qt execution backend not started";
                 return false;
             }
-            target = m_target.get();
+            target = m_impl->target.get();
         }
 
         auto sharedTask = std::make_shared<std::function<void()>>(std::move(task));
@@ -86,12 +91,12 @@ public:
         std::unique_ptr<QThread> thread;
         std::unique_ptr<QObject> target;
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            if (!m_started)
+            std::lock_guard<std::mutex> lock(m_impl->mutex);
+            if (!m_impl->started)
                 return true;
-            m_started = false;
-            thread = std::move(m_thread);
-            target = std::move(m_target);
+            m_impl->started = false;
+            thread = std::move(m_impl->thread);
+            target = std::move(m_impl->target);
         }
 
         if (target) {
@@ -121,10 +126,14 @@ public:
     }
 
 private:
-    std::mutex m_mutex;
-    std::unique_ptr<QThread> m_thread;
-    std::unique_ptr<QObject> m_target;
-    bool m_started = false;
+    struct Impl {
+        std::mutex mutex;
+        std::unique_ptr<QThread> thread;
+        std::unique_ptr<QObject> target;
+        bool started = false;
+    };
+
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace
