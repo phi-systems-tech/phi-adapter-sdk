@@ -105,8 +105,17 @@ Optional Qt helper target:
 - `phi::adapter-sdk` is shipped as `libphi_adapter_sdk.so`.
 - Sidecar executables must be able to resolve this library at runtime.
 - Supported deployment patterns:
-  - install library into a system loader path (`/usr/lib`, `/usr/local/lib`, ...)
+  - install library into a system loader path (`/usr/lib/<multiarch-triplet>`, `/usr/local/lib`, ...)
   - ship library with adapter bundle and configure `RPATH` (for example `$ORIGIN/../../../`)
+
+For Debian packages, install shared libraries and CMake package files under multiarch paths
+(for example `usr/lib/aarch64-linux-gnu/...`) to avoid mixed/duplicate runtime library resolution.
+
+## Unix Socket Permissions
+
+- The SDK sidecar transport creates its unix domain socket with mode `0660` (owner/group read-write).
+- Recommended runtime ownership is `phi:phi` for `/var/lib/phi` and `/var/lib/phi/ipc`.
+- This keeps adapter IPC available to the service user/group without exposing write access to others.
 
 ## Recommended C++ Model
 

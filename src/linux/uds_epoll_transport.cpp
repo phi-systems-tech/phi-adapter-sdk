@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/poll.h>
@@ -66,6 +67,14 @@ bool UdsEpollServer::start(std::string *error)
     if (::bind(m_serverFd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0) {
         if (error)
             *error = errnoString("bind");
+        stop();
+        return false;
+    }
+
+    // Runtime socket should be readable/writable by owner+group only.
+    if (::chmod(m_socketPath.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) < 0) {
+        if (error)
+            *error = errnoString("chmod");
         stop();
         return false;
     }
