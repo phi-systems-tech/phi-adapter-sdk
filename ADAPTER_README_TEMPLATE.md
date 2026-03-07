@@ -62,8 +62,8 @@ Describe adapter scope and technical integration boundaries.
 ### Build
 
 ```bash
-cmake -S . -B build
-cmake --build build --parallel
+cmake -S . -B ../build/phi-adapter-<name>/release-ninja -G Ninja
+cmake --build ../build/phi-adapter-<name>/release-ninja --parallel
 ```
 
 Notes:

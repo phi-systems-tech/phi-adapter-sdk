@@ -90,8 +90,8 @@ Core-side dedupe behavior:
 ## Build
 
 ```bash
-cmake -S . -B build
-cmake --build build --parallel
+cmake -S . -B ../build/phi-adapter-sdk/release-ninja -G Ninja
+cmake --build ../build/phi-adapter-sdk/release-ninja --parallel
 ```
 
 Optional Qt helper target:
@@ -316,7 +316,7 @@ host.stop();
 `phi_adapter_sidecar_example` demonstrates `AdapterFactory` + `AdapterInstance` + `SidecarHost`.
 
 ```bash
-./build/phi_adapter_sidecar_example /tmp/phi-adapter-example.sock
+../build/phi-adapter-sdk/release-ninja/phi_adapter_sidecar_example /tmp/phi-adapter-example.sock
 ```
 
 ## Adapter IPC Command Model (v1)
