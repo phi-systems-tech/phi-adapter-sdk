@@ -536,7 +536,16 @@ public:
     virtual bool start(phicore::adapter::v1::Utf8String *error = nullptr) = 0;
     virtual bool execute(std::function<void()> task,
                          phicore::adapter::v1::Utf8String *error = nullptr) = 0;
-    virtual void stop() = 0;
+    /**
+     * @brief Stop execution backend with a bounded wait.
+     *
+     * @param timeout Maximum time to wait for graceful stop.
+     * @param error Optional error output.
+     * @return `true` if backend stopped gracefully within timeout.
+     *         `false` if stop timed out or failed.
+     */
+    virtual bool stop(std::chrono::milliseconds timeout,
+                      phicore::adapter::v1::Utf8String *error = nullptr) = 0;
 };
 
 class AdapterInstance;

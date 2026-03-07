@@ -1,6 +1,7 @@
 #include "phi/adapter/sdk/qt/instance_execution_backend_qt.h"
 
 #include <functional>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -18,7 +19,8 @@ class QtInstanceExecutionBackend final : public phicore::adapter::sdk::InstanceE
 public:
     ~QtInstanceExecutionBackend() override
     {
-        stop();
+        phicore::adapter::v1::Utf8String ignoreError;
+        stop(std::chrono::seconds(3), &ignoreError);
     }
 
     bool start(phicore::adapter::v1::Utf8String *error = nullptr) override
@@ -78,14 +80,15 @@ public:
         return queued;
     }
 
-    void stop() override
+    bool stop(std::chrono::milliseconds timeout,
+              phicore::adapter::v1::Utf8String *error = nullptr) override
     {
         std::unique_ptr<QThread> thread;
         std::unique_ptr<QObject> target;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             if (!m_started)
-                return;
+                return true;
             m_started = false;
             thread = std::move(m_thread);
             target = std::move(m_target);
@@ -98,12 +101,23 @@ public:
         }
 
         if (!thread)
-            return;
+            return true;
         thread->quit();
-        if (!thread->wait(3000)) {
+        const auto clampedTimeout = timeout < std::chrono::milliseconds::zero()
+            ? std::chrono::milliseconds::zero()
+            : timeout;
+        const auto timeoutCount = clampedTimeout.count();
+        const int waitMs = timeoutCount > static_cast<long long>(std::numeric_limits<int>::max())
+            ? std::numeric_limits<int>::max()
+            : static_cast<int>(timeoutCount);
+        if (!thread->wait(waitMs)) {
+            if (error)
+                *error = "Timed out waiting for Qt execution backend stop";
             thread->terminate();
-            thread->wait();
+            thread->wait(1000);
+            return false;
         }
+        return true;
     }
 
 private:

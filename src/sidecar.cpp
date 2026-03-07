@@ -116,6 +116,8 @@ std::int64_t nowMs()
     return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 }
 
+constexpr auto kExecutionBackendStopTimeout = std::chrono::seconds(3);
+
 bool isWs(char c)
 {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
@@ -126,19 +128,36 @@ class DefaultInstanceExecutionBackend final : public InstanceExecutionBackend
 public:
     ~DefaultInstanceExecutionBackend() override
     {
-        stop();
+        phicore::adapter::v1::Utf8String ignoreError;
+        stop(std::chrono::seconds(3), &ignoreError);
     }
 
     bool start(phicore::adapter::v1::Utf8String *error = nullptr) override
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_started)
+        std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+        if (!m_state)
+            m_state = std::make_shared<State>();
+        if (m_thread.joinable()) {
+            if (error)
+                *error = "Execution backend thread still active";
+            return false;
+        }
+        if (m_state->started)
             return true;
-        m_stopRequested = false;
-        m_thread = std::thread([this]() {
-            run();
-        });
-        m_started = true;
+        m_state->stopRequested = false;
+        m_state->workerExited = false;
+        try {
+            auto state = m_state;
+            m_thread = std::thread([state]() {
+                run(state);
+            });
+        } catch (const std::exception &ex) {
+            m_state->workerExited = true;
+            if (error)
+                *error = std::string("Failed to create execution thread: ") + ex.what();
+            return false;
+        }
+        m_state->started = true;
         return true;
     }
 
@@ -149,61 +168,117 @@ public:
                 *error = "Execution task is empty";
             return false;
         }
+        auto state = m_state;
+        if (!state) {
+            if (error)
+                *error = "Execution backend not initialized";
+            return false;
+        }
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            if (!m_started) {
+            std::lock_guard<std::mutex> lock(state->mutex);
+            if (!state->started) {
                 if (error)
                     *error = "Execution backend not started";
                 return false;
             }
-            if (m_stopRequested) {
+            if (state->stopRequested) {
                 if (error)
                     *error = "Execution backend is stopping";
                 return false;
             }
-            m_tasks.push_back(std::move(task));
+            state->tasks.push_back(std::move(task));
         }
-        m_cv.notify_one();
+        state->taskCv.notify_one();
         return true;
     }
 
-    void stop() override
+    bool stop(std::chrono::milliseconds timeout,
+              phicore::adapter::v1::Utf8String *error = nullptr) override
     {
+        std::shared_ptr<State> state;
         std::thread thread;
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            if (!m_started)
-                return;
-            m_stopRequested = true;
+            std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+            state = m_state;
+            if (!state)
+                return true;
+            if (!state->started && !m_thread.joinable())
+                return true;
+            {
+                std::lock_guard<std::mutex> stateLock(state->mutex);
+                state->stopRequested = true;
+            }
             thread = std::move(m_thread);
         }
-        m_cv.notify_one();
-        if (thread.joinable())
-            thread.join();
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_started = false;
-            m_stopRequested = false;
-            m_tasks.clear();
+        state->taskCv.notify_one();
+        if (!thread.joinable()) {
+            std::lock_guard<std::mutex> stateLock(state->mutex);
+            state->started = false;
+            state->stopRequested = false;
+            state->tasks.clear();
+            state->workerExited = true;
+            return true;
         }
+
+        const auto effectiveTimeout = timeout < std::chrono::milliseconds::zero()
+            ? std::chrono::milliseconds::zero()
+            : timeout;
+        bool exited = false;
+        {
+            std::unique_lock<std::mutex> stateLock(state->mutex);
+            exited = state->exitCv.wait_for(stateLock, effectiveTimeout, [&state]() {
+                return state->workerExited;
+            });
+        }
+
+        if (!exited) {
+            thread.detach();
+            {
+                std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+                if (m_state == state)
+                    m_state = std::make_shared<State>();
+            }
+            if (error)
+                *error = "Timed out waiting for execution backend stop";
+            return false;
+        }
+
+        thread.join();
+        {
+            std::lock_guard<std::mutex> stateLock(state->mutex);
+            state->started = false;
+            state->stopRequested = false;
+            state->tasks.clear();
+        }
+        return true;
     }
 
 private:
-    void run()
+    struct State {
+        std::mutex mutex;
+        std::condition_variable taskCv;
+        std::condition_variable exitCv;
+        std::deque<std::function<void()>> tasks;
+        bool started = false;
+        bool stopRequested = false;
+        bool workerExited = true;
+    };
+
+    static void run(const std::shared_ptr<State> &state)
     {
         while (true) {
             std::function<void()> task;
             {
-                std::unique_lock<std::mutex> lock(m_mutex);
-                m_cv.wait(lock, [this]() {
-                    return m_stopRequested || !m_tasks.empty();
+                std::unique_lock<std::mutex> lock(state->mutex);
+                state->taskCv.wait(lock, [&state]() {
+                    return state->stopRequested || !state->tasks.empty();
                 });
-                if (m_tasks.empty() && m_stopRequested)
+                if (state->tasks.empty() && state->stopRequested)
                     break;
-                if (m_tasks.empty())
+                if (state->tasks.empty())
                     continue;
-                task = std::move(m_tasks.front());
-                m_tasks.pop_front();
+                task = std::move(state->tasks.front());
+                state->tasks.pop_front();
             }
 
             try {
@@ -212,14 +287,16 @@ private:
                 // Adapter exceptions are contained so the runtime thread remains alive.
             }
         }
+        {
+            std::lock_guard<std::mutex> lock(state->mutex);
+            state->workerExited = true;
+        }
+        state->exitCv.notify_all();
     }
 
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
+    std::mutex m_lifecycleMutex;
+    std::shared_ptr<State> m_state = std::make_shared<State>();
     std::thread m_thread;
-    std::deque<std::function<void()>> m_tasks;
-    bool m_started = false;
-    bool m_stopRequested = false;
 };
 
 } // namespace
@@ -2751,7 +2828,9 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
                 startCv.notify_one();
             },
             &backendError)) {
-        runtime->execution->stop();
+        phicore::adapter::v1::Utf8String stopError;
+        if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
+            m_factory->hostOnProtocolError("Execution backend stop failed after start scheduling error: " + stopError);
         if (error)
             *error = "Failed to schedule instance start on execution backend: " + backendError;
         m_factory->hostDestroyInstance(std::move(runtime->instance));
@@ -2763,7 +2842,9 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
         if (!startCv.wait_for(lock, kInstanceStartTimeout, [&startDone]() {
                 return startDone;
             })) {
-            runtime->execution->stop();
+            phicore::adapter::v1::Utf8String stopError;
+            if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
+                m_factory->hostOnProtocolError("Execution backend stop failed after start timeout: " + stopError);
             if (error)
                 *error = "Timed out waiting for instance start completion for externalId='" + request.adapter.externalId + "'";
             m_factory->hostDestroyInstance(std::move(runtime->instance));
@@ -2771,7 +2852,9 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
         }
     }
     if (!started) {
-        runtime->execution->stop();
+        phicore::adapter::v1::Utf8String stopError;
+        if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
+            m_factory->hostOnProtocolError("Execution backend stop failed after instance start failure: " + stopError);
         if (error)
             *error = "Instance start() failed for externalId='" + request.adapter.externalId + "'";
         m_factory->hostDestroyInstance(std::move(runtime->instance));
@@ -2787,7 +2870,9 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
                     instance->hostStop();
                 }, &ignoreError);
             }
-            runtime->execution->stop();
+            phicore::adapter::v1::Utf8String stopError;
+            if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
+                m_factory->hostOnProtocolError("Execution backend stop failed for duplicate instance rollback: " + stopError);
         }
         if (runtime && m_factory && runtime->instance)
             m_factory->hostDestroyInstance(std::move(runtime->instance));
@@ -2901,8 +2986,13 @@ void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId 
         }
     }
 
-    if (runtime->execution)
-        runtime->execution->stop();
+    if (runtime->execution) {
+        phicore::adapter::v1::Utf8String stopError;
+        if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory) {
+            m_factory->hostOnProtocolError("Execution backend stop timed out for externalId='"
+                                           + externalId + "': " + stopError);
+        }
+    }
     if (m_factory && runtime->instance)
         m_factory->hostDestroyInstance(std::move(runtime->instance));
 }
