@@ -26,3 +26,6 @@ debian/phi-adapter-sdk-qt-dev.install
 /*.dsc
 /*.tar.*
 /*.build
+
+/build-install/
+/build-install-multi/
