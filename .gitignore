@@ -10,6 +10,14 @@ debian/tmp/
 debian/.debhelper/
 debian/debhelper-build-stamp
 debian/files
+debian/*.debhelper.log
+debian/*.substvars
+debian/phi-adapter-sdk/
+debian/phi-adapter-sdk-dev/
+debian/phi-adapter-sdk-qt/
+debian/phi-adapter-sdk-qt-dev/
+debian/phi-adapter-sdk-qt.install
+debian/phi-adapter-sdk-qt-dev.install
 
 # Local package build outputs
 /*.deb
