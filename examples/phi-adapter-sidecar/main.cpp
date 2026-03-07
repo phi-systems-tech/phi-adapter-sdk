@@ -179,11 +179,12 @@ int main(int argc, char **argv)
     }
 
     std::cerr << "phi adapter sidecar host example listening on " << socketPath << std::endl;
+    constexpr std::chrono::milliseconds kHostPollTimeout{16};
 
     while (g_running.load()) {
-        if (!host.pollOnce(std::chrono::milliseconds(250), &error)) {
+        if (!host.pollOnce(kHostPollTimeout, &error)) {
             std::cerr << "host poll failed: " << error << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            std::this_thread::sleep_for(kHostPollTimeout);
         }
     }
 

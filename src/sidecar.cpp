@@ -2757,11 +2757,18 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
         m_factory->hostDestroyInstance(std::move(runtime->instance));
         return false;
     }
+    constexpr auto kInstanceStartTimeout = std::chrono::seconds(2);
     {
         std::unique_lock<std::mutex> lock(startMutex);
-        startCv.wait(lock, [&startDone]() {
-            return startDone;
-        });
+        if (!startCv.wait_for(lock, kInstanceStartTimeout, [&startDone]() {
+                return startDone;
+            })) {
+            runtime->execution->stop();
+            if (error)
+                *error = "Timed out waiting for instance start completion for externalId='" + request.adapter.externalId + "'";
+            m_factory->hostDestroyInstance(std::move(runtime->instance));
+            return false;
+        }
     }
     if (!started) {
         runtime->execution->stop();

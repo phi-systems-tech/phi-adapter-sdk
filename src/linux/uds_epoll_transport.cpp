@@ -1,12 +1,13 @@
 #include "linux/uds_epoll_transport.h"
 
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
-
 #include <fcntl.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <sys/poll.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -207,6 +208,7 @@ bool UdsEpollServer::readClient(const FrameHandler &onFrame,
 
 bool UdsEpollServer::writeAll(const std::byte *data, std::size_t size, std::string *error)
 {
+    constexpr int kWriteWaitMs = 5;
     std::size_t written = 0;
     while (written < size) {
         const ssize_t n = ::write(m_clientFd, data + written, size - written);
@@ -216,8 +218,29 @@ bool UdsEpollServer::writeAll(const std::byte *data, std::size_t size, std::stri
         }
         if (n < 0 && errno == EINTR)
             continue;
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            pollfd fd{};
+            fd.fd = m_clientFd;
+            fd.events = POLLOUT;
+            const int rv = ::poll(&fd, 1, kWriteWaitMs);
+            if (rv < 0) {
+                if (errno == EINTR)
+                    continue;
+                if (error)
+                    *error = errnoString("poll");
+                return false;
+            }
+            if (rv == 0)
+                continue;
+            if ((fd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0U) {
+                if (error)
+                    *error = "socket not writable";
+                return false;
+            }
+            if ((fd.revents & POLLOUT) != 0U)
+                continue;
             continue;
+        }
         if (error)
             *error = errnoString("write");
         return false;
