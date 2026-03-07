@@ -532,6 +532,22 @@ Minimal static discovery config example:
 - Do not model generic UI metadata inspection as an adapter action; metadata inspection
   remains a UI/core concern and is not part of adapter capabilities.
 
+## Stream Kinds (v1)
+
+- Long-running transport streams are defined in `phi-transport-api/PROTOCOLL.md`
+  (`cmd.adapters.stream.start|stop`, `stream.open|data|error|end`).
+- Reserved stream kinds in v1:
+  - `adapter.discover`
+  - `adapter.log`
+  - `camera.live`
+- `kind` is a wire string token (not numeric enum on wire).
+- Adding a new reserved `kind` requires mirrored documentation updates in:
+  - `phi-transport-api/PROTOCOLL.md` (transport wire contract)
+  - `phi-adapter-sdk/README.md` (adapter v1 contract guidance)
+- Adapter actions remain one-shot `ResultAction` flows.
+  Stream sessions are transport/core stream contract flows and must not be modeled
+  as pseudo-streaming action result loops.
+
 ## Action Result Form Patch (v1)
 
 To avoid form state loss on async action+reload flows, `ActionResponse` supports optional
