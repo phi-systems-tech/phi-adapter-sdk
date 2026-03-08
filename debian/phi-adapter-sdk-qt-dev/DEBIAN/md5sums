@@ -1,0 +1,7 @@
+b5b35b3992cbb8c2d34b213ee1bdac2b  usr/include/phi/adapter/sdk/qt/instance_execution_backend_qt.h
+be5ee2a875a7515d212296e4dfccf45c  usr/lib/aarch64-linux-gnu/cmake/phi-adapter-sdk-qt/phi-adapter-sdk-qtConfig.cmake
+a6a5ffcd9c92da5feeaca56f3376cd88  usr/lib/aarch64-linux-gnu/cmake/phi-adapter-sdk-qt/phi-adapter-sdk-qtConfigVersion.cmake
+fa92b57479be4f7edd6bba52bd1610cd  usr/lib/aarch64-linux-gnu/cmake/phi-adapter-sdk-qt/phi-adapter-sdk-qtTargets-none.cmake
+755335d04450344fcefea71bd3db791d  usr/lib/aarch64-linux-gnu/cmake/phi-adapter-sdk-qt/phi-adapter-sdk-qtTargets.cmake
+34d6367753cdefecb0b5667223440009  usr/share/doc/phi-adapter-sdk-qt-dev/changelog.Debian.gz
+4db5e37f49b3d4ac903177be891a2220  usr/share/doc/phi-adapter-sdk-qt-dev/copyright

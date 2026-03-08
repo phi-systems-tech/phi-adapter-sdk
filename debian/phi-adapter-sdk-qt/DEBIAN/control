@@ -1,0 +1,12 @@
+Package: phi-adapter-sdk-qt
+Source: phi-adapter-sdk
+Version: 0.1.2-1
+Architecture: arm64
+Maintainer: Marius Schumacher <marius.schumacher@phisys.com>
+Installed-Size: 81
+Depends: libc6 (>= 2.32), libgcc-s1 (>= 3.0), libqt6core6t64 (>= 6.8.2), libstdc++6 (>= 13), phi-adapter-sdk (= 0.1.2-1)
+Section: libs
+Priority: optional
+Homepage: https://github.com/phi-systems-tech/phi-adapter-sdk
+Description: PHI adapter SDK Qt backend runtime
+ Qt event-loop based execution backend helper library.

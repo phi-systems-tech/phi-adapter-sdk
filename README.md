@@ -14,16 +14,11 @@ Linux-first SDK for phi adapter sidecars.
   - Typed dispatcher (`SidecarDispatcher`)
   - C++ sidecar model (`AdapterFactory`, `AdapterInstance`, `SidecarHost`)
   - Shared runtime library (`libphi_adapter_sdk.so`)
-- `phi::adapter-sdk-qt` (optional)
-  - Qt event-loop helper layer for adapters that want event-loop based instance execution
-  - Exposes `phi/adapter/sdk/qt/instance_execution_backend_qt.h`
-  - Built only when Qt6 Core is available
-  - Packaged as separate runtime/dev binary packages (`phi-adapter-sdk-qt`, `phi-adapter-sdk-qt-dev`)
 
 ## Scope
 
 - Runtime transport is Linux-only (`epoll`, Unix Domain Sockets)
-- No Qt dependency
+- No Qt dependency in this repository or package set
 - No Boost dependency
 - `externalId` is the canonical adapter-domain identifier in v1 contract types
 - Contract text type is `phicore::adapter::v1::Utf8String` (`std::string` alias)
@@ -94,11 +89,10 @@ cmake -S . -B ../build/phi-adapter-sdk/release-ninja -G Ninja
 cmake --build ../build/phi-adapter-sdk/release-ninja --parallel
 ```
 
-Optional Qt helper target:
+Qt event-loop helper:
 
-- Configure with `-DPHI_ADAPTER_SDK_BUILD_QT_HELPERS=ON` (default).
-- If `Qt6::Core` is found, `phi::adapter-sdk-qt` is built and exported as a separate shared-lib package pair.
-- If Qt is missing, base SDK (`phi::adapter-sdk`) still builds and remains fully usable.
+- The Qt backend lives in the separate `phi-adapter-sdk-qt` repository.
+- Install `phi-adapter-sdk-qt` / `phi-adapter-sdk-qt-dev` when an adapter needs Qt-based instance execution.
 
 ## Runtime Linking (.so)
 
@@ -152,7 +146,7 @@ Factory methods (v1 SDK contract):
 - `createInstanceExecutionBackend(externalId)` (optional override for custom threading/event loop)
 - `createInstance(...)`, `destroyInstance(...)`
 
-Qt helper usage example:
+Qt helper usage example (from `phi-adapter-sdk-qt`):
 
 ```cpp
 #include "phi/adapter/sdk/qt/instance_execution_backend_qt.h"

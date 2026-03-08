@@ -1,0 +1,12 @@
+Package: phi-adapter-sdk-qt-dev
+Source: phi-adapter-sdk
+Version: 0.1.2-1
+Architecture: arm64
+Maintainer: Marius Schumacher <marius.schumacher@phisys.com>
+Installed-Size: 29
+Depends: phi-adapter-sdk-qt (= 0.1.2-1), phi-adapter-sdk-dev (= 0.1.2-1)
+Section: libdevel
+Priority: optional
+Homepage: https://github.com/phi-systems-tech/phi-adapter-sdk
+Description: PHI adapter SDK Qt backend development files
+ Qt helper headers and CMake config for PHI adapters.
