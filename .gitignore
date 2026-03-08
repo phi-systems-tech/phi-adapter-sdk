@@ -14,6 +14,8 @@ debian/*.debhelper.log
 debian/*.substvars
 debian/phi-adapter-sdk/
 debian/phi-adapter-sdk-dev/
+debian/*/DEBIAN/
+debian/*/usr/
 
 # Local package build outputs
 /*.deb
