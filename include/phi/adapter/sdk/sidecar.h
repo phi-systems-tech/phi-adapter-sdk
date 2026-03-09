@@ -178,7 +178,11 @@ struct SceneInvokeRequest {
 };
 
 /**
- * @brief Typed payload for `cmd.adapters.stream.start`.
+ * @brief Typed payload for adapter-sidecar stream start IPC.
+ *
+ * Transport wire requests use `cmd.stream.start`; phi-core resolves the target
+ * adapter instance first and then forwards an adapter-scoped stream start to the
+ * sidecar.
  */
 struct AdaptersStreamStartRequest {
     /// Command id assigned by phi-core.
@@ -192,7 +196,7 @@ struct AdaptersStreamStartRequest {
 };
 
 /**
- * @brief Typed payload for `cmd.adapters.stream.stop`.
+ * @brief Typed payload for adapter-sidecar stream stop IPC.
  */
 struct AdaptersStreamStopRequest {
     /// Command id assigned by phi-core.
@@ -320,9 +324,9 @@ struct SidecarHandlers {
     std::function<void(const DeviceEffectInvokeRequest &)> onDeviceEffectInvoke;
     /// Called on `cmd.scene.invoke`.
     std::function<void(const SceneInvokeRequest &)> onSceneInvoke;
-    /// Called on `cmd.adapters.stream.start`.
+    /// Called on adapter-sidecar stream start IPC.
     std::function<void(const AdaptersStreamStartRequest &)> onAdaptersStreamStart;
-    /// Called on `cmd.adapters.stream.stop`.
+    /// Called on adapter-sidecar stream stop IPC.
     std::function<void(const AdaptersStreamStopRequest &)> onAdaptersStreamStop;
     /// Called when no typed handler exists for a request method.
     std::function<void(const UnknownRequest &)> onUnknownRequest;

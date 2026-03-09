@@ -536,15 +536,33 @@ Minimal static discovery config example:
 ## Stream Kinds (v1)
 
 - Long-running transport streams are defined in `phi-transport-api/PROTOCOLL.md`
-  (`cmd.adapters.stream.start|stop`, `stream.open|data|error|end`).
+  (`cmd.stream.start|stop`, `stream.open|data|error|end`).
 - Reserved stream kinds in v1:
   - `adapter.discover`
+  - `network.discover`
+  - `raw.discover`
   - `adapter.log`
   - `camera.live`
 - `kind` is a wire string token (not numeric enum on wire).
+- Current public stream kinds implemented in core/UI/CLI:
+  - `adapter.discover`
+  - `network.discover`
+- Reserved but not implemented as public stream flows yet:
+  - `raw.discover`
+  - `adapter.log`
+  - `camera.live`
+- `target` rules for `cmd.stream.start`:
+  - `adapter.discover`: no `target`
+  - `network.discover`: no `target`
+  - adapter-bound stream kinds: `target.adapterId > 0` is required
+- Top-level `adapterId` is not part of the `cmd.stream.start` transport contract.
 - Adding a new reserved `kind` requires mirrored documentation updates in:
   - `phi-transport-api/PROTOCOLL.md` (transport wire contract)
   - `phi-adapter-sdk/README.md` (adapter v1 contract guidance)
+- Adapter sidecar IPC remains adapter-scoped internally:
+  - phi-core resolves `target.adapterId`
+  - then forwards the request to the addressed adapter instance as adapter-sidecar
+    stream start/stop IPC
 - Adapter actions remain one-shot `ResultAction` flows.
   Stream sessions are transport/core stream contract flows and must not be modeled
   as pseudo-streaming action result loops.
