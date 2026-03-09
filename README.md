@@ -556,6 +556,23 @@ Minimal static discovery config example:
   - `network.discover`: no `target`
   - adapter-bound stream kinds: `target.adapterId > 0` is required
 - Top-level `adapterId` is not part of the `cmd.stream.start` transport contract.
+- Discovery payload naming rules:
+  - `adapter.discover`
+    - `plugin` = adapter type
+    - `provider` = discovery origin (`mdns`, `ssdp`, `manual`, ...)
+    - `externalId` = external candidate id
+    - `service` = provider-specific service identifier
+  - `network.discover`
+    - no `plugin`
+    - `provider` = discovery origin
+    - `externalId` = external finding id
+    - `service` = provider-specific service identifier
+  - public discovery payloads do not use:
+    - `pluginType`
+    - `discoveredExternalId`
+    - `serviceType`
+  - `meta` is for extra provider data only and must not duplicate top-level
+    fields such as `plugin`, `provider`, `externalId`, `ip`, `port`, or `service`
 - Adding a new reserved `kind` requires mirrored documentation updates in:
   - `phi-transport-api/PROTOCOLL.md` (transport wire contract)
   - `phi-adapter-sdk/README.md` (adapter v1 contract guidance)
