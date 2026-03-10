@@ -2034,7 +2034,7 @@ bool SidecarDispatcher::sendAdapterDescriptor(const phicore::adapter::v1::Extern
                                               phicore::adapter::v1::Utf8String *error)
 {
     const std::string body = std::string("{\"command\":")
-        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::EventFactoryDescriptor))
+        + std::to_string(phicore::adapter::v1::toUint16(IpcCommand::ResponseFactoryDescriptor))
         + ",\"externalId\":"
         + jsonQuoted(externalId)
         + ",\"descriptor\":"

@@ -424,7 +424,7 @@ public:
      * @param metaPatchJson JSON object text for dynamic runtime metadata only.
      *
      * Static adapter identity/capabilities/schema belong to descriptor transport
-     * (`EventFactoryDescriptor` / `EventFactoryDescriptorUpdated`).
+     * (`ResponseFactoryDescriptor` / `EventFactoryDescriptorUpdated`).
      */
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::ExternalId &externalId,
                                 const phicore::adapter::v1::JsonText &metaPatchJson,
@@ -552,7 +552,7 @@ private:
     };
 
     /**
-     * @brief Send bootstrap descriptor response (`command=EventFactoryDescriptor`).
+     * @brief Send bootstrap descriptor response (`command=ResponseFactoryDescriptor`).
      *
      * Internal helper used by `SidecarHost` during bootstrap flow.
      */

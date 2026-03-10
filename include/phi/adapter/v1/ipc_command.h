@@ -22,8 +22,8 @@ enum class IpcCommand : std::uint16_t {
     CmdAdaptersStreamStart = 0x0206,
     CmdAdaptersStreamStop = 0x0207,
 
-    // Event (adapter -> core, unsolicited)
-    EventFactoryDescriptor = 0x1001,
+    // Response/Event (adapter -> core)
+    ResponseFactoryDescriptor = 0x1001,
     EventFactoryDescriptorUpdated = 0x1002,
     EventAdapterMetaUpdated = 0x1003,
     EventConnectionStateChanged = 0x1004,

@@ -208,6 +208,54 @@ Logging API (v1 SDK contract):
 - Central SDK policy applies to all adapters (rate limiting/size limits/UTF-8 normalization/
   redaction); no adapter-specific fallback logging paths.
 
+Logging contract summary:
+
+- Adapter implementations use `log(...)` as the canonical runtime logging path.
+- Adapter implementations do not use `std::cerr`, `fprintf(stderr, ...)`, `qWarning()`,
+  `qDebug()`, or similar stderr-style output for normal runtime logging.
+- `stderr` is reserved for host/runtime failures where structured logging is not yet available
+  or no longer reliable:
+  - pre-bootstrap startup failures
+  - dispatcher/socket unavailable conditions
+  - fatal or otherwise unrecoverable host/runtime failures
+- SDK applies the effective log filter before IPC emission for performance reasons.
+- Core provides the effective logging configuration; SDK enforces it locally.
+- `Error` logs are never suppressed by normal enable/min-level/category filtering.
+
+Logging best practices:
+
+- `Trace`
+  - channel state changes
+  - poll cycles
+  - repeated inbound device/service events
+  - fine-grained protocol chatter
+- `Debug`
+  - config normalization
+  - discovery matching
+  - command/action dispatch decisions
+  - retry decisions
+- `Info`
+  - connect/disconnect
+  - startup/initialization completed
+  - discovery/sync completed
+- `Warn`
+  - recoverable network/protocol issues
+  - malformed external data handled gracefully
+  - partial update failures
+- `Error`
+  - command/action failures
+  - persistent connection failures
+  - invalid configuration preventing operation
+  - failed event/result submission
+
+High-frequency rules:
+
+- high-frequency paths must not log above `Trace` by default
+- especially:
+  - channel state updates
+  - polling loops
+  - repeated event traffic
+
 Cmd/Action Results (NVI, mandatory):
 
 - Host dispatch uses private NVI entry points for command/action processing.
@@ -334,8 +382,8 @@ Naming rules:
 
 Canonical enum: `phicore::adapter::v1::IpcCommand` in
 `phi/adapter/v1/ipc_command.h`.
-Canonical payload contract for every `IpcCommand` is defined in
-`phi-transport-api/PROTOCOLL.md` section `6.4`.
+Canonical sidecar IPC payload contract is defined in:
+- `phi-adapter-sdk/PROTOCOLL.md`
 
 Core -> Adapter (`Sync*` / `Cmd*`):
 
@@ -350,9 +398,9 @@ Core -> Adapter (`Sync*` / `Cmd*`):
 - `CmdAdaptersStreamStart` (`0x0206`)
 - `CmdAdaptersStreamStop` (`0x0207`)
 
-Adapter -> Core (`Event*`):
+Adapter -> Core (`Response*` / `Event*`):
 
-- `EventFactoryDescriptor` (`0x1001`)
+- `ResponseFactoryDescriptor` (`0x1001`)
 - `EventFactoryDescriptorUpdated` (`0x1002`)
 - `EventAdapterMetaUpdated` (`0x1003`)
 - `EventConnectionStateChanged` (`0x1004`)
@@ -575,7 +623,8 @@ Minimal static discovery config example:
     fields such as `plugin`, `provider`, `externalId`, `ip`, `port`, or `service`
 - Adding a new reserved `kind` requires mirrored documentation updates in:
   - `phi-transport-api/PROTOCOLL.md` (transport wire contract)
-  - `phi-adapter-sdk/README.md` (adapter v1 contract guidance)
+  - `phi-adapter-sdk/PROTOCOLL.md` (adapter sidecar contract)
+  - `phi-adapter-sdk/README.md` (adapter SDK guidance / best practices)
 - Adapter sidecar IPC remains adapter-scoped internally:
   - phi-core resolves `target.adapterId`
   - then forwards the request to the addressed adapter instance as adapter-sidecar
