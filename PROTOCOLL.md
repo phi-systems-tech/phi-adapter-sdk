@@ -131,6 +131,9 @@ Incident vs. diagnostics:
 - socket-level structured logging uses a single `EventLog` payload model
 - `sendError(...)` is a convenience API for primary adapter incidents and emits the same
   structured log model as `log(...)`
+- SDK signatures are normalized as:
+  - `log(level, category, message, params, ctx, fieldsJson, tsMs, error)`
+  - `sendError(category, message, params, ctx, fieldsJson, tsMs, error)`
 - `log(...)` is the structured diagnostics/telemetry/operator-visibility channel
 - `sendError(...)` is used for adapter incidents that must be visible as core adapter errors
   and may be consumed by automation/notification/error-handling flows

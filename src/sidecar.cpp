@@ -1960,15 +1960,16 @@ bool SidecarDispatcher::sendConnectionStateChanged(const phicore::adapter::v1::E
 
 bool SidecarDispatcher::sendError(const phicore::adapter::v1::ExternalId &externalId,
                                   const phicore::adapter::v1::Utf8String &plugin,
+                                  LogCategory category,
                                   const phicore::adapter::v1::Utf8String &message,
                                   const ScalarList &params,
-                                  LogCategory category,
                                   const phicore::adapter::v1::Utf8String &ctx,
                                   const phicore::adapter::v1::JsonText &fieldsJson,
+                                  std::int64_t tsMs,
                                   phicore::adapter::v1::Utf8String *error)
 {
     const std::string fields = trim(fieldsJson).empty() ? "{}" : fieldsJson;
-    const std::int64_t tsMs = nowMs();
+    const std::int64_t effectiveTsMs = tsMs > 0 ? tsMs : nowMs();
     std::string body;
     body.push_back('{');
     bool first = true;
@@ -1990,7 +1991,7 @@ bool SidecarDispatcher::sendError(const phicore::adapter::v1::ExternalId &extern
     appendFieldPrefix(body, first, "fields");
     body += jsonTokenOrDefault(fields, "{}");
     appendFieldPrefix(body, first, "tsMs");
-    body += std::to_string(tsMs);
+    body += std::to_string(effectiveTsMs);
     body.push_back('}');
     return sendJson(MessageType::Event, 0, body, error);
 }
@@ -2379,8 +2380,8 @@ bool AdapterFactory::hasBootstrap() const
 bool AdapterFactory::log(LogLevel level,
                          LogCategory category,
                          const phicore::adapter::v1::Utf8String &message,
-                         const phicore::adapter::v1::Utf8String &ctx,
                          const phicore::adapter::v1::ScalarList &params,
+                         const phicore::adapter::v1::Utf8String &ctx,
                          const phicore::adapter::v1::JsonText &fieldsJson,
                          std::int64_t tsMs,
                          phicore::adapter::v1::Utf8String *error)
@@ -2458,11 +2459,12 @@ bool AdapterFactory::sendConnectionStateChanged(bool connected, phicore::adapter
 {
     return m_dispatcher ? m_dispatcher->sendConnectionStateChanged({}, connected, error) : false;
 }
-bool AdapterFactory::sendError(const phicore::adapter::v1::Utf8String &message,
+bool AdapterFactory::sendError(LogCategory category,
+                               const phicore::adapter::v1::Utf8String &message,
                                const ScalarList &params,
-                               LogCategory category,
                                const phicore::adapter::v1::Utf8String &ctx,
                                const phicore::adapter::v1::JsonText &fieldsJson,
+                               std::int64_t tsMs,
                                phicore::adapter::v1::Utf8String *error)
 {
     if (!m_dispatcher) {
@@ -2470,7 +2472,7 @@ bool AdapterFactory::sendError(const phicore::adapter::v1::Utf8String &message,
             *error = "Dispatcher not bound";
         return false;
     }
-    return m_dispatcher->sendError({}, hostPluginType(), message, params, category, ctx, fieldsJson, error);
+    return m_dispatcher->sendError({}, hostPluginType(), category, message, params, ctx, fieldsJson, tsMs, error);
 }
 bool AdapterFactory::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                             phicore::adapter::v1::Utf8String *error)
@@ -2572,8 +2574,8 @@ bool AdapterInstance::hasConfig() const { return m_hasConfig; }
 bool AdapterInstance::log(LogLevel level,
                           LogCategory category,
                           const phicore::adapter::v1::Utf8String &message,
-                          const phicore::adapter::v1::Utf8String &ctx,
                           const phicore::adapter::v1::ScalarList &params,
+                          const phicore::adapter::v1::Utf8String &ctx,
                           const phicore::adapter::v1::JsonText &fieldsJson,
                           std::int64_t tsMs,
                           phicore::adapter::v1::Utf8String *error)
@@ -2667,11 +2669,12 @@ bool AdapterInstance::sendConnectionStateChanged(bool connected, phicore::adapte
 {
     return m_dispatcher ? m_dispatcher->sendConnectionStateChanged(m_externalId, connected, error) : false;
 }
-bool AdapterInstance::sendError(const phicore::adapter::v1::Utf8String &message,
+bool AdapterInstance::sendError(LogCategory category,
+                                const phicore::adapter::v1::Utf8String &message,
                                 const ScalarList &params,
-                                LogCategory category,
                                 const phicore::adapter::v1::Utf8String &ctx,
                                 const phicore::adapter::v1::JsonText &fieldsJson,
+                                std::int64_t tsMs,
                                 phicore::adapter::v1::Utf8String *error)
 {
     if (!m_dispatcher) {
@@ -2680,7 +2683,7 @@ bool AdapterInstance::sendError(const phicore::adapter::v1::Utf8String &message,
         return false;
     }
     return m_dispatcher->sendError(
-        m_externalId, m_pluginType, message, params, category, ctx, fieldsJson, error);
+        m_externalId, m_pluginType, category, message, params, ctx, fieldsJson, tsMs, error);
 }
 bool AdapterInstance::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                              phicore::adapter::v1::Utf8String *error)

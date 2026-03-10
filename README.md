@@ -172,7 +172,7 @@ Instance methods (v1 SDK contract):
 Logging API (v1 SDK contract):
 
 - `log(...)` is a public method on factory and instance classes for adapter implementers.
-- Signature is `log(level, category, message, ...)`.
+- Signature is `log(level, category, message, params, ctx, fieldsJson, tsMs, error)`.
 - SDK enriches and forwards logs to core automatically; adapters should only provide semantic
   message/context fields.
 - Mandatory normalized fields are SDK-managed: `tsMs`, `level`, `category`, `message`, `plugin`,
@@ -201,9 +201,9 @@ Logging API (v1 SDK contract):
 - `fieldsJson` keys should use lowerCamelCase ASCII naming.
 - Keep `fieldsJson` flat and machine-readable; avoid large blobs and duplicated human text.
 - Use SDK macros for automatic source-location enrichment:
-  - `PHI_LOG_DEBUG(target, category, message, ctx, params)`
-  - `PHI_LOG_TRACE(target, category, message, ctx, params)`
-  - `PHI_LOG_WITH_SOURCE(target, level, category, message, ctx, params)`
+  - `PHI_LOG_DEBUG(target, category, message, params, ctx)`
+  - `PHI_LOG_TRACE(target, category, message, params, ctx)`
+  - `PHI_LOG_WITH_SOURCE(target, level, category, message, params, ctx)`
 - `params` in macros is a `ScalarList` expression, e.g.
   `phi::ScalarList{"bridge-1", 3000}`.
 - SDK log forwarding is gated by adapter flags from config:
@@ -224,6 +224,9 @@ Logging API (v1 SDK contract):
 - `log(...)` is the structured diagnostics/telemetry channel and must not replace
   `sendError(...)` for primary incidents
 - `sendError(...)` uses the same structured socket log model as `log(...)`
+- SDK signatures are normalized as:
+  - `log(level, category, message, params, ctx, fieldsJson, tsMs, error)`
+  - `sendError(category, message, params, ctx, fieldsJson, tsMs, error)`
 - `sendError(...)` always emits with:
   - `level = Error`
   - same public base category enum as adapter code passed in

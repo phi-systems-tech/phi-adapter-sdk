@@ -402,16 +402,17 @@ public:
      * `sendError(...)` uses the same structured socket log model as `sendLog(...)`,
      * but always with `level=Error` and an incident marker encoded in the wire
      * `category:uint8`. Core may treat such frames as automation-relevant adapter
-     * incidents. `ctx` is translation context; `params` replace `%1`, `%2`, ... in
-     * `message`.
+     * incidents. `params` replace `%1`, `%2`, ... in `message`; `ctx` is the
+     * translation context.
      */
     bool sendError(const phicore::adapter::v1::ExternalId &externalId,
                    const phicore::adapter::v1::Utf8String &plugin,
-                   const phicore::adapter::v1::Utf8String &message,
-                   const phicore::adapter::v1::ScalarList &params = {},
                    LogCategory category = LogCategory::Internal,
+                   const phicore::adapter::v1::Utf8String &message = {},
+                   const phicore::adapter::v1::ScalarList &params = {},
                    const phicore::adapter::v1::Utf8String &ctx = {},
                    const phicore::adapter::v1::JsonText &fieldsJson = {},
+                   std::int64_t tsMs = 0,
                    phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
@@ -622,12 +623,12 @@ public:
     bool hasBootstrap() const;
 
     /// Structured log helper for adapter implementers.
-    /// `ctx` is translation context; `params` replace `%1`, `%2`, ... in `message`.
+    /// `params` replace `%1`, `%2`, ... in `message`; `ctx` is the translation context.
     bool log(LogLevel level,
              LogCategory category,
              const phicore::adapter::v1::Utf8String &message,
-             const phicore::adapter::v1::Utf8String &ctx = {},
              const phicore::adapter::v1::ScalarList &params = {},
+             const phicore::adapter::v1::Utf8String &ctx = {},
              const phicore::adapter::v1::JsonText &fieldsJson = {},
              std::int64_t tsMs = 0,
              phicore::adapter::v1::Utf8String *error = nullptr);
@@ -658,11 +659,12 @@ protected:
     virtual void onBootstrap(const BootstrapRequest &request);
 
     bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
-    bool sendError(const phicore::adapter::v1::Utf8String &message,
+    bool sendError(LogCategory category,
+                   const phicore::adapter::v1::Utf8String &message,
                    const phicore::adapter::v1::ScalarList &params = {},
-                   LogCategory category = LogCategory::Internal,
                    const phicore::adapter::v1::Utf8String &ctx = {},
                    const phicore::adapter::v1::JsonText &fieldsJson = {},
+                   std::int64_t tsMs = 0,
                    phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
@@ -720,12 +722,12 @@ public:
     bool hasConfig() const;
 
     /// Structured log helper for adapter implementers.
-    /// `ctx` is translation context; `params` replace `%1`, `%2`, ... in `message`.
+    /// `params` replace `%1`, `%2`, ... in `message`; `ctx` is the translation context.
     bool log(LogLevel level,
              LogCategory category,
              const phicore::adapter::v1::Utf8String &message,
-             const phicore::adapter::v1::Utf8String &ctx = {},
              const phicore::adapter::v1::ScalarList &params = {},
+             const phicore::adapter::v1::Utf8String &ctx = {},
              const phicore::adapter::v1::JsonText &fieldsJson = {},
              std::int64_t tsMs = 0,
              phicore::adapter::v1::Utf8String *error = nullptr);
@@ -749,11 +751,12 @@ protected:
     virtual void onUnknownRequest(const UnknownRequest &request);
 
     bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
-    bool sendError(const phicore::adapter::v1::Utf8String &message,
+    bool sendError(LogCategory category,
+                   const phicore::adapter::v1::Utf8String &message,
                    const phicore::adapter::v1::ScalarList &params = {},
-                   LogCategory category = LogCategory::Internal,
                    const phicore::adapter::v1::Utf8String &ctx = {},
                    const phicore::adapter::v1::JsonText &fieldsJson = {},
+                   std::int64_t tsMs = 0,
                    phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
@@ -918,31 +921,31 @@ private:
 } // namespace phicore::adapter::sdk
 
 #ifndef PHI_LOG_WITH_SOURCE
-#define PHI_LOG_WITH_SOURCE(target, level, category, message, ctx, ...)                                        \
+#define PHI_LOG_WITH_SOURCE(target, level, category, message, params, ctx)                                     \
     (target).log((level),                                                                                      \
                  (category),                                                                                   \
                  (message),                                                                                    \
+                 (params),                                                                                     \
                  (ctx),                                                                                        \
-                 __VA_ARGS__,                                                                                  \
                  ::phicore::adapter::sdk::makeSourceLocationFieldsJson(__FILE__, __LINE__, __func__))
 #endif
 
 #ifndef PHI_LOG_DEBUG
-#define PHI_LOG_DEBUG(target, category, message, ctx, ...)                                                     \
+#define PHI_LOG_DEBUG(target, category, message, params, ctx)                                                  \
     PHI_LOG_WITH_SOURCE((target),                                                                              \
                         ::phicore::adapter::sdk::LogLevel::Debug,                                              \
                         (category),                                                                            \
                         (message),                                                                             \
-                        (ctx),                                                                                 \
-                        __VA_ARGS__)
+                        (params),                                                                              \
+                        (ctx))
 #endif
 
 #ifndef PHI_LOG_TRACE
-#define PHI_LOG_TRACE(target, category, message, ctx, ...)                                                     \
+#define PHI_LOG_TRACE(target, category, message, params, ctx)                                                  \
     PHI_LOG_WITH_SOURCE((target),                                                                              \
                         ::phicore::adapter::sdk::LogLevel::Trace,                                              \
                         (category),                                                                            \
                         (message),                                                                             \
-                        (ctx),                                                                                 \
-                        __VA_ARGS__)
+                        (params),                                                                              \
+                        (ctx))
 #endif

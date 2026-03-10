@@ -40,8 +40,8 @@ protected:
         PHI_LOG_DEBUG(*this,
                       phi::LogCategory::Lifecycle,
                       "Core connected for %1",
-                      "adapter.example.lifecycle.connected",
-                      phi::ScalarList{externalId()});
+                      phi::ScalarList{externalId()},
+                      "adapter.example.lifecycle.connected");
     }
 
     void onDisconnected() override
@@ -54,11 +54,12 @@ protected:
         std::cerr << "protocol error: " << message << std::endl;
         phi::Utf8String sendErr;
         // `ctx` is translation context, params replace `%1`, `%2`, ...
-        sendError("Protocol error for %1: %2",
+        sendError(phi::LogCategory::Protocol,
+                  "Protocol error for %1: %2",
                   {externalId(), message},
-                  phi::LogCategory::Protocol,
                   "adapter.example.protocol.error",
                   R"json({"source":"example.protocol"})json",
+                  0,
                   &sendErr);
         if (!sendErr.empty())
             std::cerr << "failed to send adapter error: " << sendErr << std::endl;
