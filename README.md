@@ -253,6 +253,8 @@ Logging contract summary:
   - pre-bootstrap startup failures
   - dispatcher/socket unavailable conditions
   - fatal or otherwise unrecoverable host/runtime failures
+  - failed emission of a primary incident submitted through `sendError(...)`
+  - rate-limited host summaries for queue/backpressure or repeated diagnostic log send failures
 - SDK applies the effective log filter before IPC emission for performance reasons.
 - Core provides the effective logging configuration; SDK enforces it locally.
 - `Error` logs are never suppressed by normal enable/min-level/category filtering.
@@ -261,6 +263,7 @@ Logging contract summary:
   - core <-> sidecar socket connect/disconnect
   - bootstrap/config dispatch on host layer
   - host protocol/dispatch/send failures
+  - queue growth, backpressure, and send-queue pressure summaries
   - host-created / host-destroyed instance lifecycle
 - Adapter code owns logging for:
   - external integration connect/disconnect
@@ -270,6 +273,12 @@ Logging contract summary:
   - persistent external communication failures
   - domain state transitions
 - Adapter code must not duplicate host-owned incidents.
+- If `sendError(...)` itself cannot be emitted, the host must write a fallback line to `stderr`
+  so the lost incident is still visible to phi-core through process stderr capture.
+- If normal `log(...)` emission fails repeatedly, the host should summarize those failures via
+  rate-limited `stderr` diagnostics instead of writing one line per failed log frame.
+- Host diagnostics about dispatcher/socket/backpressure/send-path health should not rely on
+  `EventLog`, because the degraded upstream path is often exactly the component that is failing.
 
 Logging best practices:
 

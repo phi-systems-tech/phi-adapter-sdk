@@ -123,6 +123,8 @@ Required behavior:
   - pre-bootstrap startup failures before structured logging is available
   - dispatcher/socket unavailable conditions
   - fatal or otherwise unrecoverable host/runtime failures
+  - failed emission of a primary incident submitted through `sendError(...)`
+  - rate-limited host summaries for queue/backpressure or dropped/failed diagnostic log emission
 - SDK applies the effective log filter before IPC emission
 - phi-core provides the effective logging configuration; SDK enforces it locally
 - `Error` logs are never suppressed by normal enable/min-level/category filtering
@@ -149,6 +151,7 @@ Ownership:
   - bootstrap/config dispatch on host layer
   - protocol framing/decode failures on host layer
   - outbound IPC send failures
+  - queue growth, backpressure, and send-queue pressure summaries
   - missing handler / default-not-implemented on host layer
   - instance created/destroyed by host runtime
 - adapter implementations own logging for adapter-domain/runtime concerns:
@@ -159,6 +162,12 @@ Ownership:
   - persistent external communication failures
   - domain state transitions
 - adapter implementations MUST NOT duplicate host-owned incidents
+- when `sendError(...)` emission itself fails, host/runtime MUST emit a fallback `stderr` line
+  describing the lost incident
+- when normal diagnostic `log(...)` emission fails repeatedly, host/runtime SHOULD emit
+  rate-limited `stderr` summaries instead of one line per failed log frame
+- host/runtime diagnostics about dispatcher/socket/backpressure/send-path health MUST NOT depend
+  on `EventLog` delivery, because the degraded upstream path is often the failing component
 
 Required level usage:
 - `Trace` MUST be used for:

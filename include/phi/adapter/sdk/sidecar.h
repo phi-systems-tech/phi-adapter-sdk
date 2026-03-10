@@ -552,6 +552,11 @@ private:
     struct OutboundFrame {
         phicore::adapter::v1::MessageType type = phicore::adapter::v1::MessageType::Event;
         phicore::adapter::v1::CorrelationId correlationId = 0;
+        bool isLogFrame = false;
+        bool isIncident = false;
+        phicore::adapter::v1::Utf8String plugin;
+        phicore::adapter::v1::ExternalId externalId;
+        phicore::adapter::v1::Utf8String message;
         std::string payload;
     };
 

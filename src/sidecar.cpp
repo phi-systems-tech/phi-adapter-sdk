@@ -89,6 +89,8 @@ std::string_view logCategoryName(LogCategory category)
 }
 
 constexpr std::uint8_t kIncidentCategoryFlag = 0x80;
+constexpr std::size_t kHostQueueWarnThreshold = 64;
+constexpr std::int64_t kHostDiagRateLimitMs = 5000;
 
 std::uint8_t encodeWireCategory(LogCategory category, bool incident)
 {
@@ -120,6 +122,20 @@ std::int64_t nowMs()
 {
     const auto now = std::chrono::system_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+}
+
+void hostStderrLine(const std::string &line)
+{
+    std::cerr << line << std::endl;
+}
+
+std::string shortened(std::string_view text, std::size_t maxLen = 160)
+{
+    if (text.size() <= maxLen)
+        return std::string(text);
+    if (maxLen < 4)
+        return std::string(text.substr(0, maxLen));
+    return std::string(text.substr(0, maxLen - 3)) + "...";
 }
 
 constexpr auto kExecutionBackendStopTimeout = std::chrono::seconds(3);
@@ -1496,16 +1512,26 @@ struct SidecarDispatcher::Impl {
     SidecarHandlers handlers;
     std::mutex runtimeMutex;
     std::mutex sendQueueMutex;
+    std::mutex hostDiagMutex;
     std::deque<SidecarDispatcher::OutboundFrame> sendQueue;
     std::atomic<bool> started{false};
+    std::int64_t lastQueueWarningTsMs = 0;
+    std::size_t maxObservedQueueDepth = 0;
+    std::int64_t lastLogSendFailureTsMs = 0;
+    std::uint64_t suppressedLogSendFailures = 0;
 };
 
 #define m_runtime m_impl->runtime
 #define m_handlers m_impl->handlers
 #define m_runtimeMutex m_impl->runtimeMutex
 #define m_sendQueueMutex m_impl->sendQueueMutex
+#define m_hostDiagMutex m_impl->hostDiagMutex
 #define m_sendQueue m_impl->sendQueue
 #define m_started m_impl->started
+#define m_lastQueueWarningTsMs m_impl->lastQueueWarningTsMs
+#define m_maxObservedQueueDepth m_impl->maxObservedQueueDepth
+#define m_lastLogSendFailureTsMs m_impl->lastLogSendFailureTsMs
+#define m_suppressedLogSendFailures m_impl->suppressedLogSendFailures
 
 SidecarDispatcher::SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath)
     : m_impl(std::make_unique<Impl>(std::move(socketPath)))
@@ -1837,15 +1863,66 @@ bool SidecarDispatcher::queueOutboundFrame(OutboundFrame frame, phicore::adapter
     if (!m_started.load(std::memory_order_acquire)) {
         if (error)
             *error = "dispatcher not started";
+        if (frame.isIncident) {
+            hostStderrLine("[sidecar][incidentSendFailure][host] plugin=" + frame.plugin + " externalId="
+                           + frame.externalId + " reason=dispatcher not started message="
+                           + jsonQuoted(shortened(frame.message)));
+        } else if (frame.isLogFrame) {
+            const std::int64_t tsMs = nowMs();
+            std::lock_guard<std::mutex> diagLock(m_hostDiagMutex);
+            if (tsMs - m_lastLogSendFailureTsMs >= kHostDiagRateLimitMs) {
+                const std::uint64_t suppressed = m_suppressedLogSendFailures;
+                m_lastLogSendFailureTsMs = tsMs;
+                m_suppressedLogSendFailures = 0;
+                hostStderrLine("[sidecar][logSendFailure][host] plugin=" + frame.plugin + " externalId="
+                               + frame.externalId + " reason=dispatcher not started suppressed="
+                               + std::to_string(suppressed) + " message="
+                               + jsonQuoted(shortened(frame.message)));
+            } else {
+                ++m_suppressedLogSendFailures;
+            }
+        }
         return false;
     }
     if (frame.payload.empty()) {
         if (error)
             *error = "outbound payload must not be empty";
+        if (frame.isIncident) {
+            hostStderrLine("[sidecar][incidentSendFailure][host] plugin=" + frame.plugin + " externalId="
+                           + frame.externalId + " reason=outbound payload must not be empty message="
+                           + jsonQuoted(shortened(frame.message)));
+        } else if (frame.isLogFrame) {
+            const std::int64_t tsMs = nowMs();
+            std::lock_guard<std::mutex> diagLock(m_hostDiagMutex);
+            if (tsMs - m_lastLogSendFailureTsMs >= kHostDiagRateLimitMs) {
+                const std::uint64_t suppressed = m_suppressedLogSendFailures;
+                m_lastLogSendFailureTsMs = tsMs;
+                m_suppressedLogSendFailures = 0;
+                hostStderrLine("[sidecar][logSendFailure][host] plugin=" + frame.plugin + " externalId="
+                               + frame.externalId + " reason=outbound payload must not be empty suppressed="
+                               + std::to_string(suppressed) + " message="
+                               + jsonQuoted(shortened(frame.message)));
+            } else {
+                ++m_suppressedLogSendFailures;
+            }
+        }
         return false;
     }
+    std::size_t queueDepth = 0;
     std::lock_guard<std::mutex> lock(m_sendQueueMutex);
     m_sendQueue.push_back(std::move(frame));
+    queueDepth = m_sendQueue.size();
+    if (queueDepth > m_maxObservedQueueDepth)
+        m_maxObservedQueueDepth = queueDepth;
+    if (queueDepth >= kHostQueueWarnThreshold) {
+        const std::int64_t tsMs = nowMs();
+        std::lock_guard<std::mutex> diagLock(m_hostDiagMutex);
+        if (tsMs - m_lastQueueWarningTsMs >= kHostDiagRateLimitMs) {
+            m_lastQueueWarningTsMs = tsMs;
+            hostStderrLine("[sidecar][queueBackpressure][host] queueDepth=" + std::to_string(queueDepth)
+                           + " maxObservedDepth=" + std::to_string(m_maxObservedQueueDepth));
+        }
+    }
     return true;
 }
 
@@ -1871,6 +1948,28 @@ bool SidecarDispatcher::flushSendQueue(phicore::adapter::v1::Utf8String *error)
         if (!ok) {
             if (error && error->empty())
                 *error = "Failed to send outbound frame: " + sendError;
+            if (frame.isIncident) {
+                hostStderrLine("[sidecar][incidentSendFailure][host] plugin=" + frame.plugin + " externalId="
+                               + frame.externalId + " reason=" + sendError + " message="
+                               + jsonQuoted(shortened(frame.message)));
+                continue;
+            }
+            if (frame.isLogFrame) {
+                const std::int64_t tsMs = nowMs();
+                std::lock_guard<std::mutex> diagLock(m_hostDiagMutex);
+                if (tsMs - m_lastLogSendFailureTsMs >= kHostDiagRateLimitMs) {
+                    const std::uint64_t suppressed = m_suppressedLogSendFailures;
+                    m_lastLogSendFailureTsMs = tsMs;
+                    m_suppressedLogSendFailures = 0;
+                    hostStderrLine("[sidecar][logSendFailure][host] plugin=" + frame.plugin + " externalId="
+                                   + frame.externalId + " reason=" + sendError + " suppressed="
+                                   + std::to_string(suppressed) + " message="
+                                   + jsonQuoted(shortened(frame.message)));
+                } else {
+                    ++m_suppressedLogSendFailures;
+                }
+                continue;
+            }
             if (m_handlers.onProtocolError)
                 m_handlers.onProtocolError("Failed to send outbound frame: " + sendError);
         }
@@ -1993,7 +2092,15 @@ bool SidecarDispatcher::sendError(const phicore::adapter::v1::ExternalId &extern
     appendFieldPrefix(body, first, "tsMs");
     body += std::to_string(effectiveTsMs);
     body.push_back('}');
-    return sendJson(MessageType::Event, 0, body, error);
+    OutboundFrame frame;
+    frame.type = MessageType::Event;
+    frame.isLogFrame = true;
+    frame.isIncident = true;
+    frame.plugin = plugin;
+    frame.externalId = externalId;
+    frame.message = message;
+    frame.payload = std::move(body);
+    return queueOutboundFrame(std::move(frame), error);
 }
 
 bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &externalId,
@@ -2026,7 +2133,15 @@ bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &external
     appendFieldPrefix(body, first, "tsMs");
     body += std::to_string(tsMs);
     body.push_back('}');
-    return sendJson(MessageType::Event, 0, body, error);
+    OutboundFrame frame;
+    frame.type = MessageType::Event;
+    frame.isLogFrame = true;
+    frame.isIncident = false;
+    frame.plugin = plugin;
+    frame.externalId = externalId;
+    frame.message = entry.message;
+    frame.payload = std::move(body);
+    return queueOutboundFrame(std::move(frame), error);
 }
 
 bool SidecarDispatcher::sendAdapterMetaUpdated(const phicore::adapter::v1::ExternalId &externalId,
