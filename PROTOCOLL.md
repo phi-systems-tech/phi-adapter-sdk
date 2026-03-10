@@ -128,6 +128,71 @@ Required behavior:
 - phi-core provides the effective logging configuration; SDK enforces it locally
 - `Error` logs are never suppressed by normal enable/min-level/category filtering
 
+Incident vs. diagnostics:
+- `sendError(...)` is the primary incident/error channel from adapter to phi-core
+- `sendError(...)` is used for adapter incidents that must be visible as core adapter errors
+  and may be consumed by automation/notification/error-handling flows
+- `log(...)` is the structured diagnostics/telemetry/operator-visibility channel
+- `log(...)` is not an automation incident channel and MUST NOT be used as a substitute
+  for `sendError(...)`
+- when a failure is a primary adapter incident, adapter code MUST use `sendError(...)`
+  and MUST NOT emit an additional `log(...)` for the same incident
+- SDK/host/core may additionally mirror `sendError(...)` into structured logs automatically
+
+Ownership:
+- host/runtime code owns logging for host-managed lifecycle and protocol concerns:
+  - sidecar process start/stop
+  - core <-> sidecar socket connect/disconnect
+  - bootstrap/config dispatch on host layer
+  - protocol framing/decode failures on host layer
+  - outbound IPC send failures
+  - missing handler / default-not-implemented on host layer
+  - instance created/destroyed by host runtime
+- adapter implementations own logging for adapter-domain/runtime concerns:
+  - external integration connect/disconnect
+  - semantic config normalization/validation
+  - discovery execution/results/failures for devices/resources within the adapter domain
+  - command/action execution decisions and failures
+  - persistent external communication failures
+  - domain state transitions
+- adapter implementations MUST NOT duplicate host-owned incidents
+
+Required level usage:
+- `Trace` MUST be used for:
+  - channel state updates
+  - polling cycles
+  - repeated inbound event traffic
+  - fine-grained protocol chatter
+  - retry loop iterations
+- `Debug` MUST be used for:
+  - config normalization decisions
+  - discovery matching decisions within the adapter domain
+  - command/action dispatch decisions
+  - backoff/retry decisions
+  - non-trivial internal state transitions
+- `Info` MUST be used for:
+  - successful external target connect
+  - successful external target disconnect
+  - adapter-domain startup/initialization completed
+  - discovery completed summary within the adapter domain
+  - resync/snapshot completed summary
+- `Warn` MUST be used for:
+  - recoverable external communication issues
+  - malformed external data handled gracefully
+  - partial update/application failures
+  - degraded but still running behavior
+- `Error` MUST be used for:
+  - command/action execution failures
+  - persistent connection failures
+  - invalid configuration preventing operation
+  - unrecoverable external API/protocol failures
+  - failed event/result submission from adapter code
+
+Prohibitions:
+- high-frequency paths MUST NOT log above `Trace` by default
+- adapter logs MUST NOT include secrets, tokens, or passwords in `message`, `params`, or `fields`
+- `ctx` MUST NOT be used for module/source naming
+
 Normalized `EventLog` fields:
 - `tsMs`
 - `level`
@@ -143,18 +208,63 @@ Field rules:
 - `ctx` is translation context, not module/source naming
 - source/module details belong into structured `fields`
 - source-location fields such as `file`, `line`, `func` are reserved for debug/trace enrichment
+- `fields` is reserved for structured diagnostic context and MUST NOT duplicate top-level fields
+- forbidden keys in `fields`:
+  - `level`
+  - `category`
+  - `message`
+  - `ctx`
+  - `params`
+  - `pluginType`
+  - `externalId`
+  - `tsMs`
+- canonical `fields` keys:
+  - `source`
+  - `file`
+  - `line`
+  - `func`
+  - `deviceId`
+  - `channelId`
+  - `groupId`
+  - `sceneId`
+  - `actionId`
+  - `streamId`
+  - `requestId`
+  - `endpoint`
+  - `host`
+  - `port`
+  - `attempt`
+  - `durationMs`
+  - `timeoutMs`
+  - `statusCode`
+  - `errorCode`
+  - `provider`
+- `fields` key naming MUST use lowerCamelCase ASCII identifiers
+- `fields` values SHOULD be flat and machine-readable:
+  - string
+  - number
+  - boolean
+  - small arrays of those types
+- `fields` MUST NOT contain:
+  - secrets, tokens, or passwords
+  - large payload blobs
+  - full remote protocol responses
+  - free-form message text duplicated from `message`
 
 Canonical categories:
-- `event`
 - `lifecycle`
 - `discovery`
 - `network`
 - `protocol`
-- `deviceState`
+- `device`
 - `config`
 - `performance`
 - `security`
 - `internal`
+
+Reserved/non-public category:
+- `event`
+  - host/SDK reserved for mirrored `sendError(...)` incidents
 
 ## 4. Target Resolution
 

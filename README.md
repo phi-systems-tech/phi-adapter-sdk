@@ -182,6 +182,24 @@ Logging API (v1 SDK contract):
 - Source/module information belongs into structured `fieldsJson` (for example `{"source":"poll"}`).
 - Optional fields may include `adapterId` and structured metadata.
 - Reserved source-location fields for debug/trace logs: `file`, `line`, `func`.
+- `fieldsJson` is for structured diagnostic context, not for duplicating top-level log fields.
+- Do not put these top-level fields into `fieldsJson`:
+  - `level`
+  - `category`
+  - `message`
+  - `ctx`
+  - `params`
+  - `pluginType`
+  - `externalId`
+  - `tsMs`
+- Prefer canonical `fieldsJson` keys where applicable:
+  - `source`, `file`, `line`, `func`
+  - `deviceId`, `channelId`, `groupId`, `sceneId`, `actionId`, `streamId`, `requestId`
+  - `endpoint`, `host`, `port`
+  - `attempt`, `durationMs`, `timeoutMs`
+  - `statusCode`, `errorCode`, `provider`
+- `fieldsJson` keys should use lowerCamelCase ASCII naming.
+- Keep `fieldsJson` flat and machine-readable; avoid large blobs and duplicated human text.
 - Use SDK macros for automatic source-location enrichment:
   - `PHI_LOG_DEBUG(target, category, message, ctx, params)`
   - `PHI_LOG_TRACE(target, category, message, ctx, params)`
@@ -195,16 +213,27 @@ Logging API (v1 SDK contract):
   - when `AdapterFlagEnableLogs` is set, SDK applies `adapter.meta.logging` filter:
     - `logging.minLevel`: one of `trace|debug|info|warn|error` (default: `debug`)
     - `logging.categories`: string array (default: `["all"]`)
-    - supported categories: `event`, `lifecycle`, `discovery`, `network`, `protocol`,
-      `deviceState`, `config`, `performance`, `security`, `internal`
+    - supported public categories: `lifecycle`, `discovery`, `network`, `protocol`,
+      `device`, `config`, `performance`, `security`, `internal`
+    - reserved/non-public category: `event` (host/SDK reserved for mirrored `sendError(...)`)
     - `["all"]` enables all categories
 - `sendError(...)` always emits:
   - `EventError` (primary incident event)
-  - mirrored `EventLog` with `level=Error` and `category=Event`
+  - mirrored `EventLog` with `level=Error` and host-reserved `category=Event`
   - mirrored log metadata fields: `{"source":"event.error"}`
+- `sendError(...)` is the primary adapter incident path toward phi-core:
+  - it is intended for core-visible adapter errors
+  - it may be consumed by automation/notification/error-handling flows
+- adapter code must not emit an additional `log(...)` for the same primary incident
+  handled via `sendError(...)`
+- `log(...)` is the structured diagnostics/telemetry channel and must not replace
+  `sendError(...)` for primary incidents
+- mirrored structured error logs are generated automatically by SDK/host
 - Canonical categories:
-  `Event`, `Lifecycle`, `Discovery`, `Network`, `Protocol`, `DeviceState`, `Config`,
+  `Lifecycle`, `Discovery`, `Network`, `Protocol`, `Device`, `Config`,
   `Performance`, `Security`, `Internal`.
+- Reserved/non-public:
+  `Event` for host/SDK mirrored `sendError(...)` incidents.
 - Central SDK policy applies to all adapters (rate limiting/size limits/UTF-8 normalization/
   redaction); no adapter-specific fallback logging paths.
 
@@ -221,6 +250,20 @@ Logging contract summary:
 - SDK applies the effective log filter before IPC emission for performance reasons.
 - Core provides the effective logging configuration; SDK enforces it locally.
 - `Error` logs are never suppressed by normal enable/min-level/category filtering.
+- Host/runtime owns logging for:
+  - sidecar process start/stop
+  - core <-> sidecar socket connect/disconnect
+  - bootstrap/config dispatch on host layer
+  - host protocol/dispatch/send failures
+  - host-created / host-destroyed instance lifecycle
+- Adapter code owns logging for:
+  - external integration connect/disconnect
+  - semantic config normalization/validation
+  - discovery execution/results/failures for devices/resources within the adapter domain
+  - command/action execution decisions and failures
+  - persistent external communication failures
+  - domain state transitions
+- Adapter code must not duplicate host-owned incidents.
 
 Logging best practices:
 
@@ -229,23 +272,27 @@ Logging best practices:
   - poll cycles
   - repeated inbound device/service events
   - fine-grained protocol chatter
+  - retry loop iterations
 - `Debug`
   - config normalization
-  - discovery matching
+  - discovery matching within the adapter domain
   - command/action dispatch decisions
-  - retry decisions
+  - retry/backoff decisions
+  - non-trivial internal state transitions
 - `Info`
-  - connect/disconnect
-  - startup/initialization completed
-  - discovery/sync completed
+  - successful external target connect/disconnect
+  - adapter-domain startup/initialization completed
+  - discovery/resync completed summary within the adapter domain
 - `Warn`
   - recoverable network/protocol issues
   - malformed external data handled gracefully
   - partial update failures
+  - degraded but still running behavior
 - `Error`
   - command/action failures
   - persistent connection failures
   - invalid configuration preventing operation
+  - unrecoverable external API/protocol failures
   - failed event/result submission
 
 High-frequency rules:
@@ -255,6 +302,7 @@ High-frequency rules:
   - channel state updates
   - polling loops
   - repeated event traffic
+- do not log secrets, tokens, or passwords in `message`, `params`, or `fields`
 
 Cmd/Action Results (NVI, mandatory):
 
