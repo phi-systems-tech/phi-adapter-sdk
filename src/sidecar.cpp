@@ -46,23 +46,6 @@ using phicore::adapter::v1::ScalarValue;
 using phicore::adapter::v1::Scene;
 using phicore::adapter::v1::SceneList;
 
-std::string_view logLevelName(LogLevel level)
-{
-    switch (level) {
-    case LogLevel::Trace:
-        return "trace";
-    case LogLevel::Debug:
-        return "debug";
-    case LogLevel::Info:
-        return "info";
-    case LogLevel::Warn:
-        return "warn";
-    case LogLevel::Error:
-        return "error";
-    }
-    return "info";
-}
-
 std::string_view logCategoryName(LogCategory category)
 {
     switch (category) {
@@ -91,6 +74,11 @@ std::string_view logCategoryName(LogCategory category)
 constexpr std::uint8_t kIncidentCategoryFlag = 0x80;
 constexpr std::size_t kHostQueueWarnThreshold = 64;
 constexpr std::int64_t kHostDiagRateLimitMs = 5000;
+
+std::uint8_t encodeWireLevel(LogLevel level)
+{
+    return static_cast<std::uint8_t>(level);
+}
 
 std::uint8_t encodeWireCategory(LogCategory category, bool incident)
 {
@@ -2078,7 +2066,7 @@ bool SidecarDispatcher::sendError(const phicore::adapter::v1::ExternalId &extern
     appendFieldPrefix(body, first, "plugin");
     body += jsonQuoted(plugin);
     appendFieldPrefix(body, first, "level");
-    body += jsonQuoted(std::string(logLevelName(LogLevel::Error)));
+    body += std::to_string(static_cast<unsigned int>(encodeWireLevel(LogLevel::Error)));
     appendFieldPrefix(body, first, "category");
     body += std::to_string(static_cast<unsigned int>(encodeWireCategory(category, true)));
     appendFieldPrefix(body, first, "message");
@@ -2119,7 +2107,7 @@ bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &external
     appendFieldPrefix(body, first, "plugin");
     body += jsonQuoted(plugin);
     appendFieldPrefix(body, first, "level");
-    body += jsonQuoted(std::string(logLevelName(entry.level)));
+    body += std::to_string(static_cast<unsigned int>(encodeWireLevel(entry.level)));
     appendFieldPrefix(body, first, "category");
     body += std::to_string(static_cast<unsigned int>(encodeWireCategory(entry.category, false)));
     appendFieldPrefix(body, first, "message");

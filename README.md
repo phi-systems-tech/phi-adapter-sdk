@@ -236,6 +236,8 @@ Logging API (v1 SDK contract):
   `Lifecycle`, `Discovery`, `Network`, `Protocol`, `Device`, `Config`,
   `Performance`, `Security`, `Internal`.
 - Wire encoding:
+  - `level` is transmitted as `uint8`
+  - `1=Trace`, `2=Debug`, `3=Info`, `4=Warn`, `5=Error`
   - `category` is transmitted as `uint8`
   - lower 7 bits contain the base public category
   - bit `0x80` marks an incident emitted through `sendError(...)`

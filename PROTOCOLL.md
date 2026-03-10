@@ -216,6 +216,17 @@ Normalized `EventLog` fields:
 - `externalId`
 - optional `fields`
 
+Level wire encoding:
+- adapter code uses `LogLevel` enum values
+- on the socket, `level` is encoded as `uint8`
+- wire values:
+  - `1 = Trace`
+  - `2 = Debug`
+  - `3 = Info`
+  - `4 = Warn`
+  - `5 = Error`
+- level text names are documentation-only and not transmitted over the adapter IPC wire
+
 Category wire encoding:
 - adapter code uses `LogCategory` enum values
 - on the socket, `category` is encoded as `uint8`
