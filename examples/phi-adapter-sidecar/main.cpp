@@ -54,10 +54,11 @@ protected:
         std::cerr << "protocol error: " << message << std::endl;
         phi::Utf8String sendErr;
         // `ctx` is translation context, params replace `%1`, `%2`, ...
-        // source/module context belongs to structured log fields (SDK mirrors event.error -> event.log).
         sendError("Protocol error for %1: %2",
                   {externalId(), message},
+                  phi::LogCategory::Protocol,
                   "adapter.example.protocol.error",
+                  R"json({"source":"example.protocol"})json",
                   &sendErr);
         if (!sendErr.empty())
             std::cerr << "failed to send adapter error: " << sendErr << std::endl;

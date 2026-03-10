@@ -259,12 +259,11 @@ enum class LogLevel : std::uint8_t {
 };
 
 enum class LogCategory : std::uint8_t {
-    Event = 0,
     Lifecycle = 1,
     Discovery = 2,
     Network = 3,
     Protocol = 4,
-    DeviceState = 5,
+    Device = 5,
     Config = 6,
     Performance = 7,
     Security = 8,
@@ -400,23 +399,26 @@ public:
     /**
      * @brief Publish adapter incident/error payload.
      *
-     * Target model: `sendError(...)` uses the same structured socket log model as
-     * `sendLog(...)`, but always with `level=Error` and an incident marker encoded
-     * in the wire `category:uint8`. Core may treat such frames as automation-relevant
-     * adapter incidents. `ctx` is translation context; `params` replace `%1`, `%2`, ...
-     * in `message`.
+     * `sendError(...)` uses the same structured socket log model as `sendLog(...)`,
+     * but always with `level=Error` and an incident marker encoded in the wire
+     * `category:uint8`. Core may treat such frames as automation-relevant adapter
+     * incidents. `ctx` is translation context; `params` replace `%1`, `%2`, ... in
+     * `message`.
      */
     bool sendError(const phicore::adapter::v1::ExternalId &externalId,
+                   const phicore::adapter::v1::Utf8String &plugin,
                    const phicore::adapter::v1::Utf8String &message,
                    const phicore::adapter::v1::ScalarList &params = {},
+                   LogCategory category = LogCategory::Internal,
                    const phicore::adapter::v1::Utf8String &ctx = {},
+                   const phicore::adapter::v1::JsonText &fieldsJson = {},
                    phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish structured adapter log (`command=EventLog`).
      */
     bool sendLog(const phicore::adapter::v1::ExternalId &externalId,
-                 const phicore::adapter::v1::Utf8String &pluginType,
+                 const phicore::adapter::v1::Utf8String &plugin,
                  const LogEntry &entry,
                  phicore::adapter::v1::Utf8String *error = nullptr);
 
@@ -658,7 +660,9 @@ protected:
     bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendError(const phicore::adapter::v1::Utf8String &message,
                    const phicore::adapter::v1::ScalarList &params = {},
+                   LogCategory category = LogCategory::Internal,
                    const phicore::adapter::v1::Utf8String &ctx = {},
+                   const phicore::adapter::v1::JsonText &fieldsJson = {},
                    phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
@@ -747,7 +751,9 @@ protected:
     bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendError(const phicore::adapter::v1::Utf8String &message,
                    const phicore::adapter::v1::ScalarList &params = {},
+                   LogCategory category = LogCategory::Internal,
                    const phicore::adapter::v1::Utf8String &ctx = {},
+                   const phicore::adapter::v1::JsonText &fieldsJson = {},
                    phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                 phicore::adapter::v1::Utf8String *error = nullptr);

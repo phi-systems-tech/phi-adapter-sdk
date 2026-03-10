@@ -77,8 +77,7 @@ Notes:
 | `EventFactoryDescriptorUpdated` | `0x1002` | `Event` | factory | `externalId:string`, `descriptor:object` | none |
 | `EventAdapterMetaUpdated` | `0x1003` | `Event` | factory or instance | `externalId:string`, `metaPatch:object` | none |
 | `EventConnectionStateChanged` | `0x1004` | `Event` | instance | `externalId:string`, `connected:bool` | none |
-| `EventError` | `0x1005` | `Event` | factory or instance | legacy v1 incident event; kept only for migration and not the target model | none |
-| `EventLog` | `0x1006` | `Event` | factory or instance | `externalId:string`, `pluginType:string`, `level:string`, `category:uint8`, `message:string`, `ctx:string`, `params:array`, `fields:object`, `tsMs:int64` | none |
+| `EventLog` | `0x1005` | `Event` | factory or instance | `externalId:string`, `plugin:string`, `level:string`, `category:uint8`, `message:string`, `ctx:string`, `params:array`, `fields:object`, `tsMs:int64` | none |
 | `EventDeviceUpdated` | `0x1101` | `Event` | instance | `externalId:string`, `device:object`, `channels:array` | none |
 | `EventDeviceRemoved` | `0x1102` | `Event` | instance | `externalId:string`, `deviceExternalId:string` | none |
 | `EventChannelUpdated` | `0x1201` | `Event` | instance | `externalId:string`, `deviceExternalId:string`, `channel:object` | none |
@@ -201,7 +200,7 @@ Normalized `EventLog` fields:
 - `message`
 - `ctx`
 - `params`
-- `pluginType`
+- `plugin`
 - `externalId`
 - optional `fields`
 
@@ -228,7 +227,7 @@ Field rules:
   - `message`
   - `ctx`
   - `params`
-  - `pluginType`
+  - `plugin`
   - `externalId`
   - `tsMs`
 - canonical `fields` keys:

@@ -175,7 +175,7 @@ Logging API (v1 SDK contract):
 - Signature is `log(level, category, message, ...)`.
 - SDK enriches and forwards logs to core automatically; adapters should only provide semantic
   message/context fields.
-- Mandatory normalized fields are SDK-managed: `tsMs`, `level`, `category`, `message`, `pluginType`,
+- Mandatory normalized fields are SDK-managed: `tsMs`, `level`, `category`, `message`, `plugin`,
   `externalId` (empty for factory scope).
 - `ctx` is translation context (for translation engines), not source/module context.
 - `params` are placeholder replacements for `%1`, `%2`, ... in `message`.
@@ -189,7 +189,7 @@ Logging API (v1 SDK contract):
   - `message`
   - `ctx`
   - `params`
-  - `pluginType`
+  - `plugin`
   - `externalId`
   - `tsMs`
 - Prefer canonical `fieldsJson` keys where applicable:
@@ -455,8 +455,7 @@ Adapter -> Core (`Response*` / `Event*`):
 - `EventFactoryDescriptorUpdated` (`0x1002`)
 - `EventAdapterMetaUpdated` (`0x1003`)
 - `EventConnectionStateChanged` (`0x1004`)
-- `EventError` (`0x1005`)
-- `EventLog` (`0x1006`)
+- `EventLog` (`0x1005`)
 - `EventDeviceUpdated` (`0x1101`)
 - `EventDeviceRemoved` (`0x1102`)
 - `EventChannelUpdated` (`0x1201`)

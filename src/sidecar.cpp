@@ -66,8 +66,6 @@ std::string_view logLevelName(LogLevel level)
 std::string_view logCategoryName(LogCategory category)
 {
     switch (category) {
-    case LogCategory::Event:
-        return "event";
     case LogCategory::Lifecycle:
         return "lifecycle";
     case LogCategory::Discovery:
@@ -76,8 +74,8 @@ std::string_view logCategoryName(LogCategory category)
         return "network";
     case LogCategory::Protocol:
         return "protocol";
-    case LogCategory::DeviceState:
-        return "deviceState";
+    case LogCategory::Device:
+        return "device";
     case LogCategory::Config:
         return "config";
     case LogCategory::Performance:
@@ -88,6 +86,14 @@ std::string_view logCategoryName(LogCategory category)
         return "internal";
     }
     return "internal";
+}
+
+constexpr std::uint8_t kIncidentCategoryFlag = 0x80;
+
+std::uint8_t encodeWireCategory(LogCategory category, bool incident)
+{
+    const std::uint8_t base = static_cast<std::uint8_t>(category) & 0x7f;
+    return incident ? static_cast<std::uint8_t>(base | kIncidentCategoryFlag) : base;
 }
 
 std::string jsonQuoted(std::string_view text);
@@ -877,26 +883,24 @@ bool parseLogLevelFilter(std::string_view text, LogLevel *out)
 int logCategoryIndex(LogCategory category)
 {
     switch (category) {
-    case LogCategory::Event:
-        return 0;
     case LogCategory::Lifecycle:
-        return 1;
+        return 0;
     case LogCategory::Discovery:
-        return 2;
+        return 1;
     case LogCategory::Network:
-        return 3;
+        return 2;
     case LogCategory::Protocol:
+        return 3;
+    case LogCategory::Device:
         return 4;
-    case LogCategory::DeviceState:
-        return 5;
     case LogCategory::Config:
-        return 6;
+        return 5;
     case LogCategory::Performance:
-        return 7;
+        return 6;
     case LogCategory::Security:
-        return 8;
+        return 7;
     case LogCategory::Internal:
-        return 9;
+        return 8;
     }
     return -1;
 }
@@ -906,10 +910,6 @@ bool parseLogCategoryFilter(std::string_view text, LogCategory *out)
     if (!out)
         return false;
     const std::string value = normalizeCategoryToken(text);
-    if (value == "event") {
-        *out = LogCategory::Event;
-        return true;
-    }
     if (value == "lifecycle") {
         *out = LogCategory::Lifecycle;
         return true;
@@ -926,8 +926,8 @@ bool parseLogCategoryFilter(std::string_view text, LogCategory *out)
         *out = LogCategory::Protocol;
         return true;
     }
-    if (value == "devicestate") {
-        *out = LogCategory::DeviceState;
+    if (value == "device") {
+        *out = LogCategory::Device;
         return true;
     }
     if (value == "config") {
@@ -952,7 +952,7 @@ bool parseLogCategoryFilter(std::string_view text, LogCategory *out)
 struct LogFilterConfig {
     LogLevel minLevel = LogLevel::Debug;
     bool allowAllCategories = true;
-    std::array<bool, 10> allowedCategories{};
+    std::array<bool, 9> allowedCategories{};
 };
 
 bool parseLogFilterConfig(std::string_view metaJson, LogFilterConfig *out)
@@ -1959,29 +1959,44 @@ bool SidecarDispatcher::sendConnectionStateChanged(const phicore::adapter::v1::E
 }
 
 bool SidecarDispatcher::sendError(const phicore::adapter::v1::ExternalId &externalId,
+                                  const phicore::adapter::v1::Utf8String &plugin,
                                   const phicore::adapter::v1::Utf8String &message,
                                   const ScalarList &params,
+                                  LogCategory category,
                                   const phicore::adapter::v1::Utf8String &ctx,
+                                  const phicore::adapter::v1::JsonText &fieldsJson,
                                   phicore::adapter::v1::Utf8String *error)
 {
+    const std::string fields = trim(fieldsJson).empty() ? "{}" : fieldsJson;
+    const std::int64_t tsMs = nowMs();
     std::string body;
     body.push_back('{');
     bool first = true;
-    appendCommandField(body, first, IpcCommand::EventError);
+    appendCommandField(body, first, IpcCommand::EventLog);
     appendFieldPrefix(body, first, "externalId");
     body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "plugin");
+    body += jsonQuoted(plugin);
+    appendFieldPrefix(body, first, "level");
+    body += jsonQuoted(std::string(logLevelName(LogLevel::Error)));
+    appendFieldPrefix(body, first, "category");
+    body += std::to_string(static_cast<unsigned int>(encodeWireCategory(category, true)));
     appendFieldPrefix(body, first, "message");
     body += jsonQuoted(message);
     appendFieldPrefix(body, first, "ctx");
     body += jsonQuoted(ctx);
     appendFieldPrefix(body, first, "params");
     appendScalarListJson(body, params);
+    appendFieldPrefix(body, first, "fields");
+    body += jsonTokenOrDefault(fields, "{}");
+    appendFieldPrefix(body, first, "tsMs");
+    body += std::to_string(tsMs);
     body.push_back('}');
     return sendJson(MessageType::Event, 0, body, error);
 }
 
 bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &externalId,
-                                const phicore::adapter::v1::Utf8String &pluginType,
+                                const phicore::adapter::v1::Utf8String &plugin,
                                 const LogEntry &entry,
                                 phicore::adapter::v1::Utf8String *error)
 {
@@ -1993,12 +2008,12 @@ bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &external
     appendCommandField(body, first, IpcCommand::EventLog);
     appendFieldPrefix(body, first, "externalId");
     body += jsonQuoted(externalId);
-    appendFieldPrefix(body, first, "pluginType");
-    body += jsonQuoted(pluginType);
+    appendFieldPrefix(body, first, "plugin");
+    body += jsonQuoted(plugin);
     appendFieldPrefix(body, first, "level");
     body += jsonQuoted(std::string(logLevelName(entry.level)));
     appendFieldPrefix(body, first, "category");
-    body += jsonQuoted(std::string(logCategoryName(entry.category)));
+    body += std::to_string(static_cast<unsigned int>(encodeWireCategory(entry.category, false)));
     appendFieldPrefix(body, first, "message");
     body += jsonQuoted(entry.message);
     appendFieldPrefix(body, first, "ctx");
@@ -2445,7 +2460,9 @@ bool AdapterFactory::sendConnectionStateChanged(bool connected, phicore::adapter
 }
 bool AdapterFactory::sendError(const phicore::adapter::v1::Utf8String &message,
                                const ScalarList &params,
+                               LogCategory category,
                                const phicore::adapter::v1::Utf8String &ctx,
+                               const phicore::adapter::v1::JsonText &fieldsJson,
                                phicore::adapter::v1::Utf8String *error)
 {
     if (!m_dispatcher) {
@@ -2453,16 +2470,7 @@ bool AdapterFactory::sendError(const phicore::adapter::v1::Utf8String &message,
             *error = "Dispatcher not bound";
         return false;
     }
-    if (!m_dispatcher->sendError({}, message, params, ctx, error))
-        return false;
-    LogEntry mirrored;
-    mirrored.level = LogLevel::Error;
-    mirrored.category = LogCategory::Event;
-    mirrored.message = message;
-    mirrored.ctx = ctx;
-    mirrored.params = params;
-    mirrored.fieldsJson = R"({"source":"event.error"})";
-    return m_dispatcher->sendLog({}, hostPluginType(), mirrored, error);
+    return m_dispatcher->sendError({}, hostPluginType(), message, params, category, ctx, fieldsJson, error);
 }
 bool AdapterFactory::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                             phicore::adapter::v1::Utf8String *error)
@@ -2661,7 +2669,9 @@ bool AdapterInstance::sendConnectionStateChanged(bool connected, phicore::adapte
 }
 bool AdapterInstance::sendError(const phicore::adapter::v1::Utf8String &message,
                                 const ScalarList &params,
+                                LogCategory category,
                                 const phicore::adapter::v1::Utf8String &ctx,
+                                const phicore::adapter::v1::JsonText &fieldsJson,
                                 phicore::adapter::v1::Utf8String *error)
 {
     if (!m_dispatcher) {
@@ -2669,16 +2679,8 @@ bool AdapterInstance::sendError(const phicore::adapter::v1::Utf8String &message,
             *error = "Dispatcher not bound";
         return false;
     }
-    if (!m_dispatcher->sendError(m_externalId, message, params, ctx, error))
-        return false;
-    LogEntry mirrored;
-    mirrored.level = LogLevel::Error;
-    mirrored.category = LogCategory::Event;
-    mirrored.message = message;
-    mirrored.ctx = ctx;
-    mirrored.params = params;
-    mirrored.fieldsJson = R"({"source":"event.error"})";
-    return m_dispatcher->sendLog(m_externalId, m_pluginType, mirrored, error);
+    return m_dispatcher->sendError(
+        m_externalId, m_pluginType, message, params, category, ctx, fieldsJson, error);
 }
 bool AdapterInstance::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
                                              phicore::adapter::v1::Utf8String *error)
