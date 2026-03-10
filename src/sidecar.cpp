@@ -888,29 +888,8 @@ bool parseLogLevelFilter(std::string_view text, LogLevel *out)
 
 int logCategoryIndex(LogCategory category)
 {
-    switch (category) {
-    case LogCategory::Internal:
-        return 0;
-    case LogCategory::Lifecycle:
-        return 1;
-    case LogCategory::Discovery:
-        return 2;
-    case LogCategory::Network:
-        return 3;
-    case LogCategory::Protocol:
-        return 4;
-    case LogCategory::Device:
-        return 5;
-    case LogCategory::Config:
-        return 6;
-    case LogCategory::Performance:
-        return 7;
-    case LogCategory::Security:
-        return 8;
-    case LogCategory::Database:
-        return 9;
-    }
-    return -1;
+    const auto index = static_cast<int>(category);
+    return (index >= 0 && index < 10) ? index : -1;
 }
 
 bool parseLogCategoryFilter(std::string_view text, LogCategory *out)
