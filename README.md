@@ -213,8 +213,8 @@ Logging API (v1 SDK contract):
   - when `AdapterFlagEnableLogs` is set, SDK applies `adapter.meta.logging` filter:
     - `logging.minLevel`: one of `trace|debug|info|warn|error` (default: `debug`)
     - `logging.categories`: string array (default: `["all"]`)
-    - supported public categories: `lifecycle`, `discovery`, `network`, `protocol`,
-      `device`, `config`, `performance`, `security`, `internal`
+    - supported public categories: `internal`, `lifecycle`, `discovery`, `network`, `protocol`,
+      `device`, `config`, `performance`, `security`, `database`
     - `["all"]` enables all categories
 - `sendError(...)` is the primary adapter incident path toward phi-core:
   - it is intended for core-visible adapter errors
@@ -233,8 +233,8 @@ Logging API (v1 SDK contract):
   - incident flag set in the wire `category:uint8`
 - host does not duplicate `sendError(...)`; incident interpretation happens in core
 - Canonical categories:
-  `Lifecycle`, `Discovery`, `Network`, `Protocol`, `Device`, `Config`,
-  `Performance`, `Security`, `Internal`.
+  `Internal`, `Lifecycle`, `Discovery`, `Network`, `Protocol`, `Device`, `Config`,
+  `Performance`, `Security`, `Database`.
 - Wire encoding:
   - `level` is transmitted as `uint8`
   - `1=Trace`, `2=Debug`, `3=Info`, `4=Warn`, `5=Error`

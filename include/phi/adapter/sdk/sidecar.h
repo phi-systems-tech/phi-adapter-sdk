@@ -259,6 +259,7 @@ enum class LogLevel : std::uint8_t {
 };
 
 enum class LogCategory : std::uint8_t {
+    Internal = 0,
     Lifecycle = 1,
     Discovery = 2,
     Network = 3,
@@ -267,7 +268,7 @@ enum class LogCategory : std::uint8_t {
     Config = 6,
     Performance = 7,
     Security = 8,
-    Internal = 9,
+    Database = 9,
 };
 
 struct LogEntry {

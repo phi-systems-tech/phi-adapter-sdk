@@ -287,6 +287,7 @@ Field rules:
   - free-form message text duplicated from `message`
 
 Canonical categories:
+- `internal`
 - `lifecycle`
 - `discovery`
 - `network`
@@ -295,7 +296,7 @@ Canonical categories:
 - `config`
 - `performance`
 - `security`
-- `internal`
+- `database`
 
 Reserved bits:
 - `0x80`

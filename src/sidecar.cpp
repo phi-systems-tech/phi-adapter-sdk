@@ -49,6 +49,8 @@ using phicore::adapter::v1::SceneList;
 std::string_view logCategoryName(LogCategory category)
 {
     switch (category) {
+    case LogCategory::Internal:
+        return "internal";
     case LogCategory::Lifecycle:
         return "lifecycle";
     case LogCategory::Discovery:
@@ -65,8 +67,8 @@ std::string_view logCategoryName(LogCategory category)
         return "performance";
     case LogCategory::Security:
         return "security";
-    case LogCategory::Internal:
-        return "internal";
+    case LogCategory::Database:
+        return "database";
     }
     return "internal";
 }
@@ -887,24 +889,26 @@ bool parseLogLevelFilter(std::string_view text, LogLevel *out)
 int logCategoryIndex(LogCategory category)
 {
     switch (category) {
-    case LogCategory::Lifecycle:
-        return 0;
-    case LogCategory::Discovery:
-        return 1;
-    case LogCategory::Network:
-        return 2;
-    case LogCategory::Protocol:
-        return 3;
-    case LogCategory::Device:
-        return 4;
-    case LogCategory::Config:
-        return 5;
-    case LogCategory::Performance:
-        return 6;
-    case LogCategory::Security:
-        return 7;
     case LogCategory::Internal:
+        return 0;
+    case LogCategory::Lifecycle:
+        return 1;
+    case LogCategory::Discovery:
+        return 2;
+    case LogCategory::Network:
+        return 3;
+    case LogCategory::Protocol:
+        return 4;
+    case LogCategory::Device:
+        return 5;
+    case LogCategory::Config:
+        return 6;
+    case LogCategory::Performance:
+        return 7;
+    case LogCategory::Security:
         return 8;
+    case LogCategory::Database:
+        return 9;
     }
     return -1;
 }
@@ -946,6 +950,10 @@ bool parseLogCategoryFilter(std::string_view text, LogCategory *out)
         *out = LogCategory::Security;
         return true;
     }
+    if (value == "database" || value == "db") {
+        *out = LogCategory::Database;
+        return true;
+    }
     if (value == "internal") {
         *out = LogCategory::Internal;
         return true;
@@ -956,7 +964,7 @@ bool parseLogCategoryFilter(std::string_view text, LogCategory *out)
 struct LogFilterConfig {
     LogLevel minLevel = LogLevel::Debug;
     bool allowAllCategories = true;
-    std::array<bool, 9> allowedCategories{};
+    std::array<bool, 10> allowedCategories{};
 };
 
 bool parseLogFilterConfig(std::string_view metaJson, LogFilterConfig *out)
