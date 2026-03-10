@@ -77,8 +77,8 @@ Notes:
 | `EventFactoryDescriptorUpdated` | `0x1002` | `Event` | factory | `externalId:string`, `descriptor:object` | none |
 | `EventAdapterMetaUpdated` | `0x1003` | `Event` | factory or instance | `externalId:string`, `metaPatch:object` | none |
 | `EventConnectionStateChanged` | `0x1004` | `Event` | instance | `externalId:string`, `connected:bool` | none |
-| `EventError` | `0x1005` | `Event` | factory or instance | `externalId:string`, `message:string`, `ctx:string`, `params:array` | none |
-| `EventLog` | `0x1006` | `Event` | factory or instance | `externalId:string`, `pluginType:string`, `level:string`, `category:string`, `message:string`, `ctx:string`, `params:array`, `fields:object`, `tsMs:int64` | none |
+| `EventError` | `0x1005` | `Event` | factory or instance | legacy v1 incident event; kept only for migration and not the target model | none |
+| `EventLog` | `0x1006` | `Event` | factory or instance | `externalId:string`, `pluginType:string`, `level:string`, `category:uint8`, `message:string`, `ctx:string`, `params:array`, `fields:object`, `tsMs:int64` | none |
 | `EventDeviceUpdated` | `0x1101` | `Event` | instance | `externalId:string`, `device:object`, `channels:array` | none |
 | `EventDeviceRemoved` | `0x1102` | `Event` | instance | `externalId:string`, `deviceExternalId:string` | none |
 | `EventChannelUpdated` | `0x1201` | `Event` | instance | `externalId:string`, `deviceExternalId:string`, `channel:object` | none |
@@ -129,15 +129,16 @@ Required behavior:
 - `Error` logs are never suppressed by normal enable/min-level/category filtering
 
 Incident vs. diagnostics:
-- `sendError(...)` is the primary incident/error channel from adapter to phi-core
+- socket-level structured logging uses a single `EventLog` payload model
+- `sendError(...)` is a convenience API for primary adapter incidents and emits the same
+  structured log model as `log(...)`
+- `log(...)` is the structured diagnostics/telemetry/operator-visibility channel
 - `sendError(...)` is used for adapter incidents that must be visible as core adapter errors
   and may be consumed by automation/notification/error-handling flows
-- `log(...)` is the structured diagnostics/telemetry/operator-visibility channel
-- `log(...)` is not an automation incident channel and MUST NOT be used as a substitute
-  for `sendError(...)`
 - when a failure is a primary adapter incident, adapter code MUST use `sendError(...)`
   and MUST NOT emit an additional `log(...)` for the same incident
-- SDK/host/core may additionally mirror `sendError(...)` into structured logs automatically
+- host does not mirror `sendError(...)`; core may interpret incident-marked `EventLog`
+  frames as automation-relevant adapter errors
 
 Ownership:
 - host/runtime code owns logging for host-managed lifecycle and protocol concerns:
@@ -204,6 +205,18 @@ Normalized `EventLog` fields:
 - `externalId`
 - optional `fields`
 
+Category wire encoding:
+- adapter code uses `LogCategory` enum values
+- on the socket, `category` is encoded as `uint8`
+- lower 7 bits hold the base public category value
+- bit `0x80` marks an incident emitted through `sendError(...)`
+- normal `log(...)` frames MUST NOT set the incident bit
+- `sendError(...)` MUST set the incident bit and MUST use `level=Error`
+- core decodes:
+  - `baseCategory = category & 0x7f`
+  - `isIncident = (category & 0x80) != 0`
+- category text names are documentation-only and not transmitted over the adapter IPC wire
+
 Field rules:
 - `ctx` is translation context, not module/source naming
 - source/module details belong into structured `fields`
@@ -262,9 +275,9 @@ Canonical categories:
 - `security`
 - `internal`
 
-Reserved/non-public category:
-- `event`
-  - host/SDK reserved for mirrored `sendError(...)` incidents
+Reserved bits:
+- `0x80`
+  - incident marker set by `sendError(...)`
 
 ## 4. Target Resolution
 

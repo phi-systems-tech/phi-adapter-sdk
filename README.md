@@ -215,12 +215,7 @@ Logging API (v1 SDK contract):
     - `logging.categories`: string array (default: `["all"]`)
     - supported public categories: `lifecycle`, `discovery`, `network`, `protocol`,
       `device`, `config`, `performance`, `security`, `internal`
-    - reserved/non-public category: `event` (host/SDK reserved for mirrored `sendError(...)`)
     - `["all"]` enables all categories
-- `sendError(...)` always emits:
-  - `EventError` (primary incident event)
-  - mirrored `EventLog` with `level=Error` and host-reserved `category=Event`
-  - mirrored log metadata fields: `{"source":"event.error"}`
 - `sendError(...)` is the primary adapter incident path toward phi-core:
   - it is intended for core-visible adapter errors
   - it may be consumed by automation/notification/error-handling flows
@@ -228,12 +223,20 @@ Logging API (v1 SDK contract):
   handled via `sendError(...)`
 - `log(...)` is the structured diagnostics/telemetry channel and must not replace
   `sendError(...)` for primary incidents
-- mirrored structured error logs are generated automatically by SDK/host
+- `sendError(...)` uses the same structured socket log model as `log(...)`
+- `sendError(...)` always emits with:
+  - `level = Error`
+  - same public base category enum as adapter code passed in
+  - incident flag set in the wire `category:uint8`
+- host does not duplicate `sendError(...)`; incident interpretation happens in core
 - Canonical categories:
   `Lifecycle`, `Discovery`, `Network`, `Protocol`, `Device`, `Config`,
   `Performance`, `Security`, `Internal`.
-- Reserved/non-public:
-  `Event` for host/SDK mirrored `sendError(...)` incidents.
+- Wire encoding:
+  - `category` is transmitted as `uint8`
+  - lower 7 bits contain the base public category
+  - bit `0x80` marks an incident emitted through `sendError(...)`
+  - plain `log(...)` never sets `0x80`
 - Central SDK policy applies to all adapters (rate limiting/size limits/UTF-8 normalization/
   redaction); no adapter-specific fallback logging paths.
 

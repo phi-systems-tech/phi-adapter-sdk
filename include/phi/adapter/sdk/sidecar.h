@@ -398,12 +398,13 @@ public:
                                     phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
-     * @brief Publish adapter error event (`command=EventError`).
+     * @brief Publish adapter incident/error payload.
      *
-     * Adapter wrapper APIs (`AdapterFactory::sendError`, `AdapterInstance::sendError`)
-     * additionally emit a mirrored `EventLog` with `level=Error`,
-     * `category=Event`, and `fields={"source":"event.error"}`.
-     * `ctx` is translation context; `params` replace `%1`, `%2`, ... in `message`.
+     * Target model: `sendError(...)` uses the same structured socket log model as
+     * `sendLog(...)`, but always with `level=Error` and an incident marker encoded
+     * in the wire `category:uint8`. Core may treat such frames as automation-relevant
+     * adapter incidents. `ctx` is translation context; `params` replace `%1`, `%2`, ...
+     * in `message`.
      */
     bool sendError(const phicore::adapter::v1::ExternalId &externalId,
                    const phicore::adapter::v1::Utf8String &message,
