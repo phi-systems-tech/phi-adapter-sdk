@@ -103,6 +103,10 @@ protected:
             response.fieldChoicesJson =
                 R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"},{"value":"cc:8c:bf:76:0c:54","label":"Heater (192.168.1.26)"}]})json";
             response.reloadLayout = false;
+        } else if (request.actionId == "startRun") {
+            response.resultType = phi::ActionResultType::None;
+            response.resultValueJson =
+                R"json({"runId":"run-42","streamKind":"adapter.run","streamParams":{"runId":"run-42","mode":"ws","scenario":"handshake"},"batch":false})json";
         } else {
             response.resultType = phi::ActionResultType::String;
             response.resultValue = phi::Utf8String("ok");

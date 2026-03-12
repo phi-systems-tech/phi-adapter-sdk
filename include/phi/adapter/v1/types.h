@@ -52,6 +52,7 @@ struct ActionResponse {
     Utf8String errorContext;
     ActionResultType resultType = ActionResultType::None;
     ScalarValue resultValue;
+    JsonText resultValueJson;
     JsonText formValuesJson;
     JsonText fieldChoicesJson;
     bool reloadLayout = false;

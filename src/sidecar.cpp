@@ -1980,6 +1980,7 @@ bool SidecarDispatcher::sendCmdResult(const CmdResponse &response, phicore::adap
 bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore::adapter::v1::Utf8String *error)
 {
     const std::int64_t tsMs = response.tsMs > 0 ? response.tsMs : nowMs();
+    const auto resultValueJson = trim(response.resultValueJson);
     const auto formValues = trim(response.formValuesJson);
     const auto fieldChoices = trim(response.fieldChoicesJson);
     std::string body;
@@ -1999,7 +2000,10 @@ bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore
     appendFieldPrefix(body, first, "resultType");
     body += std::to_string(static_cast<int>(response.resultType));
     appendFieldPrefix(body, first, "resultValue");
-    appendScalarJson(body, response.resultValue);
+    if (!resultValueJson.empty())
+        body += jsonTokenOrDefault(std::string(resultValueJson), "null");
+    else
+        appendScalarJson(body, response.resultValue);
     if (!formValues.empty()) {
         appendFieldPrefix(body, first, "formValues");
         appendMetaJson(body, std::string(formValues));

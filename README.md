@@ -706,6 +706,9 @@ structured form patch fields in addition to `resultType/resultValue`:
   (example: `{"trackedMacs":["aa:bb:...","cc:dd:..."]}`).
 - `fieldChoicesJson`: JSON object mapping field keys to choice arrays
   (example: `{"trackedMacs":[{"value":"...","label":"..."}]}`).
+- `resultValueJson`: optional JSON value serialized upstream as the normal
+  `resultValue` field. Use this for structured action results such as
+  run metadata objects.
 - `reloadLayout`: optional boolean hint; when `true`, UI/core may re-request action layout.
 
 Rules:
@@ -714,6 +717,9 @@ Rules:
 - For actions that mutate selectable lists (`probe`, `browse`, discovery-style actions),
   return both `formValuesJson` and `fieldChoicesJson` in one response.
 - Do not encode these patches into scalar `resultValue`; use structured patch fields.
+- Scalar `resultValue` remains valid for primitive action results.
+- Structured action results must use `resultValueJson`; they are exposed upstream
+  as the normal `resultValue` JSON value.
 - This pattern is generic and must work for any adapter action form, not only settings dialogs.
 
 ## Long-Running Action Runs (v1)
@@ -723,8 +729,8 @@ Long-running adapter-owned runs are still started through a normal one-shot
 
 Contract for adapter authors:
 
-- If an action starts an observable long-running run, `resultValue` should be a
-  structured object, not a scalar.
+- If an action starts an observable long-running run, `resultValueJson` should
+  contain a structured object exposed upstream as `resultValue`.
 - Recommended canonical keys in that object:
   - `runId`
   - `streamKind`
@@ -785,6 +791,30 @@ resp.formValuesJson =
 resp.fieldChoicesJson =
     R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"}]})json";
 resp.reloadLayout = false;
+phicore::adapter::v1::Utf8String err;
+sendResult(resp, &err);
+```
+
+### Structured Run Metadata Example
+
+Long-running actions should return attachment metadata through `resultValueJson`:
+
+```cpp
+phicore::adapter::v1::ActionResponse resp;
+resp.id = request.cmdId;
+resp.status = phicore::adapter::v1::CmdStatus::Success;
+resp.resultType = phicore::adapter::v1::ActionResultType::None;
+resp.resultValueJson =
+    R"json({
+      "runId": "run-42",
+      "streamKind": "adapter.run",
+      "streamParams": {
+        "runId": "run-42",
+        "mode": "ws",
+        "scenario": "handshake"
+      },
+      "batch": false
+    })json";
 phicore::adapter::v1::Utf8String err;
 sendResult(resp, &err);
 ```

@@ -103,13 +103,16 @@ Notes:
 | Command | Hex | Type | Scope | Required payload fields | Optional payload fields |
 | --- | --- | --- | --- | --- | --- |
 | `ResultCmd` | `0x2001` | `Response` | instance | `cmdId:uint64`, `status:int`, `error:string`, `errorCtx:string`, `errorParams:array`, `finalValue:any-scalar-or-null`, `tsMs:int64` | none |
-| `ResultAction` | `0x2002` | `Response` | factory or instance | `cmdId:uint64`, `status:int`, `error:string`, `errorCtx:string`, `errorParams:array`, `resultType:int`, `resultValue:any-scalar-or-null`, `tsMs:int64` | `formValues:object`, `fieldChoices:object`, `reloadLayout:bool` |
+| `ResultAction` | `0x2002` | `Response` | factory or instance | `cmdId:uint64`, `status:int`, `error:string`, `errorCtx:string`, `errorParams:array`, `resultType:int`, `resultValue:any-json-or-null`, `tsMs:int64` | `formValues:object`, `fieldChoices:object`, `reloadLayout:bool` |
 
 Rules:
 - every accepted `Cmd*` request produces exactly one correlated result
 - command-like handlers use `ResultCmd`
 - action handlers use `ResultAction`
 - return-value based completion is not part of v1; completion is explicit via `sendResult(...)`
+- scalar action results are serialized through `resultValue`
+- structured action results are serialized through `resultValueJson` in the SDK API
+  and appear upstream as the normal `resultValue` JSON value
 
 ## 3. Logging Contract
 
