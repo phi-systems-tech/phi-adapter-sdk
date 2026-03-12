@@ -326,6 +326,16 @@ Rules:
 - phi-core resolves transport `target.adapterId` first
 - phi-core then forwards adapter-sidecar IPC as `CmdAdaptersStreamStart` /
   `CmdAdaptersStreamStop`
+- generic adapter-owned observable runs should use:
+  - `kind = "adapter.run"`
+- when an action result returns stream attachment metadata, the recommended
+  object shape in `resultValue` is:
+  - `runId`
+  - `streamKind`
+  - `streamParams`
+  - `batch`
+- for generic long-running adapter runs, `streamKind` should be `adapter.run`
+  and `streamParams` should at minimum contain `runId`
 - adapter stream lifecycle is:
   - `EventStreamOpen`
   - `EventStreamData` (`0..n`)

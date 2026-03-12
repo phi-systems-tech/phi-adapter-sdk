@@ -716,6 +716,38 @@ Rules:
 - Do not encode these patches into scalar `resultValue`; use structured patch fields.
 - This pattern is generic and must work for any adapter action form, not only settings dialogs.
 
+## Long-Running Action Runs (v1)
+
+Long-running adapter-owned runs are still started through a normal one-shot
+`ActionResponse`.
+
+Contract for adapter authors:
+
+- If an action starts an observable long-running run, `resultValue` should be a
+  structured object, not a scalar.
+- Recommended canonical keys in that object:
+  - `runId`
+  - `streamKind`
+  - `streamParams`
+  - `batch`
+- Recommended generic stream kind:
+  - `adapter.run`
+- `streamParams` should contain the minimum data needed for a later
+  `cmd.stream.start`, typically:
+  - `runId`
+  - optional scenario-/mode-specific fields
+- Live progress is not streamed through the action response itself.
+- Clients are expected to attach explicitly through `cmd.stream.start` using the
+  returned `streamKind` and `streamParams`.
+- `cmd.stream.stop` stops only the observation stream.
+- Aborting the underlying run is a separate domain operation.
+
+Current architecture note:
+
+- `adapter.run` is intended as a generic adapter-owned observable run kind.
+- phi-core transport/core routing must forward `kind = "adapter.run"` to the
+  addressed adapter instance in the same way as other adapter-owned stream kinds.
+
 ## Schema Handling (v1)
 
 - Adapter config schema is part of the first-class descriptor field `configSchema`.
