@@ -59,7 +59,7 @@ Hard rules:
 | `CmdDeviceNameUpdate` | `0x0203` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `deviceExternalId:string`, `name:string` | none |
 | `CmdDeviceEffectInvoke` | `0x0204` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `deviceExternalId:string` | `effect:int`, `effectId:string`, `params:object` |
 | `CmdSceneInvoke` | `0x0205` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `sceneExternalId:string`, `action:string` | `groupExternalId:string` |
-| `CmdAdaptersStreamStart` | `0x0206` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `kind:string` | `params:object` |
+| `CmdAdaptersStreamStart` | `0x0206` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `streamId:string`, `kind:string` | `params:object` |
 | `CmdAdaptersStreamStop` | `0x0207` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `streamId:string` | none |
 
 Notes:

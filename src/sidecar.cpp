@@ -1778,6 +1778,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         AdaptersStreamStartRequest request;
         request.cmdId = cmdId;
         request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+        request.streamId = decodeStringOrDefault(member(payloadMap, "streamId"));
         request.kind = decodeStringOrDefault(member(payloadMap, "kind"));
         request.paramsJson = std::string(member(payloadMap, "params"));
         if (trim(request.paramsJson).empty())

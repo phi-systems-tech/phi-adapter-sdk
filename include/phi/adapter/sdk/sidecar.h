@@ -189,6 +189,8 @@ struct AdaptersStreamStartRequest {
     phicore::adapter::v1::CmdId cmdId = 0;
     /// Target adapter instance external id (`externalId`).
     phicore::adapter::v1::ExternalId externalId;
+    /// Stream id assigned by phi-core for this stream session.
+    phicore::adapter::v1::Utf8String streamId;
     /// Stream kind (`adapter.log`, `camera.live`, ...).
     phicore::adapter::v1::Utf8String kind;
     /// Raw JSON object for stream params.
