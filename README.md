@@ -747,6 +747,9 @@ Current architecture note:
 - `adapter.run` is intended as a generic adapter-owned observable run kind.
 - phi-core transport/core routing must forward `kind = "adapter.run"` to the
   addressed adapter instance in the same way as other adapter-owned stream kinds.
+- This should be understood as part of an adapter-owned kind family (`adapter.*`).
+- A broad fallback of arbitrary non-discovery stream kinds to adapter routing is
+  only transitional behavior and should not be relied on as the long-term model.
 
 ## Schema Handling (v1)
 
