@@ -336,9 +336,13 @@ Rules:
   - `runId`
   - `streamKind`
   - `streamParams`
+  - optional `abortActionId`
+  - optional `abortParams`
   - `batch`
 - for generic long-running adapter runs, `streamKind` should be `adapter.run`
   and `streamParams` should at minimum contain `runId`
+- if a dedicated abort action exists, `abortActionId` and `abortParams` should
+  be returned so clients can abort the run without adapter-specific fallback
 - adapter-owned run kinds should be treated as part of an `adapter.*` family
 - a broad fallback of arbitrary non-discovery stream kinds to adapter routing is
   transitional behavior and should not be treated as the long-term contract

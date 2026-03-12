@@ -735,6 +735,8 @@ Contract for adapter authors:
   - `runId`
   - `streamKind`
   - `streamParams`
+  - optional `abortActionId`
+  - optional `abortParams`
   - `batch`
 - Recommended generic stream kind:
   - `adapter.run`
@@ -747,6 +749,8 @@ Contract for adapter authors:
   returned `streamKind` and `streamParams`.
 - `cmd.stream.stop` stops only the observation stream.
 - Aborting the underlying run is a separate domain operation.
+- if a dedicated abort action exists, `abortActionId` and `abortParams` should
+  be returned so clients do not rely on adapter-specific conventions.
 
 Current architecture note:
 
