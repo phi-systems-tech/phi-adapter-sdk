@@ -17,7 +17,7 @@ Description: PHI adapter SDK runtime
 
 Package: phi-adapter-sdk-dev
 Section: libdevel
-Architecture: any
+Architecture: all
 Depends: ${misc:Depends}, phi-adapter-sdk (= ${binary:Version})
 Description: PHI adapter SDK development files
  Headers, CMake config files and helper macros for PHI adapters.

@@ -9,6 +9,8 @@ project(phi-adapter-sdk
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+set(PHI_ADAPTER_SDK_CMAKE_INSTALL_DIR "lib/cmake/phi-adapter-sdk")
+
 add_library(phi_adapter_contract INTERFACE)
 add_library(phi::adapter-contract ALIAS phi_adapter_contract)
 
@@ -101,13 +103,13 @@ install(
     EXPORT phi-adapter-sdkTargets
     FILE phi-adapter-sdkTargets.cmake
     NAMESPACE phi::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/phi-adapter-sdk
+    DESTINATION ${PHI_ADAPTER_SDK_CMAKE_INSTALL_DIR}
 )
 
 configure_package_config_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/phi-adapter-sdkConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/phi-adapter-sdkConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/phi-adapter-sdk
+    INSTALL_DESTINATION ${PHI_ADAPTER_SDK_CMAKE_INSTALL_DIR}
 )
 
 write_basic_package_version_file(
@@ -120,5 +122,5 @@ install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/phi-adapter-sdkConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/phi-adapter-sdkConfigVersion.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/phi-adapter-sdk
+    DESTINATION ${PHI_ADAPTER_SDK_CMAKE_INSTALL_DIR}
 )
