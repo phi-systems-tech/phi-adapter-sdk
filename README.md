@@ -105,6 +105,21 @@ Qt event-loop helper:
 For Debian packages, install shared libraries and CMake package files under multiarch paths
 (for example `usr/lib/aarch64-linux-gnu/...`) to avoid mixed/duplicate runtime library resolution.
 
+For the package split:
+
+- `phi-adapter-sdk` stays `Architecture: any` because it ships `libphi_adapter_sdk.so`
+- `phi-adapter-sdk-dev` can be `Architecture: all` only if it contains only
+  headers and arch-neutral build metadata
+
+Recommended Debian install layout:
+
+- runtime library: `usr/lib/<multiarch-triplet>/libphi_adapter_sdk.so*`
+- headers: `usr/include/...`
+- CMake package config for the `-dev` package: `usr/lib/cmake/phi-adapter-sdk`
+
+Do not keep the `-dev` package on `usr/lib/<multiarch-triplet>/cmake/...` if the
+goal is an architecture-independent `all` package.
+
 ## Unix Socket Permissions
 
 - The SDK sidecar transport creates its unix domain socket with mode `0660` (owner/group read-write).
