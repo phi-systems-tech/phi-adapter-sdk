@@ -67,6 +67,30 @@ Comparison semantics (core/runtime):
 - Enum compare remains value-based (integer identity).
 - String compare should not apply implicit trim as global default.
 
+## Button Event Normalization Policy (v1)
+
+For all adapters exposing `ChannelKind::ButtonEvent`:
+
+- Emit canonical `ButtonEventCode` integer values only (no raw protocol strings).
+- `Single` press behavior:
+  - emit only `ShortPressRelease` after the multi-press window closes.
+- Multi-press behavior:
+  - emit only the aggregated event (`DoublePress`, `TriplePress`, `QuadruplePress`, `QuintuplePress`).
+  - do not emit additional `ShortPressRelease` events for the same multi-press sequence.
+- Long-press behavior:
+  - if the underlying protocol has no explicit long-start event, adapters may synthesize `LongPress`.
+  - while held, emit `Repeat` events.
+  - on release, emit `LongPressRelease`.
+- Avoid duplicate triggers:
+  - dedupe identical raw actions within a short debounce window.
+  - prefer deterministic state transitions for automations over verbose raw event mirroring.
+
+Rationale:
+
+- Automations stay adapter-agnostic and deterministic.
+- Single-click automations are not spuriously triggered before a double/triple click is recognized.
+- Hold interactions behave consistently even when vendor protocols differ.
+
 ## Coalescing, Dedupe, ACK And Result (v1)
 
 - `cmd.channel.invoke` ACK is transport-level acceptance only (request accepted by core pipeline).
