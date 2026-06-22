@@ -3330,12 +3330,35 @@ void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId 
         return;
 
     if (runtime->execution && runtime->instance) {
+        struct StopCompletion {
+            std::mutex mutex;
+            std::condition_variable cv;
+            bool done = false;
+        };
+        auto completion = std::make_shared<StopCompletion>();
         phicore::adapter::v1::Utf8String error;
-        if (!runtime->execution->execute([instance = runtime->instance.get()]() {
+        const bool scheduled = runtime->execution->execute([instance = runtime->instance.get(), completion]() {
                 instance->hostStop();
-            }, &error) && m_factory) {
-            m_factory->hostOnProtocolError("Failed to schedule stop for externalId='"
-                                           + externalId + "': " + error);
+                {
+                    std::lock_guard<std::mutex> lock(completion->mutex);
+                    completion->done = true;
+                }
+                completion->cv.notify_one();
+            }, &error);
+        if (!scheduled) {
+            if (m_factory) {
+                m_factory->hostOnProtocolError("Failed to schedule stop for externalId='"
+                                               + externalId + "': " + error);
+            }
+        } else {
+            std::unique_lock<std::mutex> lock(completion->mutex);
+            if (!completion->cv.wait_for(lock,
+                                         kExecutionBackendStopTimeout,
+                                         [&completion]() { return completion->done; })
+                && m_factory) {
+                m_factory->hostOnProtocolError("Timed out waiting for instance stop completion for externalId='"
+                                               + externalId + "'");
+            }
         }
     }
 

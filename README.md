@@ -622,6 +622,13 @@ What adapter code must provide:
   - release sockets/file descriptors/device sessions
 - `restart()` should be equivalent to `stop()` + `start()` with clean state boundaries.
 - Do not block host thread work in lifecycle hooks; use instance execution context for long work.
+- If an adapter uses an event-loop backend, create, stop and destroy event-loop owned resources
+  inside that backend context. This includes `QObject` trees, `QTimer`, sockets, reconnect timers
+  and protocol/session managers.
+- Never let the host thread delete `QObject` instances that own active timers or sockets. Stop
+  timers and sockets first, then destroy the object in its affinity thread.
+- Do not start synchronous device polling from lifecycle teardown. Shutdown must cancel pending
+  work and return boundedly.
 
 Timeout model:
 
@@ -629,6 +636,18 @@ Timeout model:
 - Request timeout, stale-result policy, and reload orchestration are owned by `phi-core`.
 - Adapter implementations should still use bounded internal waits and cancellation to avoid
   prolonged shutdown/reload windows.
+
+Threading checklist for adapter authors:
+
+- Construct long-lived runtime helpers after the execution backend is active, not in the factory
+  or host thread.
+- Parent timers/sockets/session managers to a runtime object that lives in the execution backend.
+- Route all control, polling and push handling through one serialized device/session owner.
+- Keep protocol detection out of the hot poll path; persist learned protocol capabilities per
+  physical endpoint where possible.
+- Treat reload/restart tests as mandatory: `phi-cli adapter restart --external-id <plugin>` should
+  not emit `QObject::killTimer`, `QObject::~QObject` timer warnings, backend stop timeouts or
+  adapter process crashes.
 
 ## Discovery Queries From Static Adapter Config (v1)
 
