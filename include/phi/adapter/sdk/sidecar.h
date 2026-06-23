@@ -455,6 +455,14 @@ public:
                                  const phicore::adapter::v1::ScalarValue &value,
                                  std::int64_t tsMs = 0,
                                  phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendChannelColorStateUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                      const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                      const phicore::adapter::v1::ExternalId &channelExternalId,
+                                      double r,
+                                      double g,
+                                      double b,
+                                      std::int64_t tsMs = 0,
+                                      phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish full device snapshot (`command=EventDeviceUpdated`).
@@ -773,6 +781,13 @@ protected:
                                  const phicore::adapter::v1::ScalarValue &value,
                                  std::int64_t tsMs = 0,
                                  phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendChannelColorStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                      const phicore::adapter::v1::ExternalId &channelExternalId,
+                                      double r,
+                                      double g,
+                                      double b,
+                                      std::int64_t tsMs = 0,
+                                      phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendDeviceUpdated(const phicore::adapter::v1::Device &device,
                            const phicore::adapter::v1::ChannelList &channels,
                            phicore::adapter::v1::Utf8String *error = nullptr);

@@ -2194,6 +2194,40 @@ bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::Exte
     return sendJson(MessageType::Event, 0, body, error);
 }
 
+bool SidecarDispatcher::sendChannelColorStateUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                                     const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                                     const phicore::adapter::v1::ExternalId &channelExternalId,
+                                                     double r,
+                                                     double g,
+                                                     double b,
+                                                     std::int64_t tsMs,
+                                                     phicore::adapter::v1::Utf8String *error)
+{
+    const std::int64_t timestamp = tsMs > 0 ? tsMs : nowMs();
+    std::string body;
+    body.push_back('{');
+    bool first = true;
+    appendCommandField(body, first, IpcCommand::EventChannelStateUpdated);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "deviceExternalId");
+    body += jsonQuoted(deviceExternalId);
+    appendFieldPrefix(body, first, "channelExternalId");
+    body += jsonQuoted(channelExternalId);
+    appendFieldPrefix(body, first, "value");
+    body += "{\"r\":";
+    appendDoubleJson(body, r);
+    body += ",\"g\":";
+    appendDoubleJson(body, g);
+    body += ",\"b\":";
+    appendDoubleJson(body, b);
+    body += "}";
+    appendFieldPrefix(body, first, "tsMs");
+    body += std::to_string(timestamp);
+    body.push_back('}');
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
 bool SidecarDispatcher::sendDeviceUpdated(const phicore::adapter::v1::ExternalId &externalId,
                                           const Device &device,
                                           const ChannelList &channels,
@@ -2793,6 +2827,18 @@ bool AdapterInstance::sendChannelStateUpdated(const phicore::adapter::v1::Extern
 {
     return m_dispatcher
         ? m_dispatcher->sendChannelStateUpdated(m_externalId, deviceExternalId, channelExternalId, value, tsMs, error)
+        : false;
+}
+bool AdapterInstance::sendChannelColorStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                                   const phicore::adapter::v1::ExternalId &channelExternalId,
+                                                   double r,
+                                                   double g,
+                                                   double b,
+                                                   std::int64_t tsMs,
+                                                   phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher
+        ? m_dispatcher->sendChannelColorStateUpdated(m_externalId, deviceExternalId, channelExternalId, r, g, b, tsMs, error)
         : false;
 }
 bool AdapterInstance::sendDeviceUpdated(const Device &device,
