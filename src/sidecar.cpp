@@ -74,7 +74,7 @@ std::string_view logCategoryName(LogCategory category)
 }
 
 constexpr std::uint8_t kIncidentCategoryFlag = 0x80;
-constexpr std::size_t kHostQueueWarnThreshold = 64;
+constexpr std::size_t kHostQueueWarnThreshold = 512;
 constexpr std::int64_t kHostDiagRateLimitMs = 5000;
 
 std::uint8_t encodeWireLevel(LogLevel level)
