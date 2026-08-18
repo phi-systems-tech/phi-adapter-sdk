@@ -66,6 +66,13 @@ else()
 endif()
 
 
+
+option(PHI_ADAPTER_SDK_BUILD_TESTS "Build phi-adapter-sdk tests" ${PROJECT_IS_TOP_LEVEL})
+if(PHI_ADAPTER_SDK_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 add_executable(phi_adapter_sidecar_example
     examples/phi-adapter-sidecar/main.cpp
 )
