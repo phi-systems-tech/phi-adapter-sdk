@@ -405,6 +405,24 @@ Outbound send path (v1 runtime behavior):
   closed, remaining queued frames are dropped with a summary diagnostic, and
   `onDisconnected` fires on the next poll.
 
+## Tests
+
+`tests/` carries a ctest suite (run automatically by `dh_auto_test` during
+package builds; skipped when the SDK is consumed via `add_subdirectory`):
+
+- `sdk_runtime_tests`: outbound wakeup latency, write deadline against a
+  stalled peer, send-queue cap/shed accounting, stop() interrupting a poll.
+- `sdk_protocol_tests`: raw-frame behavior from the core side of the socket
+  (typed request decode, result/event envelopes, default responses,
+  disconnect on invalid frame headers).
+- `sdk_golden_wire_tests`: golden-wire contract tests. Every outbound
+  `send*` payload is compared **byte-exactly** against checked-in fixtures in
+  `tests/golden/out/`; `tests/golden/in/` holds canonical core request frames
+  that are decoded and asserted. Any wire envelope change fails here first.
+  Intentional contract changes regenerate the outbound fixtures with
+  `PHI_GOLDEN_UPDATE=1 ./sdk_golden_wire_tests` — review the diff and update
+  `PROTOCOLL.md` (and phi-core) in the same change.
+
 Concurrency model (v1, mandatory):
 
 - `HostThread` is the sidecar main thread that runs `SidecarHost::pollOnce(...)`.

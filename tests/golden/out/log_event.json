@@ -1,0 +1,1 @@
+{"command":4101,"externalId":"inst-1","plugin":"demo","level":2,"category":3,"message":"Connected to %1","ctx":"demo.connect","params":["bridge.local"],"fields":{"attempt":1},"tsMs":1755500000000}
