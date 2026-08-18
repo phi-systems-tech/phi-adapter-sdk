@@ -254,6 +254,55 @@ void testEventEnvelopeShape()
     dispatcher.stop();
 }
 
+void testOversizeFrameLimits()
+{
+    const std::string path = phitest::uniqueSocketPath("oversize");
+    sdk::SidecarDispatcher dispatcher(path);
+    TestClient client;
+    bool connected = false;
+    bool disconnected = false;
+    sdk::SidecarHandlers handlers;
+    handlers.onConnected = [&connected]() { connected = true; };
+    handlers.onDisconnected = [&disconnected]() { disconnected = true; };
+    dispatcher.setHandlers(std::move(handlers));
+    v1::Utf8String err;
+    REQUIRE(dispatcher.start(&err));
+    REQUIRE(client.connectTo(path));
+    const auto deadline = Clock::now() + std::chrono::seconds(5);
+    while (!connected && Clock::now() < deadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(connected);
+
+    // Outbound: senders must refuse frames above kMaxPayloadSize locally.
+    const v1::Utf8String big(v1::kMaxPayloadSize + 1024, 'x');
+    v1::Utf8String sendErr;
+    CHECK(!dispatcher.sendAdapterMetaUpdated("inst-1", "{\"blob\":\"" + big + "\"}", &sendErr));
+    CHECK_MSG(contains(sendErr, "kMaxPayloadSize"), "err=%s", sendErr.c_str());
+
+    // A frame at the limit is still fine (no disconnect, no error).
+    v1::Utf8String okErr;
+    CHECK(dispatcher.sendAdapterMetaUpdated("inst-1", "{}", &okErr));
+    dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    v1::FrameHeader okHeader{};
+    std::string okPayload;
+    CHECK(client.readFrame(2000, &okHeader, &okPayload));
+
+    // Inbound: a declared payloadSize above the limit is a protocol violation.
+    v1::FrameHeader header;
+    header.type = static_cast<std::uint8_t>(v1::MessageType::Request);
+    header.correlationId = 99;
+    header.payloadSize = v1::kMaxPayloadSize + 1;
+    CHECK(client.sendRaw(&header, sizeof(header)));
+
+    const auto dropDeadline = Clock::now() + std::chrono::seconds(3);
+    while (!disconnected && Clock::now() < dropDeadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    CHECK_MSG(disconnected, "server did not drop client on oversize declared payload");
+    CHECK(client.waitForEof(2000));
+
+    dispatcher.stop();
+}
+
 void testInvalidFrameHeaderDisconnects()
 {
     const std::string path = phitest::uniqueSocketPath("badmagic");
@@ -293,6 +342,7 @@ int main()
     testChannelInvokeDecodeAndResult();
     testUnknownCommandDefaultResponse();
     testEventEnvelopeShape();
+    testOversizeFrameLimits();
     testInvalidFrameHeaderDisconnects();
 
     if (phitest::g_failures == 0) {

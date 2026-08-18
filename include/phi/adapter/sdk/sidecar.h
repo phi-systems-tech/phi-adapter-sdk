@@ -687,7 +687,10 @@ protected:
     virtual void onProtocolError(const phicore::adapter::v1::Utf8String &message);
     virtual void onBootstrap(const BootstrapRequest &request);
 
-    bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
+    // Note: connection-state and adapter-meta events are instance-scoped in
+    // the v1 contract (core rejects them without an externalId); they are
+    // available on AdapterInstance only. Factory-scope runtime updates go
+    // through sendFactoryDescriptorUpdated(...).
     bool sendError(LogCategory category,
                    const phicore::adapter::v1::Utf8String &message,
                    const phicore::adapter::v1::ScalarList &params = {},
@@ -695,8 +698,6 @@ protected:
                    const phicore::adapter::v1::JsonText &fieldsJson = {},
                    std::int64_t tsMs = 0,
                    phicore::adapter::v1::Utf8String *error = nullptr);
-    bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
-                                phicore::adapter::v1::Utf8String *error = nullptr);
     AdapterDescriptor factoryDescriptor() const;
     bool sendFactoryDescriptorUpdated(phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendFactoryDescriptorUpdated(const AdapterDescriptor &descriptor,

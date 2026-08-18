@@ -1903,6 +1903,19 @@ bool SidecarDispatcher::queueOutboundFrame(OutboundFrame frame, phicore::adapter
         }
         return false;
     }
+    if (frame.payload.size() > phicore::adapter::v1::kMaxPayloadSize) {
+        // The receiving core treats an oversized frame as a protocol violation
+        // and kills the connection; refuse at the source with a real error.
+        if (error)
+            *error = "outbound payload exceeds kMaxPayloadSize ("
+                + std::to_string(frame.payload.size()) + " > "
+                + std::to_string(phicore::adapter::v1::kMaxPayloadSize) + " bytes)";
+        hostStderrLine("[sidecar][oversizeFrameRejected][host] plugin=" + frame.plugin + " externalId="
+                       + frame.externalId + " payloadBytes=" + std::to_string(frame.payload.size())
+                       + " limit=" + std::to_string(phicore::adapter::v1::kMaxPayloadSize)
+                       + " message=" + jsonQuoted(shortened(frame.message)));
+        return false;
+    }
     bool rejected = false;
     std::size_t queueDepth = 0;
     std::size_t maxObservedDepth = 0;
@@ -2668,10 +2681,6 @@ void AdapterFactory::onProtocolError(const phicore::adapter::v1::Utf8String &mes
 }
 void AdapterFactory::onBootstrap(const BootstrapRequest &request) { (void)request; }
 
-bool AdapterFactory::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendConnectionStateChanged({}, connected, error) : false;
-}
 bool AdapterFactory::sendError(LogCategory category,
                                const phicore::adapter::v1::Utf8String &message,
                                const ScalarList &params,
@@ -2686,11 +2695,6 @@ bool AdapterFactory::sendError(LogCategory category,
         return false;
     }
     return m_dispatcher->sendError({}, hostPluginType(), category, message, params, ctx, fieldsJson, tsMs, error);
-}
-bool AdapterFactory::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
-                                            phicore::adapter::v1::Utf8String *error)
-{
-    return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated({}, metaPatchJson, error) : false;
 }
 AdapterDescriptor AdapterFactory::factoryDescriptor() const
 {

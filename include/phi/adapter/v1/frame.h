@@ -17,6 +17,11 @@ inline constexpr std::array<std::byte, 4> kFrameMagic{
     std::byte{'A'},
 };
 
+// Hard upper bound for one frame payload, enforced by BOTH peers in BOTH
+// directions: receivers treat a larger declared payloadSize as a protocol
+// violation (disconnect), senders must refuse to emit larger frames.
+inline constexpr std::uint32_t kMaxPayloadSize = 2U * 1024U * 1024U;
+
 #pragma pack(push, 1)
 struct FrameHeader {
     std::array<std::byte, 4> magic = kFrameMagic;
@@ -32,7 +37,8 @@ inline constexpr std::size_t kFrameHeaderSize = sizeof(FrameHeader);
 
 [[nodiscard]] inline bool isValidFrameHeader(const FrameHeader &header) noexcept
 {
-    return header.magic == kFrameMagic && header.version == kProtocolVersion;
+    return header.magic == kFrameMagic && header.version == kProtocolVersion
+        && header.payloadSize <= kMaxPayloadSize;
 }
 
 [[nodiscard]] inline MessageType messageType(const FrameHeader &header) noexcept

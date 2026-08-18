@@ -39,11 +39,20 @@ Correlation:
   - `""` = factory scope
   - non-empty = one concrete adapter instance
 
+Frame size:
+- one frame payload is limited to `phicore::adapter::v1::kMaxPayloadSize` (2 MiB)
+- receivers MUST treat a larger declared `payloadSize` as a protocol violation and
+  close the connection
+- senders MUST refuse to emit larger frames with an explicit local error
+
 Hard rules:
 - `Sync*` commands do not produce `Result*`
 - `Cmd*` commands always complete via exactly one correlated `ResultCmd` or `ResultAction`
 - target routing is resolved only by `externalId`
 - top-level `adapterId` and `scope` are not routing keys in sidecar IPC
+- `EventConnectionStateChanged` and `EventAdapterMetaUpdated` are instance-scoped:
+  core rejects them with empty `externalId`. Factory-scope runtime updates use
+  `EventFactoryDescriptorUpdated`; factory-scope logging/incidents use `EventLog`.
 
 ## 2. IPC Commands
 
@@ -75,7 +84,7 @@ Notes:
 | --- | --- | --- | --- | --- | --- |
 | `ResponseFactoryDescriptor` | `0x1001` | `Response` | factory | `externalId:string`, `descriptor:object` | none |
 | `EventFactoryDescriptorUpdated` | `0x1002` | `Event` | factory | `externalId:string`, `descriptor:object` | none |
-| `EventAdapterMetaUpdated` | `0x1003` | `Event` | factory or instance | `externalId:string`, `metaPatch:object` | none |
+| `EventAdapterMetaUpdated` | `0x1003` | `Event` | instance | `externalId:string`, `metaPatch:object` | none |
 | `EventConnectionStateChanged` | `0x1004` | `Event` | instance | `externalId:string`, `connected:bool` | none |
 | `EventLog` | `0x1005` | `Event` | factory or instance | `externalId:string`, `plugin:string`, `level:string`, `category:uint8`, `message:string`, `ctx:string`, `params:array`, `fields:object`, `tsMs:int64` | none |
 | `EventDeviceUpdated` | `0x1101` | `Event` | instance | `externalId:string`, `device:object`, `channels:array` | none |
