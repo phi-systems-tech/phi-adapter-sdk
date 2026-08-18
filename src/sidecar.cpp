@@ -1005,31 +1005,42 @@ bool parseLogFilterConfig(std::string_view metaJson, LogFilterConfig *out)
     return true;
 }
 
-bool shouldForwardLog(const phicore::adapter::v1::Adapter &adapter,
-                      bool hasConfig,
-                      LogLevel level,
-                      LogCategory category)
+LogFilterCache buildLogFilterCache(const phicore::adapter::v1::Adapter &adapter)
 {
-    if (level == LogLevel::Error)
-        return true;
-    if (!hasConfig)
-        return true;
-    if (!phicore::adapter::v1::hasFlag(adapter.flags, phicore::adapter::v1::AdapterFlag::EnableLogs))
-        return false;
+    LogFilterCache cache;
+    cache.hasConfig = true;
+    cache.forwardingEnabled =
+        phicore::adapter::v1::hasFlag(adapter.flags, phicore::adapter::v1::AdapterFlag::EnableLogs);
 
     LogFilterConfig filter;
     if (!parseLogFilterConfig(adapter.metaJson, &filter))
         filter = LogFilterConfig{};
+    cache.minLevelPriority = logLevelPriority(filter.minLevel);
+    cache.allowAllCategories = filter.allowAllCategories;
+    cache.categoryMask = 0;
+    for (std::size_t i = 0; i < filter.allowedCategories.size(); ++i) {
+        if (filter.allowedCategories[i])
+            cache.categoryMask |= static_cast<std::uint16_t>(1U << i);
+    }
+    return cache;
+}
 
-    if (logLevelPriority(level) < logLevelPriority(filter.minLevel))
-        return false;
-    if (filter.allowAllCategories)
+bool shouldForwardLog(const LogFilterCache &cache, LogLevel level, LogCategory category)
+{
+    if (level == LogLevel::Error)
         return true;
-
+    if (!cache.hasConfig)
+        return true;
+    if (!cache.forwardingEnabled)
+        return false;
+    if (logLevelPriority(level) < cache.minLevelPriority)
+        return false;
+    if (cache.allowAllCategories)
+        return true;
     const int idx = logCategoryIndex(category);
     if (idx < 0)
         return false;
-    return filter.allowedCategories[static_cast<std::size_t>(idx)];
+    return (cache.categoryMask & static_cast<std::uint16_t>(1U << idx)) != 0;
 }
 
 std::string jsonQuoted(std::string_view text)
@@ -2643,7 +2654,7 @@ bool AdapterFactory::log(LogLevel level,
             *error = "Dispatcher not bound";
         return false;
     }
-    if (!shouldForwardLog(m_factoryConfig.adapter, m_hasFactoryConfig, level, category)) {
+    if (!shouldForwardLog(m_logFilter, level, category)) {
         return true;
     }
     LogEntry entry;
@@ -2774,6 +2785,7 @@ void AdapterFactory::cacheFactoryConfig(const ConfigChangedRequest &request)
 {
     m_factoryConfig = request;
     m_hasFactoryConfig = true;
+    m_logFilter = buildLogFilterCache(request.adapter);
 }
 phicore::adapter::v1::Utf8String AdapterFactory::hostPluginType() const { return pluginType(); }
 AdapterDescriptor AdapterFactory::hostDescriptor() const { return descriptor(); }
@@ -2828,7 +2840,7 @@ bool AdapterInstance::log(LogLevel level,
             *error = "Dispatcher not bound";
         return false;
     }
-    if (!shouldForwardLog(m_config.adapter, m_hasConfig, level, category)) {
+    if (!shouldForwardLog(m_logFilter, level, category)) {
         return true;
     }
     LogEntry entry;
@@ -3095,6 +3107,7 @@ void AdapterInstance::cacheConfig(const ConfigChangedRequest &request)
 {
     m_config = request;
     m_hasConfig = true;
+    m_logFilter = buildLogFilterCache(request.adapter);
 }
 bool AdapterInstance::hostStart() { return start(); }
 void AdapterInstance::hostStop() { stop(); }

@@ -273,6 +273,24 @@ enum class LogCategory : std::uint8_t {
     Database = 9,
 };
 
+/**
+ * @brief Internal: cached log-forwarding filter for one target.
+ *
+ * Rebuilt whenever the effective adapter config changes so the hot log path
+ * never parses the meta JSON per call. Error-level logs always pass.
+ */
+struct LogFilterCache {
+    /// Effective config received (without it, everything is forwarded).
+    bool hasConfig = false;
+    /// AdapterFlag::EnableLogs on the effective config.
+    bool forwardingEnabled = false;
+    /// Minimum forwarded level as priority (Trace=0 ... Error=4).
+    int minLevelPriority = 1;
+    bool allowAllCategories = true;
+    /// Bit per LogCategory index when allowAllCategories is false.
+    std::uint16_t categoryMask = 0;
+};
+
 struct LogEntry {
     LogLevel level = LogLevel::Info;
     LogCategory category = LogCategory::Internal;
@@ -731,6 +749,7 @@ private:
     bool m_hasBootstrap = false;
     ConfigChangedRequest m_factoryConfig;
     bool m_hasFactoryConfig = false;
+    LogFilterCache m_logFilter;
     std::function<void(const phicore::adapter::v1::ActionResponse &)> m_actionResultSubmitter;
 };
 
@@ -881,6 +900,7 @@ private:
     phicore::adapter::v1::ExternalId m_externalId;
     ConfigChangedRequest m_config;
     bool m_hasConfig = false;
+    LogFilterCache m_logFilter;
     std::function<void(const phicore::adapter::v1::CmdResponse &)> m_cmdResultSubmitter;
     std::function<void(const phicore::adapter::v1::ActionResponse &)> m_actionResultSubmitter;
 };
