@@ -75,6 +75,10 @@ std::string_view logCategoryName(LogCategory category)
 
 constexpr std::uint8_t kIncidentCategoryFlag = 0x80;
 constexpr std::size_t kHostQueueWarnThreshold = 512;
+// Hard cap for the outbound send queue. On overflow the oldest log frame
+// (then the oldest event frame) is shed; Response frames (Result*/descriptor)
+// are never shed and may exceed the cap.
+constexpr std::size_t kHostQueueMaxDepth = 4096;
 constexpr std::int64_t kHostDiagRateLimitMs = 5000;
 
 std::uint8_t encodeWireLevel(LogLevel level)
@@ -1494,6 +1498,8 @@ struct SidecarDispatcher::Impl {
     std::size_t maxObservedQueueDepth = 0;
     std::int64_t lastLogSendFailureTsMs = 0;
     std::uint64_t suppressedLogSendFailures = 0;
+    std::atomic<std::uint64_t> droppedOutboundFrames{0};
+    std::int64_t lastQueueOverflowTsMs = 0;
 };
 
 #define m_runtime m_impl->runtime
@@ -1507,6 +1513,8 @@ struct SidecarDispatcher::Impl {
 #define m_maxObservedQueueDepth m_impl->maxObservedQueueDepth
 #define m_lastLogSendFailureTsMs m_impl->lastLogSendFailureTsMs
 #define m_suppressedLogSendFailures m_impl->suppressedLogSendFailures
+#define m_droppedOutboundFrames m_impl->droppedOutboundFrames
+#define m_lastQueueOverflowTsMs m_impl->lastQueueOverflowTsMs
 
 SidecarDispatcher::SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath)
     : m_impl(std::make_unique<Impl>(std::move(socketPath)))
@@ -1554,8 +1562,19 @@ void SidecarDispatcher::stop()
         std::lock_guard<std::mutex> lock(m_sendQueueMutex);
         m_sendQueue.clear();
     }
+    // Release a poll thread that is blocked inside epoll_wait so the runtime
+    // mutex becomes available without waiting out the poll timeout.
+    m_runtime->wakeup();
     std::lock_guard<std::mutex> lock(m_runtimeMutex);
     m_runtime->stop();
+}
+
+void SidecarDispatcher::wakeup() noexcept
+{
+    // Intentionally lock-free: the wake descriptor lives for the runtime
+    // object lifetime and writing to it is thread-safe. Taking m_runtimeMutex
+    // here would block behind a poll in progress and defeat the purpose.
+    m_runtime->wakeup();
 }
 
 bool SidecarDispatcher::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
@@ -1884,21 +1903,72 @@ bool SidecarDispatcher::queueOutboundFrame(OutboundFrame frame, phicore::adapter
         }
         return false;
     }
+    bool rejected = false;
     std::size_t queueDepth = 0;
-    std::lock_guard<std::mutex> lock(m_sendQueueMutex);
-    m_sendQueue.push_back(std::move(frame));
-    queueDepth = m_sendQueue.size();
-    if (queueDepth > m_maxObservedQueueDepth)
-        m_maxObservedQueueDepth = queueDepth;
+    std::size_t maxObservedDepth = 0;
+    std::uint64_t droppedTotal = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_sendQueueMutex);
+        if (m_sendQueue.size() >= kHostQueueMaxDepth) {
+            // Shed the oldest log frame first, then the oldest event frame.
+            // Response frames (Result*/descriptor) are never shed and may
+            // exceed the cap; core bounds them via its pending commands.
+            auto shedIt = std::find_if(m_sendQueue.begin(), m_sendQueue.end(), [](const OutboundFrame &queued) {
+                return queued.isLogFrame;
+            });
+            if (shedIt == m_sendQueue.end()) {
+                shedIt = std::find_if(m_sendQueue.begin(), m_sendQueue.end(), [](const OutboundFrame &queued) {
+                    return queued.type == MessageType::Event;
+                });
+            }
+            if (shedIt != m_sendQueue.end()) {
+                m_sendQueue.erase(shedIt);
+                droppedTotal = m_droppedOutboundFrames.fetch_add(1, std::memory_order_relaxed) + 1;
+            } else if (frame.type == MessageType::Event) {
+                // Queue is saturated with response frames; reject the new event frame.
+                droppedTotal = m_droppedOutboundFrames.fetch_add(1, std::memory_order_relaxed) + 1;
+                rejected = true;
+            }
+        }
+        if (!rejected) {
+            m_sendQueue.push_back(std::move(frame));
+            queueDepth = m_sendQueue.size();
+            if (queueDepth > m_maxObservedQueueDepth)
+                m_maxObservedQueueDepth = queueDepth;
+        }
+        maxObservedDepth = m_maxObservedQueueDepth;
+    }
+
+    if (droppedTotal > 0) {
+        const std::int64_t tsMs = nowMs();
+        std::lock_guard<std::mutex> diagLock(m_hostDiagMutex);
+        if (tsMs - m_lastQueueOverflowTsMs >= kHostDiagRateLimitMs) {
+            m_lastQueueOverflowTsMs = tsMs;
+            hostStderrLine("[sidecar][queueOverflow][host] droppedTotal=" + std::to_string(droppedTotal)
+                           + " maxDepth=" + std::to_string(kHostQueueMaxDepth));
+        }
+    }
+    if (rejected) {
+        if (error)
+            *error = "outbound send queue full";
+        return false;
+    }
+
     if (queueDepth >= kHostQueueWarnThreshold) {
         const std::int64_t tsMs = nowMs();
         std::lock_guard<std::mutex> diagLock(m_hostDiagMutex);
         if (tsMs - m_lastQueueWarningTsMs >= kHostDiagRateLimitMs) {
             m_lastQueueWarningTsMs = tsMs;
             hostStderrLine("[sidecar][queueBackpressure][host] queueDepth=" + std::to_string(queueDepth)
-                           + " maxObservedDepth=" + std::to_string(m_maxObservedQueueDepth));
+                           + " maxObservedDepth=" + std::to_string(maxObservedDepth)
+                           + " droppedTotal="
+                           + std::to_string(m_droppedOutboundFrames.load(std::memory_order_relaxed)));
         }
     }
+
+    // Wake a poll thread blocked in epoll_wait so the frame is flushed
+    // promptly instead of after the poll timeout.
+    m_runtime->wakeup();
     return true;
 }
 
@@ -1912,14 +1982,18 @@ bool SidecarDispatcher::flushSendQueue(phicore::adapter::v1::Utf8String *error)
         localQueue.swap(m_sendQueue);
     }
 
-    for (auto &frame : localQueue) {
+    for (auto it = localQueue.begin(); it != localQueue.end(); ++it) {
+        OutboundFrame &frame = *it;
         const auto chars = std::span<const char>(frame.payload.data(), frame.payload.size());
         const auto bytes = std::as_bytes(chars);
         phicore::adapter::v1::Utf8String sendError;
         bool ok = false;
+        bool clientGone = false;
         {
             std::lock_guard<std::mutex> lock(m_runtimeMutex);
             ok = m_runtime->send(frame.type, frame.correlationId, bytes, &sendError);
+            if (!ok)
+                clientGone = !m_runtime->connected();
         }
         if (!ok) {
             if (error && error->empty())
@@ -1928,9 +2002,7 @@ bool SidecarDispatcher::flushSendQueue(phicore::adapter::v1::Utf8String *error)
                 hostStderrLine("[sidecar][incidentSendFailure][host] plugin=" + frame.plugin + " externalId="
                                + frame.externalId + " reason=" + sendError + " message="
                                + jsonQuoted(shortened(frame.message)));
-                continue;
-            }
-            if (frame.isLogFrame) {
+            } else if (frame.isLogFrame) {
                 const std::int64_t tsMs = nowMs();
                 std::lock_guard<std::mutex> diagLock(m_hostDiagMutex);
                 if (tsMs - m_lastLogSendFailureTsMs >= kHostDiagRateLimitMs) {
@@ -1944,10 +2016,22 @@ bool SidecarDispatcher::flushSendQueue(phicore::adapter::v1::Utf8String *error)
                 } else {
                     ++m_suppressedLogSendFailures;
                 }
-                continue;
-            }
-            if (m_handlers.onProtocolError)
+            } else if (m_handlers.onProtocolError) {
                 m_handlers.onProtocolError("Failed to send outbound frame: " + sendError);
+            }
+            if (clientGone) {
+                // The connection is gone; the remaining frames belong to a
+                // dead session. Drop them with one summary instead of one
+                // failure per frame.
+                const std::size_t remaining = static_cast<std::size_t>(std::distance(std::next(it), localQueue.end()));
+                if (remaining > 0) {
+                    const std::uint64_t droppedTotal =
+                        m_droppedOutboundFrames.fetch_add(remaining, std::memory_order_relaxed) + remaining;
+                    hostStderrLine("[sidecar][sendQueueDropped][host] reason=disconnected dropped="
+                                   + std::to_string(remaining) + " droppedTotal=" + std::to_string(droppedTotal));
+                }
+                break;
+            }
         }
     }
     return true;
@@ -3327,8 +3411,13 @@ void SidecarHost::executeOnAllRuntimes(const std::function<void(AdapterInstance 
 
 void SidecarHost::queueDeferredResult(DeferredResult result)
 {
-    std::lock_guard<std::mutex> lock(m_resultMutex);
-    m_resultQueue.push_back(std::move(result));
+    {
+        std::lock_guard<std::mutex> lock(m_resultMutex);
+        m_resultQueue.push_back(std::move(result));
+    }
+    // Results are queued from instance execution threads; wake the poll loop
+    // so drainDeferredResults() runs promptly instead of after the poll timeout.
+    m_dispatcher.wakeup();
 }
 
 void SidecarHost::drainDeferredResults()

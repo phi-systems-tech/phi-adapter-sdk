@@ -39,6 +39,12 @@ public:
               std::span<const std::byte> payload,
               phicore::adapter::v1::Utf8String *error = nullptr);
 
+    /// Interrupt a blocking pollOnce() from any thread.
+    void wakeup() noexcept;
+
+    /// Whether a client connection is currently established.
+    bool connected() const noexcept;
+
 private:
     class Impl;
     std::unique_ptr<Impl> m_impl;

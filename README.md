@@ -389,6 +389,22 @@ Result dispatch flow (normative):
 4. SDK enqueues completion to host result queue (thread-safe).
 5. `HostThread` drains queue and emits correlated `Result*` IPC frame to phi-core.
 
+Outbound send path (v1 runtime behavior):
+
+- Enqueuing outbound work (results, events, logs) wakes a `HostThread` that is
+  blocked inside `pollOnce(...)` via an internal wake descriptor. Outbound
+  latency does not depend on the poll timeout; long poll timeouts are safe.
+- The outbound send queue is bounded (`4096` frames). On overflow the oldest
+  log frame is shed first, then the oldest event frame. `Result*`/response
+  frames are never shed and may exceed the cap.
+- Queue drops are counted and reported via rate-limited `stderr` host
+  diagnostics (`[sidecar][queueOverflow][host]`,
+  `[sidecar][sendQueueDropped][host]`).
+- Writing one frame to a connected peer is bounded (5s). A peer that does not
+  drain the socket within that window is treated as dead: the connection is
+  closed, remaining queued frames are dropped with a summary diagnostic, and
+  `onDisconnected` fires on the next poll.
+
 Concurrency model (v1, mandatory):
 
 - `HostThread` is the sidecar main thread that runs `SidecarHost::pollOnce(...)`.

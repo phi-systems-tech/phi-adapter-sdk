@@ -36,18 +36,36 @@ public:
               std::span<const std::byte> payload,
               std::string *error);
 
+    /**
+     * @brief Interrupt a blocking pollOnce() from any thread.
+     *
+     * Safe to call concurrently with pollOnce()/send()/stop(); the wake
+     * descriptor lives for the lifetime of this object.
+     */
+    void wakeup() noexcept;
+
+    /// Whether a client connection is currently established.
+    bool hasClient() const noexcept { return m_clientFd >= 0; }
+
 private:
     bool acceptClient(std::string *error);
     bool readClient(const FrameHandler &onFrame,
                     const std::function<void()> &onDisconnected,
                     std::string *error);
-    bool writeAll(const std::byte *data, std::size_t size, std::string *error);
+    bool writeAll(const std::byte *data,
+                  std::size_t size,
+                  std::chrono::steady_clock::time_point deadline,
+                  std::string *error);
     void closeClient(const std::function<void()> &onDisconnected);
+    void closeClientDeferred();
+    void drainWakeFd();
 
     std::string m_socketPath;
     int m_serverFd = -1;
     int m_epollFd = -1;
     int m_clientFd = -1;
+    int m_wakeFd = -1;
+    bool m_notifyDisconnect = false;
     std::vector<std::byte> m_rxBuffer;
 };
 

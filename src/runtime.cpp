@@ -50,6 +50,16 @@ bool SidecarRuntime::pollOnce(std::chrono::milliseconds timeout, phicore::adapte
         error);
 }
 
+void SidecarRuntime::wakeup() noexcept
+{
+    m_impl->transport.wakeup();
+}
+
+bool SidecarRuntime::connected() const noexcept
+{
+    return m_impl->transport.hasClient();
+}
+
 bool SidecarRuntime::send(phicore::adapter::v1::MessageType type,
                           phicore::adapter::v1::CorrelationId correlationId,
                           std::span<const std::byte> payload,

@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/poll.h>
 #include <sys/un.h>
@@ -20,6 +21,11 @@ std::string errnoString(const char *prefix)
 {
     return std::string(prefix) + ": " + std::strerror(errno);
 }
+
+// Upper bound for writing one frame (header + payload) to a connected peer.
+// A local peer that does not drain its socket within this window is treated
+// as dead and the connection is closed instead of blocking the poll thread.
+constexpr auto kWriteTotalTimeout = std::chrono::seconds(5);
 
 bool setNonBlocking(int fd)
 {
@@ -39,6 +45,10 @@ UdsEpollServer::UdsEpollServer(std::string socketPath)
 UdsEpollServer::~UdsEpollServer()
 {
     stop();
+    if (m_wakeFd >= 0) {
+        ::close(m_wakeFd);
+        m_wakeFd = -1;
+    }
 }
 
 bool UdsEpollServer::start(std::string *error)
@@ -104,6 +114,30 @@ bool UdsEpollServer::start(std::string *error)
         return false;
     }
 
+    // The wake descriptor is created once and kept open for the object
+    // lifetime so wakeup() stays safe from other threads across stop/start.
+    if (m_wakeFd < 0) {
+        m_wakeFd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+        if (m_wakeFd < 0) {
+            if (error)
+                *error = errnoString("eventfd");
+            stop();
+            return false;
+        }
+    }
+    drainWakeFd();
+
+    epoll_event wakeEv{};
+    wakeEv.events = EPOLLIN;
+    wakeEv.data.fd = m_wakeFd;
+    if (::epoll_ctl(m_epollFd, EPOLL_CTL_ADD, m_wakeFd, &wakeEv) < 0) {
+        if (error)
+            *error = errnoString("epoll_ctl add wakeup");
+        stop();
+        return false;
+    }
+
+    m_notifyDisconnect = false;
     m_rxBuffer.clear();
     return true;
 }
@@ -124,7 +158,26 @@ void UdsEpollServer::stop()
     }
     if (!m_socketPath.empty())
         ::unlink(m_socketPath.c_str());
+    m_notifyDisconnect = false;
     m_rxBuffer.clear();
+}
+
+void UdsEpollServer::wakeup() noexcept
+{
+    if (m_wakeFd < 0)
+        return;
+    const std::uint64_t one = 1;
+    // EAGAIN means the counter is saturated and a wakeup is already pending.
+    [[maybe_unused]] const ssize_t n = ::write(m_wakeFd, &one, sizeof(one));
+}
+
+void UdsEpollServer::drainWakeFd()
+{
+    if (m_wakeFd < 0)
+        return;
+    std::uint64_t value = 0;
+    while (::read(m_wakeFd, &value, sizeof(value)) > 0) {
+    }
 }
 
 bool UdsEpollServer::acceptClient(std::string *error)
@@ -215,7 +268,10 @@ bool UdsEpollServer::readClient(const FrameHandler &onFrame,
     return true;
 }
 
-bool UdsEpollServer::writeAll(const std::byte *data, std::size_t size, std::string *error)
+bool UdsEpollServer::writeAll(const std::byte *data,
+                              std::size_t size,
+                              std::chrono::steady_clock::time_point deadline,
+                              std::string *error)
 {
     constexpr int kWriteWaitMs = 5;
     std::size_t written = 0;
@@ -228,6 +284,11 @@ bool UdsEpollServer::writeAll(const std::byte *data, std::size_t size, std::stri
         if (n < 0 && errno == EINTR)
             continue;
         if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                if (error)
+                    *error = "write timed out; peer is not draining the socket";
+                return false;
+            }
             pollfd fd{};
             fd.fd = m_clientFd;
             fd.events = POLLOUT;
@@ -267,16 +328,25 @@ bool UdsEpollServer::send(const phicore::adapter::v1::FrameHeader &header,
         return false;
     }
 
+    // One shared deadline for header + payload: partial trickle progress must
+    // not extend the window indefinitely.
+    const auto deadline = std::chrono::steady_clock::now() + kWriteTotalTimeout;
+
     phicore::adapter::v1::FrameHeader wireHeader = header;
     wireHeader.payloadSize = static_cast<std::uint32_t>(payload.size());
     if (!writeAll(reinterpret_cast<const std::byte *>(&wireHeader),
                   phicore::adapter::v1::kFrameHeaderSize,
+                  deadline,
                   error)) {
+        closeClientDeferred();
         return false;
     }
 
-    if (!payload.empty() && !writeAll(payload.data(), payload.size(), error))
+    if (!payload.empty() && !writeAll(payload.data(), payload.size(), deadline, error)) {
+        // A partially written frame desyncs the stream; the connection is unusable.
+        closeClientDeferred();
         return false;
+    }
 
     return true;
 }
@@ -288,9 +358,23 @@ void UdsEpollServer::closeClient(const std::function<void()> &onDisconnected)
         ::close(m_clientFd);
         m_clientFd = -1;
     }
+    m_notifyDisconnect = false;
     m_rxBuffer.clear();
     if (onDisconnected)
         onDisconnected();
+}
+
+void UdsEpollServer::closeClientDeferred()
+{
+    if (m_clientFd >= 0) {
+        ::epoll_ctl(m_epollFd, EPOLL_CTL_DEL, m_clientFd, nullptr);
+        ::close(m_clientFd);
+        m_clientFd = -1;
+        // send() has no access to the disconnect callback; pollOnce() delivers
+        // the notification on its next invocation.
+        m_notifyDisconnect = true;
+    }
+    m_rxBuffer.clear();
 }
 
 bool UdsEpollServer::pollOnce(std::chrono::milliseconds timeout,
@@ -303,6 +387,12 @@ bool UdsEpollServer::pollOnce(std::chrono::milliseconds timeout,
         if (error)
             *error = "transport not started";
         return false;
+    }
+
+    if (m_notifyDisconnect) {
+        m_notifyDisconnect = false;
+        if (onDisconnected)
+            onDisconnected();
     }
 
     epoll_event events[8]{};
@@ -319,6 +409,13 @@ bool UdsEpollServer::pollOnce(std::chrono::milliseconds timeout,
     for (int i = 0; i < n; ++i) {
         const int fd = events[i].data.fd;
         const std::uint32_t ev = events[i].events;
+
+        if (fd == m_wakeFd) {
+            // Outbound work was queued from another thread; drain the counter
+            // and return so the caller flushes its send queue promptly.
+            drainWakeFd();
+            continue;
+        }
 
         if (fd == m_serverFd) {
             const bool hadClient = m_clientFd >= 0;

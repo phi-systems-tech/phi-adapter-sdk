@@ -343,7 +343,12 @@ struct SidecarHandlers {
  * - typed outbound event/result helpers
  *
  * Outbound `send*` calls are enqueue operations. Actual transport writes are
- * serialized on the host poll thread.
+ * serialized on the host poll thread; enqueuing wakes a blocking poll so
+ * outbound frames do not wait for the poll timeout.
+ *
+ * The send queue is bounded. On overflow the oldest log frame (then the
+ * oldest event frame) is shed; result/response frames are never shed.
+ * Drops are counted and reported via rate-limited host stderr diagnostics.
  */
 class SidecarDispatcher
 {
@@ -589,6 +594,14 @@ private:
                   phicore::adapter::v1::Utf8String *error);
     bool queueOutboundFrame(OutboundFrame frame, phicore::adapter::v1::Utf8String *error = nullptr);
     bool flushSendQueue(phicore::adapter::v1::Utf8String *error = nullptr);
+
+    /**
+     * @brief Interrupt a blocking pollOnce() from any thread.
+     *
+     * Used after enqueuing outbound work so the poll thread flushes promptly
+     * instead of waiting out the poll timeout.
+     */
+    void wakeup() noexcept;
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;
