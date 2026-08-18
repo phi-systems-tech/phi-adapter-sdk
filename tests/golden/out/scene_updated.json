@@ -1,1 +1,1 @@
-{"command":5377,"externalId":"inst-1","scene":{"id":"scene-1","name":"Relax","description":"Evening scene","scopeId":"grp-1","scopeType":"group","avatarColor":"#ff8800","image":"","presetTag":"relax","state":1,"flags":3,"meta":{}}}
+{"command":5377,"payload":{"externalId":"inst-1","scene":{"externalId":"scene-1","name":"Relax","description":"Evening scene","scopeExternalId":"grp-1","scopeType":"group","avatarColor":"#ff8800","image":"","presetTag":"relax","state":1,"flags":3,"meta":{}}}}

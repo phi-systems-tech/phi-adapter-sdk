@@ -48,7 +48,7 @@ void testBootstrapDecode()
     REQUIRE(connected);
 
     const std::string request = "{\"command\":" + cmd(v1::IpcCommand::SyncAdapterBootstrap)
-        + ",\"cmdId\":\"7\",\"payload\":{"
+        + ",\"cmdId\":7,\"payload\":{"
           "\"adapterId\":42,"
           "\"pluginType\":\"demo\","
           "\"externalId\":\"\","
@@ -97,7 +97,7 @@ void testChannelInvokeDecodeAndResult()
 
     // Scalar double value.
     std::string request = "{\"command\":" + cmd(v1::IpcCommand::CmdChannelInvoke)
-        + ",\"cmdId\":\"11\",\"payload\":{"
+        + ",\"cmdId\":11,\"payload\":{"
           "\"externalId\":\"inst-1\","
           "\"deviceExternalId\":\"dev-9\","
           "\"channelExternalId\":\"ch-2\","
@@ -117,7 +117,7 @@ void testChannelInvokeDecodeAndResult()
     // Bool value.
     seen.reset();
     request = "{\"command\":" + cmd(v1::IpcCommand::CmdChannelInvoke)
-        + ",\"cmdId\":\"12\",\"payload\":{\"externalId\":\"inst-1\","
+        + ",\"cmdId\":12,\"payload\":{\"externalId\":\"inst-1\","
           "\"deviceExternalId\":\"dev-9\",\"channelExternalId\":\"ch-2\",\"value\":true}}";
     REQUIRE(client.sendFrame(v1::MessageType::Request, 12, request));
     REQUIRE(poll([&seen]() { return seen.has_value(); }));
@@ -130,7 +130,7 @@ void testChannelInvokeDecodeAndResult()
     // String value with a supported escape.
     seen.reset();
     request = "{\"command\":" + cmd(v1::IpcCommand::CmdChannelInvoke)
-        + ",\"cmdId\":\"13\",\"payload\":{\"externalId\":\"inst-1\","
+        + ",\"cmdId\":13,\"payload\":{\"externalId\":\"inst-1\","
           "\"deviceExternalId\":\"dev-9\",\"channelExternalId\":\"ch-2\",\"value\":\"a\\\"b\"}}";
     REQUIRE(client.sendFrame(v1::MessageType::Request, 13, request));
     REQUIRE(poll([&seen]() { return seen.has_value(); }));
@@ -143,7 +143,7 @@ void testChannelInvokeDecodeAndResult()
     // Non-scalar object value: raw JSON token preserved, no scalar flag.
     seen.reset();
     request = "{\"command\":" + cmd(v1::IpcCommand::CmdChannelInvoke)
-        + ",\"cmdId\":\"14\",\"payload\":{\"externalId\":\"inst-1\","
+        + ",\"cmdId\":14,\"payload\":{\"externalId\":\"inst-1\","
           "\"deviceExternalId\":\"dev-9\",\"channelExternalId\":\"ch-2\","
           "\"value\":{\"r\":1,\"g\":0,\"b\":0}}}";
     REQUIRE(client.sendFrame(v1::MessageType::Request, 14, request));
@@ -167,7 +167,7 @@ void testChannelInvokeDecodeAndResult()
     CHECK(header.correlationId == 14);
     CHECK_MSG(contains(payload, "\"command\":" + cmd(v1::IpcCommand::ResultCmd)),
               "payload=%s", payload.c_str());
-    CHECK(contains(payload, "\"cmdId\":\"14\""));
+    CHECK(contains(payload, "\"cmdId\":14"));
     CHECK(contains(payload, "\"status\":0"));
     CHECK(contains(payload, "\"finalValue\":1"));
     CHECK(contains(payload, "\"tsMs\":"));
@@ -194,7 +194,7 @@ void testUnknownCommandDefaultResponse()
 
     // Cmd-range command id that is not defined by the v1 contract.
     const std::string request =
-        "{\"command\":752,\"cmdId\":\"21\",\"payload\":{\"externalId\":\"inst-1\"}}";
+        "{\"command\":752,\"cmdId\":21,\"payload\":{\"externalId\":\"inst-1\"}}";
     REQUIRE(client.sendFrame(v1::MessageType::Request, 21, request));
 
     // The dispatcher must answer with a correlated default ResultCmd.
@@ -211,7 +211,7 @@ void testUnknownCommandDefaultResponse()
     CHECK(header.correlationId == 21);
     CHECK_MSG(contains(payload, "\"command\":" + cmd(v1::IpcCommand::ResultCmd)),
               "payload=%s", payload.c_str());
-    CHECK(contains(payload, "\"cmdId\":\"21\""));
+    CHECK(contains(payload, "\"cmdId\":21"));
     CHECK_MSG(!contains(payload, "\"status\":0"), "unknown command must not succeed: %s",
               payload.c_str());
 

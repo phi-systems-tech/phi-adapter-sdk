@@ -1,1 +1,1 @@
-{"command":5634,"externalId":"inst-1","streamId":"stream-5","cmd":"cmd.stream.start","seq":3,"tsMs":1755500000000,"payload":{"line":"hello"}}
+{"command":5634,"payload":{"externalId":"inst-1","streamId":"stream-5","cmd":"cmd.stream.start","seq":3,"tsMs":1755500000000,"data":{"line":"hello"}}}

@@ -1,1 +1,1 @@
-{"command":8193,"cmdId":"12","status":4,"error":"Missing required key '%1'","errorCtx":"adapter.cmd","errorParams":["iscpPort"],"finalValue":null,"tsMs":1755500000000}
+{"command":8193,"cmdId":12,"payload":{"status":4,"error":"Missing required key '%1'","errorCtx":"adapter.cmd","errorParams":["iscpPort"],"finalValue":null,"tsMs":1755500000000}}

@@ -1,1 +1,1 @@
-{"command":5636,"externalId":"inst-1","streamId":"stream-5","cmd":"cmd.stream.start","reason":"completed"}
+{"command":5636,"payload":{"externalId":"inst-1","streamId":"stream-5","cmd":"cmd.stream.start","reason":"completed"}}

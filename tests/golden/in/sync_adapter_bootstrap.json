@@ -1,1 +1,1 @@
-{"command":257,"cmdId":"7","payload":{"adapterId":0,"externalId":"","pluginType":"demo","staticConfig":{"discovery":[{"kind":"mdns","service":"_hue._tcp"}]}}}
+{"command":257,"cmdId":7,"payload":{"adapterId":0,"externalId":"","pluginType":"demo","staticConfig":{"discovery":[{"kind":"mdns","service":"_hue._tcp"}]}}}

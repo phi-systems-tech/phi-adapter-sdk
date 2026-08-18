@@ -45,6 +45,16 @@ Frame size:
   close the connection
 - senders MUST refuse to emit larger frames with an explicit local error
 
+JSON envelope (identical in BOTH directions):
+- every frame payload is one JSON object: `{"command": <uint16>[, "cmdId": <uint64>], "payload": { ... }}`
+- ALL domain fields (including `externalId`) live inside `payload`
+- `cmdId` is a JSON **number** and appears only on correlated frames
+  (core -> adapter `Cmd*` requests, adapter -> core `Result*` responses);
+  the frame header `correlationId` carries the transport-level copy
+- string-typed `cmdId` values are not accepted; a missing `cmdId` falls back to
+  the frame header `correlationId`
+- there is no dual-location field acceptance: receivers read `payload` only
+
 Hard rules:
 - `Sync*` commands do not produce `Result*`
 - `Cmd*` commands always complete via exactly one correlated `ResultCmd` or `ResultAction`
@@ -60,18 +70,20 @@ Hard rules:
 
 | Command | Hex | Type | Scope | Required payload fields | Optional payload fields |
 | --- | --- | --- | --- | --- | --- |
-| `SyncAdapterBootstrap` | `0x0101` | `Request` | factory | `adapterId:int`, `adapter:object` | `cmdId:uint64`, `externalId:string`, `pluginType:string`, `staticConfig:json` |
-| `SyncAdapterConfigChanged` | `0x0102` | `Request` | factory or instance | `adapterId:int`, `adapter:object` | `cmdId:uint64`, `externalId:string`, `pluginType:string`, `staticConfig:json` |
-| `SyncAdapterInstanceRemoved` | `0x0103` | `Request` | instance | `adapterId:int`, `pluginType:string`, `externalId:string` | `cmdId:uint64` |
-| `CmdChannelInvoke` | `0x0201` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `deviceExternalId:string`, `channelExternalId:string`, `value:any-json` | none |
-| `CmdAdapterActionInvoke` | `0x0202` | `Request` | factory or instance | `cmdId:uint64`, `externalId:string`, `actionId:string` | `params:object` |
-| `CmdDeviceNameUpdate` | `0x0203` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `deviceExternalId:string`, `name:string` | none |
-| `CmdDeviceEffectInvoke` | `0x0204` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `deviceExternalId:string` | `effect:int`, `effectId:string`, `params:object` |
-| `CmdSceneInvoke` | `0x0205` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `sceneExternalId:string`, `action:string` | `groupExternalId:string` |
-| `CmdAdaptersStreamStart` | `0x0206` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `streamId:string`, `kind:string` | `params:object` |
-| `CmdAdaptersStreamStop` | `0x0207` | `Request` | instance | `cmdId:uint64`, `externalId:string`, `streamId:string` | none |
+| `SyncAdapterBootstrap` | `0x0101` | `Request` | factory | `adapterId:int`, `adapter:object` | `externalId:string`, `pluginType:string`, `staticConfig:json` |
+| `SyncAdapterConfigChanged` | `0x0102` | `Request` | factory or instance | `adapterId:int`, `adapter:object` | `externalId:string`, `pluginType:string`, `staticConfig:json` |
+| `SyncAdapterInstanceRemoved` | `0x0103` | `Request` | instance | `adapterId:int`, `pluginType:string`, `externalId:string` | none |
+| `CmdChannelInvoke` | `0x0201` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `channelExternalId:string`, `value:any-json` | none |
+| `CmdAdapterActionInvoke` | `0x0202` | `Request` | factory or instance | envelope `cmdId:uint64`; payload: `externalId:string`, `actionId:string` | `params:object` |
+| `CmdDeviceNameUpdate` | `0x0203` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `name:string` | none |
+| `CmdDeviceEffectInvoke` | `0x0204` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string` | `effect:int`, `effectId:string`, `params:object` |
+| `CmdSceneInvoke` | `0x0205` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `sceneExternalId:string`, `action:string` | `groupExternalId:string` |
+| `CmdAdaptersStreamStart` | `0x0206` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `streamId:string`, `kind:string` | `params:object` |
+| `CmdAdaptersStreamStop` | `0x0207` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `streamId:string` | none |
 
 Notes:
+- `cmdId` is an envelope field (see Framing); `Sync*` requests carry it only as
+  the frame `correlationId`.
 - `SyncAdapterBootstrap` and `SyncAdapterConfigChanged` are normalized by the SDK into typed
   `BootstrapRequest` / `ConfigChangedRequest`.
 - `staticConfig` is raw JSON text.
@@ -98,21 +110,23 @@ Notes:
 | `EventSceneUpdated` | `0x1501` | `Event` | instance | `externalId:string`, `scene:object` | none |
 | `EventSceneRemoved` | `0x1502` | `Event` | instance | `externalId:string`, `sceneExternalId:string` | none |
 | `EventStreamOpen` | `0x1601` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `kind:string`, `contentType:string`, `meta:object` | `contentEncoding:string` |
-| `EventStreamData` | `0x1602` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `seq:int64`, `tsMs:int64`, `payload:object` | none |
-| `EventStreamError` | `0x1603` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `error:object` | none |
+| `EventStreamData` | `0x1602` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `seq:int64`, `tsMs:int64`, `data:object` | none |
+| `EventStreamError` | `0x1603` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `error:object` (`message:string`; optional `code:string`, `ctx:string`, `params:array`) | none |
 | `EventStreamEnd` | `0x1604` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `reason:string` | none |
 
 Notes:
 - `ResponseFactoryDescriptor` is host-managed bootstrap descriptor emission returned as a correlated `Response` frame.
 - `EventFactoryDescriptorUpdated` is used when static descriptor data changes at runtime.
 - topology events are instance-scoped only.
+- entity objects use `externalId` as their identifier field consistently
+  (`room`, `group`, and `scene` alike); `scene` uses `scopeExternalId` for its scope.
 
 ### 2.3 Adapter -> Core Results
 
 | Command | Hex | Type | Scope | Required payload fields | Optional payload fields |
 | --- | --- | --- | --- | --- | --- |
-| `ResultCmd` | `0x2001` | `Response` | instance | `cmdId:uint64`, `status:int`, `error:string`, `errorCtx:string`, `errorParams:array`, `finalValue:any-scalar-or-null`, `tsMs:int64` | none |
-| `ResultAction` | `0x2002` | `Response` | factory or instance | `cmdId:uint64`, `status:int`, `error:string`, `errorCtx:string`, `errorParams:array`, `resultType:int`, `resultValue:any-json-or-null`, `tsMs:int64` | `formValues:object`, `fieldChoices:object`, `reloadLayout:bool` |
+| `ResultCmd` | `0x2001` | `Response` | instance | envelope `cmdId:uint64`; payload: `status:int`, `error:string`, `errorCtx:string`, `errorParams:array`, `finalValue:any-scalar-or-null`, `tsMs:int64` | none |
+| `ResultAction` | `0x2002` | `Response` | factory or instance | envelope `cmdId:uint64`; payload: `status:int`, `error:string`, `errorCtx:string`, `errorParams:array`, `resultType:int`, `resultValue:any-json-or-null`, `tsMs:int64` | `formValues:object`, `fieldChoices:object`, `reloadLayout:bool` |
 
 Rules:
 - every accepted `Cmd*` request produces exactly one correlated result

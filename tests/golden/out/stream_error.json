@@ -1,1 +1,1 @@
-{"command":5635,"externalId":"inst-1","streamId":"stream-5","cmd":"cmd.stream.start","error":{"code":"sourceGone","msg":"Source vanished","ctx":"demo.stream"}}
+{"command":5635,"payload":{"externalId":"inst-1","streamId":"stream-5","cmd":"cmd.stream.start","error":{"message":"Source vanished","code":"sourceGone","ctx":"demo.stream"}}}

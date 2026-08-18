@@ -1,1 +1,1 @@
-{"command":4610,"externalId":"inst-1","deviceExternalId":"dev-9","channelExternalId":"ch-3","value":{"r":1,"g":0.5,"b":0.25},"tsMs":1755500000000}
+{"command":4610,"payload":{"externalId":"inst-1","deviceExternalId":"dev-9","channelExternalId":"ch-3","value":{"r":1,"g":0.5,"b":0.25},"tsMs":1755500000000}}

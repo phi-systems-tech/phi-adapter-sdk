@@ -1,1 +1,1 @@
-{"command":8194,"cmdId":"13","status":0,"error":"","errorCtx":"","errorParams":[],"resultType":1,"resultValue":true,"formValues":{"host":"bridge.local"},"fieldChoices":{"port":[{"value":"80","label":"HTTP"}]},"reloadLayout":true,"tsMs":1755500000000}
+{"command":8194,"cmdId":13,"payload":{"status":0,"error":"","errorCtx":"","errorParams":[],"resultType":1,"resultValue":true,"formValues":{"host":"bridge.local"},"fieldChoices":{"port":[{"value":"80","label":"HTTP"}]},"reloadLayout":true,"tsMs":1755500000000}}
