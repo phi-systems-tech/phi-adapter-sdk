@@ -252,14 +252,34 @@ struct AdapterDescriptor {
     phicore::adapter::v1::JsonText configSchemaJson;
 };
 
+// Shared log vocabulary.
+//
+// These values are the phi log numbering: identical on the adapter IPC wire
+// (PROTOCOLL.md, "Level wire encoding"), in phi-core, and in
+// phicore::transport::LogLevel on the transport plane. There is exactly one
+// numbering, so a value never needs translating when it crosses a plane - it was
+// two divergent numberings (0-based here, 1-based there) that made every adapter
+// log level arrive one step off in core (F-36/F-39).
+//
+// The static_asserts below are the guard: renumbering fails to compile rather
+// than silently shifting severities.
 enum class LogLevel : std::uint8_t {
-    Trace = 0,
-    Debug = 1,
-    Info = 2,
-    Warn = 3,
-    Error = 4,
+    Trace = 1,
+    Debug = 2,
+    Info = 3,
+    Warn = 4,
+    Error = 5,
 };
 
+static_assert(static_cast<std::uint8_t>(LogLevel::Trace) == 1, "log vocabulary: Trace is 1");
+static_assert(static_cast<std::uint8_t>(LogLevel::Debug) == 2, "log vocabulary: Debug is 2");
+static_assert(static_cast<std::uint8_t>(LogLevel::Info) == 3, "log vocabulary: Info is 3");
+static_assert(static_cast<std::uint8_t>(LogLevel::Warn) == 4, "log vocabulary: Warn is 4");
+static_assert(static_cast<std::uint8_t>(LogLevel::Error) == 5, "log vocabulary: Error is 5");
+
+// Categories 0..63 are the shared range; 64..127 are reserved for core-local
+// extensions and are not available to adapters. Bit 0x80 is the incident flag and
+// is set by sendError(...) only.
 enum class LogCategory : std::uint8_t {
     Internal = 0,
     Lifecycle = 1,
@@ -272,6 +292,11 @@ enum class LogCategory : std::uint8_t {
     Security = 8,
     Database = 9,
 };
+
+static_assert(static_cast<std::uint8_t>(LogCategory::Internal) == 0, "log vocabulary: Internal is 0");
+static_assert(static_cast<std::uint8_t>(LogCategory::Database) == 9, "log vocabulary: Database is 9");
+static_assert(static_cast<std::uint8_t>(LogCategory::Database) < 64,
+              "log vocabulary: adapter categories live in the shared 0..63 range");
 
 /**
  * @brief Internal: cached log-forwarding filter for one target.

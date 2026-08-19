@@ -252,10 +252,14 @@ Normalized `EventLog` fields:
 Level wire encoding:
 - adapter code uses `LogLevel` enum values
 - on the socket, `level` is encoded as `uint8`
-- the C++ enum is 0-based and the wire is 1-based: the SDK maps between them in
-  `encodeWireLevel()`. Never cast `LogLevel` straight onto the wire - that shifted
-  every level by one until 0.5.1 (`Error` arrived as `Warn`, `Trace` as `Error`).
+- the C++ enum uses these same values since 0.6.0, so enum and wire are one
+  numbering and nothing needs translating at the boundary. `encodeWireLevel()` is
+  kept explicit anyway, so an out-of-range value cannot reach the wire, and
   `sdk_protocol_tests::testLogLevelWireContract` asserts the table below.
+- the numbering is shared with `phicore::transport::LogLevel` on the transport
+  plane; both headers `static_assert` it, so a renumber fails to compile instead of
+  shifting severities. Until 0.6.0 the two differed (0-based here, 1-based there),
+  which made every adapter log level arrive one step off in phi-core.
 - wire values:
   - `1 = Trace`
   - `2 = Debug`
@@ -266,6 +270,8 @@ Level wire encoding:
 
 Category wire encoding:
 - adapter code uses `LogCategory` enum values
+- `0..63` is the shared category range; `64..127` is reserved for core-local
+  extensions and is not available to adapters
 - on the socket, `category` is encoded as `uint8`
 - lower 7 bits hold the base public category value
 - bit `0x80` marks an incident emitted through `sendError(...)`
