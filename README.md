@@ -405,6 +405,29 @@ Outbound send path (v1 runtime behavior):
   closed, remaining queued frames are dropped with a summary diagnostic, and
   `onDisconnected` fires on the next poll.
 
+## Main Loop
+
+Adapters do not hand-roll the poll loop:
+
+- Qt-free adapters call `runSidecarMain(host, options)` (`phi/adapter/sdk/sidecar.h`),
+  which starts the host, polls, and stops it. Because queued outbound work
+  interrupts the poll through the internal wake descriptor, the poll timeout
+  only bounds idle wakeups - it does not add latency.
+- Qt adapters use `phi::qt::SidecarDriver` from `phi-adapter-sdk-qt`, which
+  watches `SidecarHost::pollDescriptor()` with a `QSocketNotifier`. There is no
+  polling interval at all: idle costs nothing, and the Qt event loop is never
+  blocked by a poll, so adapter timers and network operations run on time.
+
+Both replace the two older hand-written patterns (a blocking `pollOnce(250ms)`
+loop that starved the Qt event loop, and a 16 ms `QTimer` that woke up 60 times
+per second).
+
+## Socket Failure Semantics
+
+Writes use `send(..., MSG_NOSIGNAL)`: a peer that closed the socket surfaces as
+a write error, never as a `SIGPIPE` that would terminate the sidecar. The SDK
+does not change the process-wide signal disposition on its own.
+
 ## Tests
 
 `tests/` carries a ctest suite (run automatically by `dh_auto_test` during

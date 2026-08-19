@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <span>
 
+#include "phi/adapter/v1/ipc_command.h"
 #include "phi/adapter/v1/types.h"
 #include "phi/adapter/v1/version.h"
 
@@ -44,6 +45,30 @@ inline constexpr std::size_t kFrameHeaderSize = sizeof(FrameHeader);
 [[nodiscard]] inline MessageType messageType(const FrameHeader &header) noexcept
 {
     return static_cast<MessageType>(header.type);
+}
+
+/**
+ * @brief Frame class a command must be transported in.
+ *
+ * `ResponseFactoryDescriptor` is the one command that lives in the
+ * adapter->core range but is a correlated response, so it is called out
+ * explicitly instead of following the range classification.
+ */
+[[nodiscard]] constexpr MessageType expectedMessageType(IpcCommand command) noexcept
+{
+    if (command == IpcCommand::ResponseFactoryDescriptor)
+        return MessageType::Response;
+    if (isSyncCommand(command) || isCmdCommand(command))
+        return MessageType::Request;
+    if (isResultCommand(command))
+        return MessageType::Response;
+    return MessageType::Event;
+}
+
+/// Whether a frame header's type matches the frame class required by `command`.
+[[nodiscard]] constexpr bool matchesMessageType(MessageType type, IpcCommand command) noexcept
+{
+    return type == expectedMessageType(command);
 }
 
 } // namespace phicore::adapter::v1

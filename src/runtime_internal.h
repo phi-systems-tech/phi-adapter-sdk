@@ -45,6 +45,9 @@ public:
     /// Whether a client connection is currently established.
     bool connected() const noexcept;
 
+    /// epoll descriptor for external event-loop integration (-1 when stopped).
+    int pollDescriptor() const noexcept;
+
 private:
     class Impl;
     std::unique_ptr<Impl> m_impl;

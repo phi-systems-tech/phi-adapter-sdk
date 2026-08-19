@@ -180,8 +180,12 @@ void UdsEpollServer::drainWakeFd()
     }
 }
 
-bool UdsEpollServer::acceptClient(std::string *error)
+bool UdsEpollServer::acceptClient(const std::function<void()> &onDisconnected,
+                                  bool *newClientOut,
+                                  std::string *error)
 {
+    if (newClientOut)
+        *newClientOut = false;
     const int fd = ::accept4(m_serverFd, nullptr, nullptr, SOCK_NONBLOCK);
     if (fd < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -198,8 +202,11 @@ bool UdsEpollServer::acceptClient(std::string *error)
         return false;
     }
 
+    // A replaced connection is a finished session: run the full disconnect
+    // path first so the adapter observes disconnect -> connect instead of
+    // silently carrying per-connection state into the new session.
     if (m_clientFd >= 0)
-        ::close(m_clientFd);
+        closeClient(onDisconnected);
     m_clientFd = fd;
 
     epoll_event ev{};
@@ -214,6 +221,8 @@ bool UdsEpollServer::acceptClient(std::string *error)
     }
 
     m_rxBuffer.clear();
+    if (newClientOut)
+        *newClientOut = true;
     return true;
 }
 
@@ -276,7 +285,11 @@ bool UdsEpollServer::writeAll(const std::byte *data,
     constexpr int kWriteWaitMs = 5;
     std::size_t written = 0;
     while (written < size) {
-        const ssize_t n = ::write(m_clientFd, data + written, size - written);
+        // send(MSG_NOSIGNAL) instead of write(): a peer that closed the socket
+        // must surface as EPIPE, not as a process-killing SIGPIPE. Using the
+        // per-call flag keeps this local instead of changing the process-wide
+        // signal disposition of the host application.
+        const ssize_t n = ::send(m_clientFd, data + written, size - written, MSG_NOSIGNAL);
         if (n > 0) {
             written += static_cast<std::size_t>(n);
             continue;
@@ -418,10 +431,10 @@ bool UdsEpollServer::pollOnce(std::chrono::milliseconds timeout,
         }
 
         if (fd == m_serverFd) {
-            const bool hadClient = m_clientFd >= 0;
-            if (!acceptClient(error))
+            bool newClient = false;
+            if (!acceptClient(onDisconnected, &newClient, error))
                 return false;
-            if (!hadClient && m_clientFd >= 0 && onConnected)
+            if (newClient && onConnected)
                 onConnected();
             continue;
         }

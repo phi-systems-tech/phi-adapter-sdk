@@ -19,13 +19,18 @@ Transport:
 - canonical command enum: `phicore::adapter::v1::IpcCommand`
 - canonical frame type enum: `phicore::adapter::v1::MessageType`
 
-Message classes:
-- `Request`
+Message classes (`MessageType`, the complete set):
+- `Request` (3)
   - core -> adapter for `Sync*` and `Cmd*`
-- `Response`
-  - adapter -> core for `ResultCmd` / `ResultAction`
-- `Event`
+- `Response` (4)
+  - adapter -> core for `ResultCmd` / `ResultAction` and `ResponseFactoryDescriptor`
+- `Event` (5)
   - adapter -> core for unsolicited runtime/topology/log/stream events
+
+The values 1, 2, 6 and 7 are reserved (they previously named Hello, Heartbeat,
+Error and Goodbye, none of which were implemented). There is no protocol-level
+liveness exchange in v1: liveness comes from socket state plus core-side
+process supervision. Adding a frame class later is an additive change.
 
 Correlation:
 - `cmdId`
@@ -60,6 +65,8 @@ Hard rules:
 - `Cmd*` commands always complete via exactly one correlated `ResultCmd` or `ResultAction`
 - target routing is resolved only by `externalId`
 - top-level `adapterId` and `scope` are not routing keys in sidecar IPC
+- the frame class MUST match the command (`expectedMessageType(command)` in
+  `phi/adapter/v1/frame.h`); receivers reject a mismatch as a protocol error
 - `EventConnectionStateChanged` and `EventAdapterMetaUpdated` are instance-scoped:
   core rejects them with empty `externalId`. Factory-scope runtime updates use
   `EventFactoryDescriptorUpdated`; factory-scope logging/incidents use `EventLog`.

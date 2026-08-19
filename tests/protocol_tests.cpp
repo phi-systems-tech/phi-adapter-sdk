@@ -254,6 +254,119 @@ void testEventEnvelopeShape()
     dispatcher.stop();
 }
 
+void testUnicodeEscapeDecoding()
+{
+    const std::string path = phitest::uniqueSocketPath("unicode");
+    sdk::SidecarDispatcher dispatcher(path);
+    TestClient client;
+    bool connected = false;
+    std::optional<sdk::DeviceNameUpdateRequest> seen;
+    sdk::SidecarHandlers handlers;
+    handlers.onConnected = [&connected]() { connected = true; };
+    handlers.onDeviceNameUpdate = [&seen](const sdk::DeviceNameUpdateRequest &r) { seen = r; };
+    dispatcher.setHandlers(std::move(handlers));
+    v1::Utf8String err;
+    REQUIRE(dispatcher.start(&err));
+    REQUIRE(client.connectTo(path));
+    auto poll = [&dispatcher](const std::function<bool()> &pred) {
+        const auto deadline = Clock::now() + std::chrono::seconds(3);
+        while (!pred() && Clock::now() < deadline)
+            dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+        return pred();
+    };
+    REQUIRE(poll([&connected]() { return connected; }));
+
+    // BMP escape: U+00FC.
+    std::string request = "{\"command\":" + cmd(v1::IpcCommand::CmdDeviceNameUpdate)
+        + ",\"cmdId\":31,\"payload\":{\"externalId\":\"inst-1\",\"deviceExternalId\":\"dev-9\","
+          "\"name\":\"B\\u00fcro\"}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 31, request));
+    REQUIRE(poll([&seen]() { return seen.has_value(); }));
+    const std::string expectedBmp = std::string("B") + "\xc3\xbc" + "ro";
+    CHECK_MSG(seen->name == expectedBmp, "name=%s", seen->name.c_str());
+
+    // Surrogate pair: U+1F600.
+    seen.reset();
+    request = "{\"command\":" + cmd(v1::IpcCommand::CmdDeviceNameUpdate)
+        + ",\"cmdId\":32,\"payload\":{\"externalId\":\"inst-1\",\"deviceExternalId\":\"dev-9\","
+          "\"name\":\"\\ud83d\\ude00\"}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 32, request));
+    REQUIRE(poll([&seen]() { return seen.has_value(); }));
+    const std::string expectedEmoji = "\xf0\x9f\x98\x80";
+    CHECK_MSG(seen->name == expectedEmoji, "name bytes=%zu", seen->name.size());
+
+    dispatcher.stop();
+}
+
+void testFrameTypeCommandMismatchRejected()
+{
+    const std::string path = phitest::uniqueSocketPath("typemix");
+    sdk::SidecarDispatcher dispatcher(path);
+    TestClient client;
+    bool connected = false;
+    bool protocolError = false;
+    bool dispatched = false;
+    sdk::SidecarHandlers handlers;
+    handlers.onConnected = [&connected]() { connected = true; };
+    handlers.onProtocolError = [&protocolError](const v1::Utf8String &) { protocolError = true; };
+    handlers.onChannelInvoke = [&dispatched](const sdk::ChannelInvokeRequest &) { dispatched = true; };
+    dispatcher.setHandlers(std::move(handlers));
+    v1::Utf8String err;
+    REQUIRE(dispatcher.start(&err));
+    REQUIRE(client.connectTo(path));
+    const auto deadline = Clock::now() + std::chrono::seconds(5);
+    while (!connected && Clock::now() < deadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(connected);
+
+    // An adapter->core event command must not arrive inside a Request frame.
+    const std::string request = "{\"command\":" + cmd(v1::IpcCommand::EventChannelStateUpdated)
+        + ",\"cmdId\":41,\"payload\":{\"externalId\":\"inst-1\"}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 41, request));
+
+    const auto errDeadline = Clock::now() + std::chrono::seconds(2);
+    while (!protocolError && Clock::now() < errDeadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    CHECK_MSG(protocolError, "frame type/command mismatch was not reported");
+    CHECK(!dispatched);
+
+    dispatcher.stop();
+}
+
+void testClientReplacementFiresHooks()
+{
+    const std::string path = phitest::uniqueSocketPath("replace");
+    sdk::SidecarDispatcher dispatcher(path);
+    int connects = 0;
+    int disconnects = 0;
+    sdk::SidecarHandlers handlers;
+    handlers.onConnected = [&connects]() { ++connects; };
+    handlers.onDisconnected = [&disconnects]() { ++disconnects; };
+    dispatcher.setHandlers(std::move(handlers));
+    v1::Utf8String err;
+    REQUIRE(dispatcher.start(&err));
+
+    TestClient first;
+    REQUIRE(first.connectTo(path));
+    const auto deadline = Clock::now() + std::chrono::seconds(5);
+    while (connects == 0 && Clock::now() < deadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(connects == 1);
+    CHECK(disconnects == 0);
+
+    // Reconnect before the old socket's death was observed: the adapter must
+    // still see a full disconnect -> connect cycle for the new session.
+    TestClient second;
+    REQUIRE(second.connectTo(path));
+    const auto cycleDeadline = Clock::now() + std::chrono::seconds(3);
+    while (connects < 2 && Clock::now() < cycleDeadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    CHECK_MSG(connects == 2, "connects=%d", connects);
+    CHECK_MSG(disconnects == 1, "disconnects=%d", disconnects);
+
+    dispatcher.stop();
+}
+
 void testOversizeFrameLimits()
 {
     const std::string path = phitest::uniqueSocketPath("oversize");
@@ -344,6 +457,9 @@ int main()
     testEventEnvelopeShape();
     testOversizeFrameLimits();
     testInvalidFrameHeaderDisconnects();
+    testUnicodeEscapeDecoding();
+    testFrameTypeCommandMismatchRejected();
+    testClientReplacementFiresHooks();
 
     if (phitest::g_failures == 0) {
         std::printf("protocol_tests: all passed\n");

@@ -60,6 +60,11 @@ bool SidecarRuntime::connected() const noexcept
     return m_impl->transport.hasClient();
 }
 
+int SidecarRuntime::pollDescriptor() const noexcept
+{
+    return m_impl->transport.pollDescriptor();
+}
+
 bool SidecarRuntime::send(phicore::adapter::v1::MessageType type,
                           phicore::adapter::v1::CorrelationId correlationId,
                           std::span<const std::byte> payload,

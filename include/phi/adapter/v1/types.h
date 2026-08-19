@@ -249,14 +249,15 @@ enum class DiscoveryKind : std::uint8_t {
     Manual = 3,
 };
 
+// Frame classes implemented by the v1 sidecar IPC. The values 1, 2, 6 and 7
+// are reserved: they previously declared Hello/Heartbeat/Error/Goodbye, none of
+// which were ever implemented on either side. Re-introducing a frame class
+// later is an additive change; liveness currently relies on socket state plus
+// core-side process supervision.
 enum class MessageType : std::uint8_t {
-    Hello = 1,
-    Heartbeat = 2,
     Request = 3,
     Response = 4,
     Event = 5,
-    Error = 6,
-    Goodbye = 7,
 };
 
 enum class ChannelFlag : std::uint32_t {

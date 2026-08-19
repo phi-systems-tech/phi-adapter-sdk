@@ -47,8 +47,15 @@ public:
     /// Whether a client connection is currently established.
     bool hasClient() const noexcept { return m_clientFd >= 0; }
 
+    /// epoll descriptor of the started transport (-1 when stopped). Readable
+    /// whenever inbound frames or queued outbound work need processing, so it
+    /// can drive an external event loop.
+    int pollDescriptor() const noexcept { return m_epollFd; }
+
 private:
-    bool acceptClient(std::string *error);
+    bool acceptClient(const std::function<void()> &onDisconnected,
+                      bool *newClientOut,
+                      std::string *error);
     bool readClient(const FrameHandler &onFrame,
                     const std::function<void()> &onDisconnected,
                     std::string *error);

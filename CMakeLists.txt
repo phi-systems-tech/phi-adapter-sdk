@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )
@@ -29,6 +29,7 @@ target_include_directories(phi_adapter_contract
 add_library(phi_adapter_sdk SHARED
     src/runtime.cpp
     src/sidecar.cpp
+    src/sidecar_main.cpp
     src/linux/uds_epoll_transport.cpp
 )
 add_library(phi::adapter-sdk ALIAS phi_adapter_sdk)

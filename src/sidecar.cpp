@@ -522,6 +522,50 @@ bool skipValueToken(std::string_view text, std::size_t &i, std::string *error)
     return false;
 }
 
+bool parseHex4(std::string_view text, std::size_t pos, std::uint32_t *out)
+{
+    if (pos + 4 > text.size())
+        return false;
+    std::uint32_t value = 0;
+    for (std::size_t i = 0; i < 4; ++i) {
+        const char c = text[pos + i];
+        value <<= 4;
+        if (c >= '0' && c <= '9')
+            value |= static_cast<std::uint32_t>(c - '0');
+        else if (c >= 'a' && c <= 'f')
+            value |= static_cast<std::uint32_t>(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F')
+            value |= static_cast<std::uint32_t>(c - 'A' + 10);
+        else
+            return false;
+    }
+    *out = value;
+    return true;
+}
+
+void appendUtf8(std::string *out, std::uint32_t codePoint)
+{
+    if (codePoint < 0x80) {
+        out->push_back(static_cast<char>(codePoint));
+        return;
+    }
+    if (codePoint < 0x800) {
+        out->push_back(static_cast<char>(0xC0 | (codePoint >> 6)));
+        out->push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        return;
+    }
+    if (codePoint < 0x10000) {
+        out->push_back(static_cast<char>(0xE0 | (codePoint >> 12)));
+        out->push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+        out->push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        return;
+    }
+    out->push_back(static_cast<char>(0xF0 | (codePoint >> 18)));
+    out->push_back(static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F)));
+    out->push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+    out->push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+}
+
 bool decodeJsonString(std::string_view token, std::string *out, std::string *error)
 {
     token = trim(token);
@@ -555,16 +599,36 @@ bool decodeJsonString(std::string_view token, std::string *out, std::string *err
         case 'r': out->push_back('\r'); break;
         case 't': out->push_back('\t'); break;
         case 'u': {
-            // Keep unicode escapes as-is for now.
-            if (i + 4 >= token.size()) {
+            // Decode to UTF-8; the contract requires UTF-8 values, so escapes
+            // must not survive into the decoded string.
+            std::uint32_t codePoint = 0;
+            if (!parseHex4(token, i + 1, &codePoint)) {
                 if (error)
                     *error = "Invalid unicode escape";
                 return false;
             }
-            out->push_back('\\');
-            out->push_back('u');
-            out->append(token.substr(i + 1, 4));
             i += 4;
+            if (codePoint >= 0xD800 && codePoint <= 0xDBFF) {
+                // High surrogate: a low surrogate escape must follow.
+                if (i + 6 >= token.size() || token[i + 1] != '\\' || token[i + 2] != 'u') {
+                    if (error)
+                        *error = "Unpaired high surrogate in JSON string";
+                    return false;
+                }
+                std::uint32_t low = 0;
+                if (!parseHex4(token, i + 3, &low) || low < 0xDC00 || low > 0xDFFF) {
+                    if (error)
+                        *error = "Invalid low surrogate in JSON string";
+                    return false;
+                }
+                i += 6;
+                codePoint = 0x10000 + ((codePoint - 0xD800) << 10) + (low - 0xDC00);
+            } else if (codePoint >= 0xDC00 && codePoint <= 0xDFFF) {
+                if (error)
+                    *error = "Unpaired low surrogate in JSON string";
+                return false;
+            }
+            appendUtf8(out, codePoint);
             break;
         }
         default:
@@ -1603,6 +1667,11 @@ void SidecarDispatcher::stop()
     m_runtime->stop();
 }
 
+int SidecarDispatcher::pollDescriptor() const noexcept
+{
+    return m_runtime->pollDescriptor();
+}
+
 void SidecarDispatcher::wakeup() noexcept
 {
     // Intentionally lock-free: the wake descriptor lives for the runtime
@@ -1645,6 +1714,13 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (!parseIpcCommandToken(commandToken, &command)) {
         if (m_handlers.onProtocolError)
             m_handlers.onProtocolError("Request missing/invalid command");
+        return false;
+    }
+    if (!phicore::adapter::v1::matchesMessageType(phicore::adapter::v1::messageType(header), command)) {
+        if (m_handlers.onProtocolError) {
+            m_handlers.onProtocolError("Frame type does not match command class: command="
+                                       + std::to_string(phicore::adapter::v1::toUint16(command)));
+        }
         return false;
     }
 
@@ -2630,6 +2706,32 @@ bool SidecarDispatcher::sendStreamEnd(const phicore::adapter::v1::ExternalId &ex
 #undef m_handlers
 #undef m_runtime
 
+struct AdapterFactory::Impl {
+    SidecarDispatcher *dispatcher = nullptr;
+    BootstrapRequest bootstrap;
+    bool hasBootstrap = false;
+    ConfigChangedRequest factoryConfig;
+    bool hasFactoryConfig = false;
+    LogFilterCache logFilter;
+    std::function<void(const phicore::adapter::v1::ActionResponse &)> actionResultSubmitter;
+};
+
+AdapterFactory::AdapterFactory()
+    : m_impl(std::make_unique<Impl>())
+{
+}
+
+AdapterFactory::~AdapterFactory() = default;
+
+#define m_dispatcher m_impl->dispatcher
+#define m_bootstrap m_impl->bootstrap
+#define m_hasBootstrap m_impl->hasBootstrap
+#define m_factoryConfig m_impl->factoryConfig
+#define m_hasFactoryConfig m_impl->hasFactoryConfig
+#define m_logFilter m_impl->logFilter
+#define m_actionResultSubmitter m_impl->actionResultSubmitter
+
+
 const BootstrapRequest &AdapterFactory::bootstrap() const
 {
     return m_bootstrap;
@@ -2673,7 +2775,9 @@ phicore::adapter::v1::Utf8String AdapterFactory::description() const { return {}
 phicore::adapter::v1::Utf8String AdapterFactory::apiVersion() const { return {}; }
 phicore::adapter::v1::Utf8String AdapterFactory::iconSvg() const { return {}; }
 phicore::adapter::v1::Utf8String AdapterFactory::imageBase64() const { return {}; }
-int AdapterFactory::timeoutMs() const { return 50; }
+// Realistic default: a 50 ms budget expired before most adapters could reach
+// their device, so every unmodified adapter produced immediate timeouts.
+int AdapterFactory::timeoutMs() const { return 10000; }
 int AdapterFactory::maxInstances() const { return 0; }
 phicore::adapter::v1::AdapterCapabilities AdapterFactory::capabilities() const { return {}; }
 phicore::adapter::v1::JsonText AdapterFactory::configSchemaJson() const { return {}; }
@@ -2819,6 +2923,44 @@ void AdapterFactory::hostOnFactoryConfigChanged(const ConfigChangedRequest &requ
     cacheFactoryConfig(request);
     onFactoryConfigChanged(request);
 }
+
+#undef m_actionResultSubmitter
+#undef m_logFilter
+#undef m_hasFactoryConfig
+#undef m_factoryConfig
+#undef m_hasBootstrap
+#undef m_bootstrap
+#undef m_dispatcher
+
+struct AdapterInstance::Impl {
+    SidecarDispatcher *dispatcher = nullptr;
+    int adapterId = 0;
+    phicore::adapter::v1::Utf8String pluginType;
+    phicore::adapter::v1::ExternalId externalId;
+    ConfigChangedRequest config;
+    bool hasConfig = false;
+    LogFilterCache logFilter;
+    std::function<void(const phicore::adapter::v1::CmdResponse &)> cmdResultSubmitter;
+    std::function<void(const phicore::adapter::v1::ActionResponse &)> actionResultSubmitter;
+};
+
+AdapterInstance::AdapterInstance()
+    : m_impl(std::make_unique<Impl>())
+{
+}
+
+AdapterInstance::~AdapterInstance() = default;
+
+#define m_dispatcher m_impl->dispatcher
+#define m_adapterId m_impl->adapterId
+#define m_pluginType m_impl->pluginType
+#define m_externalId m_impl->externalId
+#define m_config m_impl->config
+#define m_hasConfig m_impl->hasConfig
+#define m_logFilter m_impl->logFilter
+#define m_cmdResultSubmitter m_impl->cmdResultSubmitter
+#define m_actionResultSubmitter m_impl->actionResultSubmitter
+
 
 int AdapterInstance::adapterId() const { return m_adapterId; }
 const phicore::adapter::v1::Utf8String &AdapterInstance::pluginType() const { return m_pluginType; }
@@ -3130,6 +3272,17 @@ void AdapterInstance::hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &
 void AdapterInstance::hostOnUnknownRequest(const UnknownRequest &request) { onUnknownRequest(request); }
 
 
+#undef m_actionResultSubmitter
+#undef m_cmdResultSubmitter
+#undef m_logFilter
+#undef m_hasConfig
+#undef m_config
+#undef m_externalId
+#undef m_pluginType
+#undef m_adapterId
+#undef m_dispatcher
+
+
 struct SidecarHost::InstanceRuntime {
     phicore::adapter::v1::ExternalId externalId;
     std::unique_ptr<AdapterInstance> instance;
@@ -3217,6 +3370,11 @@ bool SidecarHost::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::
     drainDeferredResults();
     m_dispatcher.flushSendQueue(nullptr);
     return ok;
+}
+
+int SidecarHost::pollDescriptor() const noexcept
+{
+    return m_dispatcher.pollDescriptor();
 }
 
 AdapterFactory *SidecarHost::factory() { return m_factory; }

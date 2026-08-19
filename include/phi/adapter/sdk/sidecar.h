@@ -406,6 +406,15 @@ public:
     bool pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
+     * @brief Descriptor for integrating the sidecar into a foreign event loop.
+     *
+     * Readable whenever `pollOnce(...)` has work to do - inbound frames as
+     * well as outbound work queued from other threads (the wake descriptor is
+     * part of the same poll set). Returns `-1` while stopped.
+     */
+    int pollDescriptor() const noexcept;
+
+    /**
      * @brief Send command response (`command=ResultCmd`).
      */
     bool sendCmdResult(const phicore::adapter::v1::CmdResponse &response, phicore::adapter::v1::Utf8String *error = nullptr);
@@ -662,7 +671,11 @@ class AdapterInstance;
 class AdapterFactory
 {
 public:
-    virtual ~AdapterFactory() = default;
+    AdapterFactory();
+    virtual ~AdapterFactory();
+
+    AdapterFactory(const AdapterFactory &) = delete;
+    AdapterFactory &operator=(const AdapterFactory &) = delete;
 
     /// Last bootstrap payload (factory plane).
     const BootstrapRequest &bootstrap() const;
@@ -744,13 +757,10 @@ private:
     void hostOnBootstrap(const BootstrapRequest &request);
     void hostOnFactoryConfigChanged(const ConfigChangedRequest &request);
 
-    SidecarDispatcher *m_dispatcher = nullptr;
-    BootstrapRequest m_bootstrap;
-    bool m_hasBootstrap = false;
-    ConfigChangedRequest m_factoryConfig;
-    bool m_hasFactoryConfig = false;
-    LogFilterCache m_logFilter;
-    std::function<void(const phicore::adapter::v1::ActionResponse &)> m_actionResultSubmitter;
+    // State is hidden so the SDK can evolve without breaking the ABI of
+    // adapter subclasses (see also the LogFilterCache addition in 0.2.0).
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 /**
@@ -762,7 +772,11 @@ private:
 class AdapterInstance
 {
 public:
-    virtual ~AdapterInstance() = default;
+    AdapterInstance();
+    virtual ~AdapterInstance();
+
+    AdapterInstance(const AdapterInstance &) = delete;
+    AdapterInstance &operator=(const AdapterInstance &) = delete;
 
     int adapterId() const;
     const phicore::adapter::v1::Utf8String &pluginType() const;
@@ -894,15 +908,10 @@ private:
     void hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request);
     void hostOnUnknownRequest(const UnknownRequest &request);
 
-    SidecarDispatcher *m_dispatcher = nullptr;
-    int m_adapterId = 0;
-    phicore::adapter::v1::Utf8String m_pluginType;
-    phicore::adapter::v1::ExternalId m_externalId;
-    ConfigChangedRequest m_config;
-    bool m_hasConfig = false;
-    LogFilterCache m_logFilter;
-    std::function<void(const phicore::adapter::v1::CmdResponse &)> m_cmdResultSubmitter;
-    std::function<void(const phicore::adapter::v1::ActionResponse &)> m_actionResultSubmitter;
+    // State is hidden so the SDK can evolve without breaking the ABI of
+    // adapter subclasses.
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 /**
@@ -929,6 +938,15 @@ public:
      * @brief Poll IPC once.
      */
     bool pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error = nullptr);
+
+    /**
+     * @brief Descriptor for integrating the sidecar into a foreign event loop.
+     *
+     * See `SidecarDispatcher::pollDescriptor()`. Qt-based adapters can watch it
+     * with a `QSocketNotifier` (see `phi-adapter-sdk-qt`) instead of polling on
+     * a timer.
+     */
+    int pollDescriptor() const noexcept;
 
     AdapterFactory *factory();
     const AdapterFactory *factory() const;
@@ -974,6 +992,40 @@ private:
 
     std::unique_ptr<Impl> m_impl;
 };
+
+/**
+ * @brief Options for `runSidecarMain(...)`.
+ */
+struct SidecarMainOptions {
+    /**
+     * @brief Poll timeout per iteration.
+     *
+     * Outbound work (results, events, logs) interrupts a blocking poll through
+     * the internal wake descriptor, so a long timeout does not add latency; it
+     * only bounds how often an otherwise idle sidecar wakes up.
+     */
+    std::chrono::milliseconds pollTimeout{1000};
+    /// Loop predicate. The loop exits as soon as it returns `false`.
+    std::function<bool()> keepRunning;
+    /// Optional per-iteration hook (for example a foreign event-loop pump).
+    std::function<void()> onIteration;
+    /**
+     * @brief Install `SIGINT`/`SIGTERM` handlers that stop the loop.
+     *
+     * Enabled by default because this helper is meant to *be* the process main
+     * loop. Set to `false` when the host application owns signal handling and
+     * drives the loop through `keepRunning`.
+     */
+    bool installSignalHandlers = true;
+};
+
+/**
+ * @brief Run the canonical sidecar main loop: start, poll, stop.
+ *
+ * Replaces the hand-written loop each adapter used to carry.
+ * @return `0` after a clean shutdown, `1` when the host failed to start.
+ */
+int runSidecarMain(SidecarHost &host, const SidecarMainOptions &options = {});
 
 } // namespace phicore::adapter::sdk
 
