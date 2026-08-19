@@ -1,3 +1,18 @@
+phi-adapter-sdk (0.4.0-1) trixie; urgency=medium
+
+  * Add AdapterFactory::createFactoryExecutionBackend(): factory-scope hooks can
+    now run on their own thread instead of the host poll thread, so a blocking
+    device probe no longer stalls IPC for the whole sidecar (F-31). Returns
+    nullptr by default, so adapters that do not override it keep the previous
+    inline behavior.
+  * Add AdapterFactory::onFactoryStopping(), called on the factory execution
+    backend before it stops, for destroying thread-affine objects that were
+    created lazily inside a factory hook.
+  * ABI break: the new virtuals change the AdapterFactory vtable. All adapters
+    must be rebuilt against this version.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 16:43:25 +0200
+
 phi-adapter-sdk (0.3.1-1) trixie; urgency=medium
 
   * Remove per-field allocations from the JSON decode path and consume the
