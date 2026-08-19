@@ -15,6 +15,29 @@ Linux-first SDK for phi adapter sidecars.
   - C++ sidecar model (`AdapterFactory`, `AdapterInstance`, `SidecarHost`)
   - Shared runtime library (`libphi_adapter_sdk.so`)
 
+## Adapter or Transport? (plane boundary)
+
+An adapter is **southbound**: phi is the client of a device or device network,
+consuming state and issuing device commands. If phi is instead the **endpoint** a
+client or controller talks to - exposing phi's own devices, rooms and scenes and
+accepting commands about them - that is a *transport*, and it belongs in
+`phi-transport-api`.
+
+The protocol name does not decide it, the direction does. The same protocol can
+appear on both planes:
+
+| Case | Plane |
+| --- | --- |
+| Subscribe to `zigbee2mqtt/...` to learn about devices | adapter (`phi-adapter-z2m`) |
+| Publish phi's devices on `phi/...` and accept commands there | transport |
+| Talk to `otbr-agent` to reach Thread devices | adapter |
+| Appear as a Matter bridge that a controller commissions | transport |
+
+Practical difference beyond the direction: adapters run **out of process** over a
+versioned wire protocol, so they may be written in any language and keep working
+across phi-core releases. Transports are in-process Qt plugins built against one
+release. If you have a choice, the adapter plane is the more stable place to be.
+
 ## Scope
 
 - Runtime transport is Linux-only (`epoll`, Unix Domain Sockets)
