@@ -12,6 +12,10 @@ phi-adapter-sdk (0.3.0-1) trixie; urgency=medium
   * Reduce MessageType to the implemented frame classes and validate the frame
     class against the command on inbound frames (F-18).
   * Default command timeout 50 ms -> 10 s (F-23).
+  * Move the canonical color conversions (HSV/linear/XYZ/xy) into the Qt-free
+    phi/adapter/v1/color.h so adapters can translate colors without Qt; the Qt
+    wrapper now aliases them and phicore::adapter::Color is one type instead of
+    two layout-compatible ones.
 
  -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 10:20:56 +0200
 

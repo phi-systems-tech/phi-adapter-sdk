@@ -422,6 +422,21 @@ Both replace the two older hand-written patterns (a blocking `pollOnce(250ms)`
 loop that starved the Qt event loop, and a 16 ms `QTimer` that woke up 60 times
 per second).
 
+## Color Conversions
+
+`phi/adapter/v1/color.h` carries the canonical, **Qt-free** color contract: the
+`Color` type (gamma-encoded sRGB, components in `[0, 1]`) plus conversions to and
+from HSV, linear RGB, XYZ and xy chromaticity, and the Kelvin/mired helpers.
+
+Translating the canonical value into a device's native color space is an adapter
+responsibility, so these conversions must not require Qt. Adapters using the Qt
+wrapper get the same functions through `phi/adapter/qt/color.h`
+(`phi-adapter-sdk-qt`), which only adds the Qt meta-type registration - there is
+exactly one `Color` type, not two layout-compatible ones.
+
+Device-specific behavior (for example clamping into a particular bridge gamut)
+stays in the adapter.
+
 ## Socket Failure Semantics
 
 Writes use `send(..., MSG_NOSIGNAL)`: a peer that closed the socket surfaces as
