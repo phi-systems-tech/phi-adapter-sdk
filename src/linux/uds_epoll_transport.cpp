@@ -139,6 +139,7 @@ bool UdsEpollServer::start(std::string *error)
 
     m_notifyDisconnect = false;
     m_rxBuffer.clear();
+    m_rxOffset = 0;
     return true;
 }
 
@@ -160,6 +161,7 @@ void UdsEpollServer::stop()
         ::unlink(m_socketPath.c_str());
     m_notifyDisconnect = false;
     m_rxBuffer.clear();
+    m_rxOffset = 0;
 }
 
 void UdsEpollServer::wakeup() noexcept
@@ -221,6 +223,7 @@ bool UdsEpollServer::acceptClient(const std::function<void()> &onDisconnected,
     }
 
     m_rxBuffer.clear();
+    m_rxOffset = 0;
     if (newClientOut)
         *newClientOut = true;
     return true;
@@ -251,9 +254,14 @@ bool UdsEpollServer::readClient(const FrameHandler &onFrame,
         return false;
     }
 
-    while (m_rxBuffer.size() >= phicore::adapter::v1::kFrameHeaderSize) {
+    for (;;) {
+        const std::size_t available = m_rxBuffer.size() - m_rxOffset;
+        if (available < phicore::adapter::v1::kFrameHeaderSize)
+            break;
+
+        const std::byte *frameStart = m_rxBuffer.data() + m_rxOffset;
         phicore::adapter::v1::FrameHeader header{};
-        std::memcpy(&header, m_rxBuffer.data(), phicore::adapter::v1::kFrameHeaderSize);
+        std::memcpy(&header, frameStart, phicore::adapter::v1::kFrameHeaderSize);
 
         if (!phicore::adapter::v1::isValidFrameHeader(header)) {
             if (error)
@@ -263,15 +271,29 @@ bool UdsEpollServer::readClient(const FrameHandler &onFrame,
         }
 
         const std::size_t frameSize = phicore::adapter::v1::kFrameHeaderSize + header.payloadSize;
-        if (m_rxBuffer.size() < frameSize)
+        if (available < frameSize)
             break;
 
-        const std::byte *payloadStart = m_rxBuffer.data() + phicore::adapter::v1::kFrameHeaderSize;
-        const std::span<const std::byte> payload(payloadStart, header.payloadSize);
+        // The handler may close the connection (and clear the buffer), so the
+        // cursor advances before dispatching.
+        m_rxOffset += frameSize;
+        const std::span<const std::byte> payload(frameStart + phicore::adapter::v1::kFrameHeaderSize,
+                                                 header.payloadSize);
         if (onFrame)
             onFrame(header, payload);
+        if (m_clientFd < 0)
+            return true; // handler closed the connection
+    }
 
-        m_rxBuffer.erase(m_rxBuffer.begin(), m_rxBuffer.begin() + static_cast<std::ptrdiff_t>(frameSize));
+    // One compaction per read batch instead of one per frame.
+    if (m_rxOffset > 0) {
+        if (m_rxOffset >= m_rxBuffer.size()) {
+            m_rxBuffer.clear();
+        } else {
+            m_rxBuffer.erase(m_rxBuffer.begin(),
+                             m_rxBuffer.begin() + static_cast<std::ptrdiff_t>(m_rxOffset));
+        }
+        m_rxOffset = 0;
     }
 
     return true;
@@ -373,6 +395,7 @@ void UdsEpollServer::closeClient(const std::function<void()> &onDisconnected)
     }
     m_notifyDisconnect = false;
     m_rxBuffer.clear();
+    m_rxOffset = 0;
     if (onDisconnected)
         onDisconnected();
 }
@@ -388,6 +411,7 @@ void UdsEpollServer::closeClientDeferred()
         m_notifyDisconnect = true;
     }
     m_rxBuffer.clear();
+    m_rxOffset = 0;
 }
 
 bool UdsEpollServer::pollOnce(std::chrono::milliseconds timeout,

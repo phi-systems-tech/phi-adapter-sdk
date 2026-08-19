@@ -13,6 +13,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace sdk = phicore::adapter::sdk;
 namespace v1 = phicore::adapter::v1;
@@ -367,6 +368,70 @@ void testClientReplacementFiresHooks()
     dispatcher.stop();
 }
 
+void testBatchedFramesAndEscapedKeys()
+{
+    const std::string path = phitest::uniqueSocketPath("batch");
+    sdk::SidecarDispatcher dispatcher(path);
+    TestClient client;
+    bool connected = false;
+    std::vector<v1::CmdId> seenOrder;
+    std::vector<v1::Utf8String> seenDevices;
+    sdk::SidecarHandlers handlers;
+    handlers.onConnected = [&connected]() { connected = true; };
+    handlers.onDeviceNameUpdate = [&](const sdk::DeviceNameUpdateRequest &r) {
+        seenOrder.push_back(r.cmdId);
+        seenDevices.push_back(r.deviceExternalId);
+    };
+    dispatcher.setHandlers(std::move(handlers));
+    v1::Utf8String err;
+    REQUIRE(dispatcher.start(&err));
+    REQUIRE(client.connectTo(path));
+    auto poll = [&dispatcher](const std::function<bool()> &pred) {
+        const auto deadline = Clock::now() + std::chrono::seconds(3);
+        while (!pred() && Clock::now() < deadline)
+            dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+        return pred();
+    };
+    REQUIRE(poll([&connected]() { return connected; }));
+
+    // Three frames in ONE write: the receive buffer must hand out all of them
+    // in order from a single read batch (read cursor instead of erase-front).
+    std::string wire;
+    for (int n = 1; n <= 3; ++n) {
+        const std::string body = "{\"command\":" + cmd(v1::IpcCommand::CmdDeviceNameUpdate)
+            + ",\"cmdId\":" + std::to_string(50 + n)
+            + ",\"payload\":{\"externalId\":\"inst-1\",\"deviceExternalId\":\"dev-"
+            + std::to_string(n) + "\",\"name\":\"n\"}}";
+        v1::FrameHeader header;
+        header.type = static_cast<std::uint8_t>(v1::MessageType::Request);
+        header.correlationId = static_cast<std::uint64_t>(50 + n);
+        header.payloadSize = static_cast<std::uint32_t>(body.size());
+        wire.append(reinterpret_cast<const char *>(&header), sizeof(header));
+        wire.append(body);
+    }
+    REQUIRE(client.sendRaw(wire.data(), wire.size()));
+    REQUIRE(poll([&seenOrder]() { return seenOrder.size() >= 3; }));
+    CHECK(seenOrder.size() == 3);
+    if (seenOrder.size() == 3) {
+        CHECK(seenOrder[0] == 51 && seenOrder[1] == 52 && seenOrder[2] == 53);
+        CHECK(seenDevices[0] == "dev-1" && seenDevices[2] == "dev-3");
+    }
+
+    // A member key written with an escape must still match (owned-key path).
+    seenOrder.clear();
+    seenDevices.clear();
+    const std::string escaped = "{\"command\":" + cmd(v1::IpcCommand::CmdDeviceNameUpdate)
+        + ",\"cmdId\":60,\"payload\":{\"externalId\":\"inst-1\","
+          "\"device\\u0045xternalId\":\"dev-9\",\"name\":\"n\"}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 60, escaped));
+    REQUIRE(poll([&seenOrder]() { return !seenOrder.empty(); }));
+    CHECK_MSG(!seenDevices.empty() && seenDevices[0] == "dev-9",
+              "escaped key did not resolve: %s",
+              seenDevices.empty() ? "(none)" : seenDevices[0].c_str());
+
+    dispatcher.stop();
+}
+
 void testOversizeFrameLimits()
 {
     const std::string path = phitest::uniqueSocketPath("oversize");
@@ -460,6 +525,7 @@ int main()
     testUnicodeEscapeDecoding();
     testFrameTypeCommandMismatchRejected();
     testClientReplacementFiresHooks();
+    testBatchedFramesAndEscapedKeys();
 
     if (phitest::g_failures == 0) {
         std::printf("protocol_tests: all passed\n");

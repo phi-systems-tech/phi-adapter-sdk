@@ -1,3 +1,11 @@
+phi-adapter-sdk (0.3.1-1) trixie; urgency=medium
+
+  * Remove per-field allocations from the JSON decode path and consume the
+    receive buffer with a read cursor instead of memmoving per frame (F-22).
+    Internal to the shared library; no API, ABI or wire change.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 14:19:12 +0200
+
 phi-adapter-sdk (0.3.0-1) trixie; urgency=medium
 
   * ABI break (pre-v1, coordinated): AdapterFactory/AdapterInstance state moved

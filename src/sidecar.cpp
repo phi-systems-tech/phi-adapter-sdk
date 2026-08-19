@@ -110,7 +110,41 @@ std::string_view fileNameOnly(std::string_view path)
     return path.substr(pos + 1);
 }
 
-using MemberMap = std::unordered_map<std::string, std::string_view>;
+// Parsed members of one JSON object. Keys and values are views into the frame
+// buffer, so decoding a frame allocates nothing per field; a key containing
+// escapes (never used by this protocol, but legal JSON) is decoded into
+// `ownedKeys`, whose element addresses stay stable. Payloads have a handful of
+// members, so linear search beats hashing here.
+struct MemberMap {
+    std::vector<std::pair<std::string_view, std::string_view>> entries;
+    std::deque<std::string> ownedKeys;
+
+    void clear()
+    {
+        entries.clear();
+        ownedKeys.clear();
+    }
+
+    void insertOrAssign(std::string_view key, std::string_view value)
+    {
+        for (auto &entry : entries) {
+            if (entry.first == key) {
+                entry.second = value;
+                return;
+            }
+        }
+        entries.emplace_back(key, value);
+    }
+
+    [[nodiscard]] std::string_view value(std::string_view key) const
+    {
+        for (const auto &entry : entries) {
+            if (entry.first == key)
+                return entry.second;
+        }
+        return {};
+    }
+};
 
 std::int64_t nowMs()
 {
@@ -659,9 +693,18 @@ bool parseObjectMembers(std::string_view objectJson, MemberMap *out, std::string
         const std::size_t keyStart = i;
         if (!skipStringToken(objectJson, i, error))
             return false;
-        std::string key;
-        if (!decodeJsonString(objectJson.substr(keyStart, i - keyStart), &key, error))
-            return false;
+        const std::string_view keyToken = objectJson.substr(keyStart, i - keyStart);
+        std::string_view key;
+        if (keyToken.find('\\') == std::string_view::npos) {
+            // Common case: the raw text between the quotes is the key.
+            key = keyToken.substr(1, keyToken.size() - 2);
+        } else {
+            std::string decoded;
+            if (!decodeJsonString(keyToken, &decoded, error))
+                return false;
+            out->ownedKeys.push_back(std::move(decoded));
+            key = out->ownedKeys.back();
+        }
 
         skipWs(objectJson, i);
         if (i >= objectJson.size() || objectJson[i] != ':') {
@@ -676,7 +719,7 @@ bool parseObjectMembers(std::string_view objectJson, MemberMap *out, std::string
         if (!skipValueToken(objectJson, i, error))
             return false;
         const std::size_t valueEnd = i;
-        out->insert_or_assign(std::move(key), trim(objectJson.substr(valueStart, valueEnd - valueStart)));
+        out->insertOrAssign(key, trim(objectJson.substr(valueStart, valueEnd - valueStart)));
 
         skipWs(objectJson, i);
         if (i < objectJson.size() && objectJson[i] == ',') {
@@ -736,10 +779,7 @@ bool parseArrayElements(std::string_view arrayJson, std::vector<std::string_view
 
 std::string_view member(const MemberMap &map, std::string_view key)
 {
-    const auto it = map.find(std::string(key));
-    if (it == map.end())
-        return {};
-    return it->second;
+    return map.value(key);
 }
 
 bool parseInt64(std::string_view token, std::int64_t *value)

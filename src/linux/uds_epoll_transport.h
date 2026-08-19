@@ -74,6 +74,10 @@ private:
     int m_wakeFd = -1;
     bool m_notifyDisconnect = false;
     std::vector<std::byte> m_rxBuffer;
+    // Read cursor into m_rxBuffer: frames are consumed by advancing it and the
+    // buffer is compacted once per read batch instead of memmoving the
+    // remainder for every single frame.
+    std::size_t m_rxOffset = 0;
 };
 
 } // namespace phicore::adapter::sdk::linuxio
