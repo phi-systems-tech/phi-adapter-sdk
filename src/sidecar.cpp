@@ -2870,6 +2870,13 @@ std::unique_ptr<InstanceExecutionBackend> AdapterFactory::createInstanceExecutio
     return std::make_unique<DefaultInstanceExecutionBackend>();
 }
 
+std::unique_ptr<InstanceExecutionBackend> AdapterFactory::createFactoryExecutionBackend()
+{
+    // Opt-in: factory hooks keep running on the host poll thread unless the
+    // adapter asks for a backend.
+    return nullptr;
+}
+
 void AdapterFactory::destroyInstance(std::unique_ptr<AdapterInstance> instance) { (void)instance; }
 void AdapterFactory::onFactoryActionInvoke(const AdapterActionInvokeRequest &request)
 {
@@ -2879,6 +2886,7 @@ void AdapterFactory::onFactoryActionInvoke(const AdapterActionInvokeRequest &req
         onProtocolError("Failed to send default factory action result: " + err);
 }
 void AdapterFactory::onFactoryConfigChanged(const ConfigChangedRequest &request) { (void)request; }
+void AdapterFactory::onFactoryStopping() {}
 void AdapterFactory::onConnected() {}
 void AdapterFactory::onDisconnected() {}
 void AdapterFactory::onProtocolError(const phicore::adapter::v1::Utf8String &message)
@@ -2963,6 +2971,10 @@ std::unique_ptr<InstanceExecutionBackend> AdapterFactory::hostCreateInstanceExec
 {
     return createInstanceExecutionBackend(externalId);
 }
+std::unique_ptr<InstanceExecutionBackend> AdapterFactory::hostCreateFactoryExecutionBackend()
+{
+    return createFactoryExecutionBackend();
+}
 std::unique_ptr<AdapterInstance> AdapterFactory::hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId)
 {
     return createInstance(externalId);
@@ -2975,17 +2987,18 @@ void AdapterFactory::hostOnFactoryActionInvoke(const AdapterActionInvokeRequest 
 {
     onFactoryActionInvoke(request);
 }
+void AdapterFactory::hostOnFactoryStopping() { onFactoryStopping(); }
 void AdapterFactory::hostOnConnected() { onConnected(); }
 void AdapterFactory::hostOnDisconnected() { onDisconnected(); }
 void AdapterFactory::hostOnProtocolError(const phicore::adapter::v1::Utf8String &message) { onProtocolError(message); }
+// Caching happens separately on the host thread; see the note on the
+// declarations in sidecar.h.
 void AdapterFactory::hostOnBootstrap(const BootstrapRequest &request)
 {
-    cacheBootstrap(request);
     onBootstrap(request);
 }
 void AdapterFactory::hostOnFactoryConfigChanged(const ConfigChangedRequest &request)
 {
-    cacheFactoryConfig(request);
     onFactoryConfigChanged(request);
 }
 
@@ -3363,6 +3376,12 @@ struct SidecarHost::Impl {
     SidecarDispatcher dispatcher;
     std::unique_ptr<AdapterFactory> ownedFactory;
     AdapterFactory *factory = nullptr;
+    // Null unless the factory opted into createFactoryExecutionBackend(); then
+    // factory-scope callbacks run inline on the poll thread.
+    std::unique_ptr<InstanceExecutionBackend> factoryExecution;
+    // Tracks the factory lifecycle (backend or not) so the stopping hook fires
+    // exactly once, no matter how often stop() is called.
+    bool factoryActive = false;
     std::unordered_map<phicore::adapter::v1::ExternalId, std::unique_ptr<InstanceRuntime>> instances;
     std::mutex resultMutex;
     std::deque<DeferredResult> resultQueue;
@@ -3396,6 +3415,8 @@ SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFac
 #define m_dispatcher m_impl->dispatcher
 #define m_ownedFactory m_impl->ownedFactory
 #define m_factory m_impl->factory
+#define m_factoryExecution m_impl->factoryExecution
+#define m_factoryActive m_impl->factoryActive
 #define m_instances m_impl->instances
 #define m_resultMutex m_impl->resultMutex
 #define m_resultQueue m_impl->resultQueue
@@ -3412,12 +3433,34 @@ bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
             *error = "SidecarHost has no factory";
         return false;
     }
-    return m_dispatcher.start(error);
+
+    if (!m_factoryActive) {
+        std::unique_ptr<InstanceExecutionBackend> execution = m_factory->hostCreateFactoryExecutionBackend();
+        if (execution) {
+            phicore::adapter::v1::Utf8String backendError;
+            if (!execution->start(&backendError)) {
+                if (error)
+                    *error = "Failed to start factory execution backend: " + backendError;
+                return false;
+            }
+            m_factoryExecution = std::move(execution);
+        }
+        m_factoryActive = true;
+    }
+
+    if (!m_dispatcher.start(error)) {
+        shutdownFactoryExecution();
+        return false;
+    }
+    return true;
 }
 
 void SidecarHost::stop()
 {
     stopAndDestroyInstances();
+    // Before the dispatcher: pending factory work may still produce results,
+    // and it must not outlive the dispatcher it sends them through.
+    shutdownFactoryExecution();
     {
         std::lock_guard<std::mutex> lock(m_resultMutex);
         m_resultQueue.clear();
@@ -3425,6 +3468,32 @@ void SidecarHost::stop()
     if (m_factory)
         m_factory->bindResultSubmitter({});
     m_dispatcher.stop();
+}
+
+void SidecarHost::shutdownFactoryExecution()
+{
+    if (!m_factoryActive)
+        return;
+    m_factoryActive = false;
+
+    // Queued ahead of the stop so it runs on the backend thread while that
+    // thread is still alive; both SDK backends drain pending work before
+    // exiting. Without a backend this is a plain inline call.
+    if (m_factory) {
+        AdapterFactory *factory = m_factory;
+        phicore::adapter::v1::Utf8String scheduleError;
+        if (!executeOnFactory([factory]() { factory->hostOnFactoryStopping(); }, &scheduleError))
+            factory->hostOnProtocolError("Failed to dispatch factory stopping hook: " + scheduleError);
+    }
+
+    if (!m_factoryExecution)
+        return;
+    std::unique_ptr<InstanceExecutionBackend> execution = std::move(m_factoryExecution);
+    phicore::adapter::v1::Utf8String stopError;
+    if (!execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory) {
+        // Reported inline: the backend that would have carried this is gone.
+        m_factory->hostOnProtocolError("Factory execution backend stop timed out: " + stopError);
+    }
 }
 
 bool SidecarHost::pollOnce(std::chrono::milliseconds timeout, phicore::adapter::v1::Utf8String *error)
@@ -3488,8 +3557,8 @@ AdapterInstance *SidecarHost::ensureInstance(const ConfigChangedRequest &request
     if (!findRuntime(request.adapter.externalId)) {
         phicore::adapter::v1::Utf8String error;
         if (!createInstanceRuntime(request, &error)) {
-            m_factory->hostOnProtocolError("Failed to create instance runtime for externalId='"
-                                           + request.adapter.externalId + "': " + error);
+            reportProtocolError("Failed to create instance runtime for externalId='"
+                            + request.adapter.externalId + "': " + error);
             return nullptr;
         }
     }
@@ -3579,7 +3648,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
             &backendError)) {
         phicore::adapter::v1::Utf8String stopError;
         if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
-            m_factory->hostOnProtocolError("Execution backend stop failed after start scheduling error: " + stopError);
+            reportProtocolError("Execution backend stop failed after start scheduling error: " + stopError);
         if (error)
             *error = "Failed to schedule instance start on execution backend: " + backendError;
         m_factory->hostDestroyInstance(std::move(runtime->instance));
@@ -3593,7 +3662,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
             })) {
             phicore::adapter::v1::Utf8String stopError;
             if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
-                m_factory->hostOnProtocolError("Execution backend stop failed after start timeout: " + stopError);
+                reportProtocolError("Execution backend stop failed after start timeout: " + stopError);
             if (error)
                 *error = "Timed out waiting for instance start completion for externalId='" + request.adapter.externalId + "'";
             m_factory->hostDestroyInstance(std::move(runtime->instance));
@@ -3603,7 +3672,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
     if (!started) {
         phicore::adapter::v1::Utf8String stopError;
         if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
-            m_factory->hostOnProtocolError("Execution backend stop failed after instance start failure: " + stopError);
+            reportProtocolError("Execution backend stop failed after instance start failure: " + stopError);
         if (error)
             *error = "Instance start() failed for externalId='" + request.adapter.externalId + "'";
         m_factory->hostDestroyInstance(std::move(runtime->instance));
@@ -3621,7 +3690,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
             }
             phicore::adapter::v1::Utf8String stopError;
             if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
-                m_factory->hostOnProtocolError("Execution backend stop failed for duplicate instance rollback: " + stopError);
+                reportProtocolError("Execution backend stop failed for duplicate instance rollback: " + stopError);
         }
         if (runtime && m_factory && runtime->instance)
             m_factory->hostDestroyInstance(std::move(runtime->instance));
@@ -3669,10 +3738,38 @@ void SidecarHost::executeOnAllRuntimes(const std::function<void(AdapterInstance 
         if (!runtime->execution->execute([instance, fn]() {
                 fn(*instance);
             }, &error) && m_factory) {
-            m_factory->hostOnProtocolError("Failed to dispatch runtime callback for externalId='"
+            reportProtocolError("Failed to dispatch runtime callback for externalId='"
                                            + runtime->externalId + "': " + error);
         }
     }
+}
+
+bool SidecarHost::executeOnFactory(std::function<void()> task, phicore::adapter::v1::Utf8String *error)
+{
+    if (!task) {
+        if (error)
+            *error = "Factory task is empty";
+        return false;
+    }
+    if (!m_factoryExecution) {
+        task();
+        return true;
+    }
+    return m_factoryExecution->execute(std::move(task), error);
+}
+
+void SidecarHost::reportProtocolError(phicore::adapter::v1::Utf8String message)
+{
+    if (!m_factory)
+        return;
+    AdapterFactory *factory = m_factory;
+    phicore::adapter::v1::Utf8String scheduleError;
+    if (executeOnFactory([factory, message]() { factory->hostOnProtocolError(message); }, &scheduleError))
+        return;
+    // The backend refused the task (stopping, or already stopped). Losing the
+    // diagnostic is worse than reporting it from this thread.
+    factory->hostOnProtocolError(message);
+    factory->hostOnProtocolError("Factory execution backend rejected a protocol error report: " + scheduleError);
 }
 
 void SidecarHost::queueDeferredResult(DeferredResult result)
@@ -3698,23 +3795,23 @@ void SidecarHost::drainDeferredResults()
         if (auto *cmd = std::get_if<DeferredCmdResult>(&result)) {
             if (cmd->response.id == 0) {
                 if (m_factory)
-                    m_factory->hostOnProtocolError("Dropped command result with id=0");
+                    reportProtocolError("Dropped command result with id=0");
                 continue;
             }
             phicore::adapter::v1::Utf8String sendError;
             if (!m_dispatcher.sendCmdResult(cmd->response, &sendError) && m_factory)
-                m_factory->hostOnProtocolError("Failed to send command result: " + sendError);
+                reportProtocolError("Failed to send command result: " + sendError);
             continue;
         }
         if (auto *action = std::get_if<DeferredActionResult>(&result)) {
             if (action->response.id == 0) {
                 if (m_factory)
-                    m_factory->hostOnProtocolError("Dropped action result with id=0");
+                    reportProtocolError("Dropped action result with id=0");
                 continue;
             }
             phicore::adapter::v1::Utf8String sendError;
             if (!m_dispatcher.sendActionResult(action->response, &sendError) && m_factory)
-                m_factory->hostOnProtocolError("Failed to send action result: " + sendError);
+                reportProtocolError("Failed to send action result: " + sendError);
         }
     }
 }
@@ -3748,7 +3845,7 @@ void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId 
             }, &error);
         if (!scheduled) {
             if (m_factory) {
-                m_factory->hostOnProtocolError("Failed to schedule stop for externalId='"
+                reportProtocolError("Failed to schedule stop for externalId='"
                                                + externalId + "': " + error);
             }
         } else {
@@ -3757,7 +3854,7 @@ void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId 
                                          kExecutionBackendStopTimeout,
                                          [&completion]() { return completion->done; })
                 && m_factory) {
-                m_factory->hostOnProtocolError("Timed out waiting for instance stop completion for externalId='"
+                reportProtocolError("Timed out waiting for instance stop completion for externalId='"
                                                + externalId + "'");
             }
         }
@@ -3766,7 +3863,7 @@ void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId 
     if (runtime->execution) {
         phicore::adapter::v1::Utf8String stopError;
         if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory) {
-            m_factory->hostOnProtocolError("Execution backend stop timed out for externalId='"
+            reportProtocolError("Execution backend stop timed out for externalId='"
                                            + externalId + "': " + stopError);
         }
     }
@@ -3788,23 +3885,33 @@ void SidecarHost::stopAndDestroyInstances()
 void SidecarHost::wireHandlers()
 {
     SidecarHandlers handlers;
+    // Factory-scope hooks go through executeOnFactory(): inline by default, on
+    // the factory execution backend when the adapter opted into one. The
+    // instance fan-out stays on this thread because it reads the instance map.
     handlers.onConnected = [this]() {
-        if (m_factory)
-            m_factory->hostOnConnected();
+        if (m_factory) {
+            AdapterFactory *factory = m_factory;
+            phicore::adapter::v1::Utf8String error;
+            if (!executeOnFactory([factory]() { factory->hostOnConnected(); }, &error))
+                reportProtocolError("Failed to dispatch connected to factory: " + error);
+        }
         executeOnAllRuntimes([](AdapterInstance &instance) {
             instance.hostOnConnected();
         });
     };
     handlers.onDisconnected = [this]() {
-        if (m_factory)
-            m_factory->hostOnDisconnected();
+        if (m_factory) {
+            AdapterFactory *factory = m_factory;
+            phicore::adapter::v1::Utf8String error;
+            if (!executeOnFactory([factory]() { factory->hostOnDisconnected(); }, &error))
+                reportProtocolError("Failed to dispatch disconnected to factory: " + error);
+        }
         executeOnAllRuntimes([](AdapterInstance &instance) {
             instance.hostOnDisconnected();
         });
     };
     handlers.onProtocolError = [this](const phicore::adapter::v1::Utf8String &message) {
-        if (m_factory)
-            m_factory->hostOnProtocolError(message);
+        reportProtocolError(message);
         executeOnAllRuntimes([message](AdapterInstance &instance) {
             instance.hostOnProtocolError(message);
         });
@@ -3813,20 +3920,38 @@ void SidecarHost::wireHandlers()
         if (!m_factory)
             return;
         if (!request.adapter.externalId.empty()) {
-            m_factory->hostOnProtocolError("Bootstrap must target factory scope (externalId must be empty)");
+            reportProtocolError("Bootstrap must target factory scope (externalId must be empty)");
             return;
         }
         BootstrapRequest normalized = request;
         if (normalized.adapter.pluginType.empty())
             normalized.adapter.pluginType = m_factory->hostPluginType();
-        m_factory->hostOnBootstrap(normalized);
+        // Cached here, on the host thread, so host-thread hooks such as
+        // createInstance never read it while the factory thread writes it.
+        m_factory->cacheBootstrap(normalized);
 
-        AdapterDescriptor descriptor = m_factory->hostDescriptor();
-        if (descriptor.pluginType.empty())
-            descriptor.pluginType = normalized.adapter.pluginType;
-        phicore::adapter::v1::Utf8String err;
-        if (!m_dispatcher.sendAdapterDescriptor({}, descriptor, normalized.correlationId, &err))
-            m_factory->hostOnProtocolError("Failed to send bootstrap descriptor: " + err);
+        AdapterFactory *factory = m_factory;
+        // Hook and descriptor reply travel in one task so the descriptor still
+        // reflects whatever onBootstrap derived from the static config. Nothing
+        // else can be queued ahead of it: bootstrap is the first message core
+        // sends, so this costs no latency even with a factory backend.
+        auto respond = [this, factory, normalized]() {
+            factory->hostOnBootstrap(normalized);
+
+            AdapterDescriptor descriptor = factory->hostDescriptor();
+            if (descriptor.pluginType.empty())
+                descriptor.pluginType = normalized.adapter.pluginType;
+            phicore::adapter::v1::Utf8String err;
+            if (!m_dispatcher.sendAdapterDescriptor({}, descriptor, normalized.correlationId, &err))
+                reportProtocolError("Failed to send bootstrap descriptor: " + err);
+        };
+        phicore::adapter::v1::Utf8String error;
+        if (!executeOnFactory(respond, &error)) {
+            // Core blocks on this reply, so run it here rather than leave it
+            // waiting for a backend that will not take the task.
+            reportProtocolError("Failed to dispatch bootstrap to factory: " + error);
+            respond();
+        }
     };
     handlers.onConfigChanged = [this](const ConfigChangedRequest &request) {
         if (!m_factory)
@@ -3835,7 +3960,13 @@ void SidecarHost::wireHandlers()
         if (normalized.adapter.pluginType.empty())
             normalized.adapter.pluginType = m_factory->hostPluginType();
         if (normalized.adapter.externalId.empty()) {
-            m_factory->hostOnFactoryConfigChanged(normalized);
+            m_factory->cacheFactoryConfig(normalized);
+            AdapterFactory *factory = m_factory;
+            phicore::adapter::v1::Utf8String error;
+            if (!executeOnFactory([factory, normalized]() { factory->hostOnFactoryConfigChanged(normalized); },
+                                  &error)) {
+                reportProtocolError("Failed to dispatch factory config.changed: " + error);
+            }
             return;
         }
         if (!ensureInstance(normalized))
@@ -3847,7 +3978,7 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnConfigChanged(normalized);
                               },
                               &error)) {
-            m_factory->hostOnProtocolError("Failed to dispatch config.changed for externalId='"
+            reportProtocolError("Failed to dispatch config.changed for externalId='"
                                            + normalized.adapter.externalId + "': " + error);
         }
     };
@@ -3855,7 +3986,7 @@ void SidecarHost::wireHandlers()
         if (!m_factory)
             return;
         if (request.externalId.empty()) {
-            m_factory->hostOnProtocolError("InstanceRemoved must target instance scope (externalId required)");
+            reportProtocolError("InstanceRemoved must target instance scope (externalId required)");
             return;
         }
         stopAndDestroyInstance(request.externalId);
@@ -3894,7 +4025,14 @@ void SidecarHost::wireHandlers()
             return;
         }
         if (request.externalId.empty()) {
-            m_factory->hostOnFactoryActionInvoke(request);
+            AdapterFactory *factory = m_factory;
+            phicore::adapter::v1::Utf8String dispatchError;
+            if (!executeOnFactory([factory, request]() { factory->hostOnFactoryActionInvoke(request); },
+                                  &dispatchError)) {
+                response.status = CmdStatus::Failure;
+                response.error = "Failed to dispatch factory action: " + dispatchError;
+                m_dispatcher.sendActionResult(response, nullptr);
+            }
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
@@ -4023,7 +4161,7 @@ void SidecarHost::wireHandlers()
         if (!m_factory)
             return;
         if (request.externalId.empty()) {
-            m_factory->hostOnProtocolError("Unhandled IPC command: " + std::to_string(request.command));
+            reportProtocolError("Unhandled IPC command: " + std::to_string(request.command));
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
@@ -4033,7 +4171,7 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnUnknownRequest(request);
                               },
                               &dispatchError)) {
-            m_factory->hostOnProtocolError("Failed to dispatch unknown request for externalId='"
+            reportProtocolError("Failed to dispatch unknown request for externalId='"
                                            + request.externalId + "': " + dispatchError);
         }
     };
@@ -4043,6 +4181,8 @@ void SidecarHost::wireHandlers()
 #undef m_resultQueue
 #undef m_resultMutex
 #undef m_instances
+#undef m_factoryActive
+#undef m_factoryExecution
 #undef m_factory
 #undef m_ownedFactory
 #undef m_dispatcher

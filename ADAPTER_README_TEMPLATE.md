@@ -89,6 +89,10 @@ Notes:
   a custom execution model (for example a Qt event loop backend).
 - For Qt-based execution, prefer shared helper target `phi::adapter-sdk-qt` and
   `phicore::adapter::sdk::qt::createInstanceExecutionBackend()`.
+- Required if any factory hook blocks (device probe, synchronous HTTP, nested event loop):
+  override `createFactoryExecutionBackend()` as well - otherwise the probe stalls IPC for the
+  whole sidecar. Create thread-affine objects lazily inside a hook and destroy them in
+  `onFactoryStopping()`.
 - Treat `Cmd*`/`Action*` handling as asynchronous:
   - complete via `sendResult(...)` (never by direct IPC writes)
   - instance execution contexts enqueue results; host/main thread sends IPC frames to core
@@ -105,6 +109,8 @@ Notes:
 - Implement lifecycle hooks as bounded and idempotent operations:
   - `start()`: fast init, fail fast on invalid config/dependency errors
   - `stop()`: graceful shutdown (cancel timers/IO/retries, close sessions/sockets)
+  - periodic polling: own timer, created in `start()` and destroyed in `stop()`, so it runs on the
+    instance's execution context instead of racing with it from the host thread
   - `restart()`: clean `stop()` + `start()` semantics
 - SDK handles transport/dispatch and instance execution backend teardown; adapter code must
   ensure resource cleanup and cancellation on shutdown.

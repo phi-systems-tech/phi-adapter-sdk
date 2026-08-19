@@ -708,8 +708,45 @@ protected:
     virtual std::unique_ptr<InstanceExecutionBackend> createInstanceExecutionBackend(
         const phicore::adapter::v1::ExternalId &externalId);
 
+    /**
+     * @brief Optional execution backend for factory-scope callbacks.
+     *
+     * Returning `nullptr` (the default) keeps `onBootstrap`,
+     * `onFactoryConfigChanged`, `onFactoryActionInvoke`, `onConnected`,
+     * `onDisconnected` and `onProtocolError` on the host poll thread. Any
+     * blocking work in those hooks - a device probe, a synchronous HTTP call -
+     * then stalls IPC for every instance of this sidecar.
+     *
+     * Returning a backend moves all six hooks onto that backend, so the poll
+     * loop stays responsive while a factory probe runs. Consequences an adapter
+     * must know about:
+     *  - The six hooks above then run on the backend thread, one at a time, and
+     *    never concurrently with each other. Factory state touched only by them
+     *    needs no locking.
+     *  - `createInstance`, `destroyInstance` and the descriptor accessors
+     *    (`pluginType`, `descriptor`, ...) stay on the host thread by design:
+     *    routing them through the backend would make instance creation wait out
+     *    exactly the blocking probe this backend exists to get out of the way.
+     *    Factory state shared between them and the six hooks must be
+     *    synchronized by the adapter (or copied, as `bootstrap()` is).
+     *  - Objects with thread affinity (`QNetworkAccessManager`, sockets, timers)
+     *    must be created lazily inside a hook, not in the factory constructor,
+     *    which still runs on the main/host thread.
+     */
+    virtual std::unique_ptr<InstanceExecutionBackend> createFactoryExecutionBackend();
+
     virtual std::unique_ptr<AdapterInstance> createInstance(const phicore::adapter::v1::ExternalId &externalId) = 0;
     virtual void destroyInstance(std::unique_ptr<AdapterInstance> instance);
+
+    /**
+     * @brief Last factory-scope callback before the sidecar shuts down.
+     *
+     * Runs on the factory execution backend (inline on the host thread when
+     * there is none) while that backend's thread is still alive. Counterpart to
+     * the lazy creation of thread-affine objects inside factory hooks: destroy
+     * them here, not in the factory destructor, which runs on the main thread.
+     */
+    virtual void onFactoryStopping();
 
     virtual void onFactoryActionInvoke(const AdapterActionInvokeRequest &request);
     virtual void onFactoryConfigChanged(const ConfigChangedRequest &request);
@@ -748,12 +785,18 @@ private:
     AdapterDescriptor hostDescriptor() const;
     std::unique_ptr<InstanceExecutionBackend> hostCreateInstanceExecutionBackend(
         const phicore::adapter::v1::ExternalId &externalId);
+    std::unique_ptr<InstanceExecutionBackend> hostCreateFactoryExecutionBackend();
     std::unique_ptr<AdapterInstance> hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId);
     void hostDestroyInstance(std::unique_ptr<AdapterInstance> instance);
     void hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request);
+    void hostOnFactoryStopping();
     void hostOnConnected();
     void hostOnDisconnected();
     void hostOnProtocolError(const phicore::adapter::v1::Utf8String &message);
+    // The host caches bootstrap/config on its own thread (see cacheBootstrap,
+    // cacheFactoryConfig) and only the notification below may run on a factory
+    // execution backend, so host-thread hooks such as createInstance keep
+    // reading a stable bootstrap().
     void hostOnBootstrap(const BootstrapRequest &request);
     void hostOnFactoryConfigChanged(const ConfigChangedRequest &request);
 
@@ -984,6 +1027,12 @@ private:
                           std::function<void()> task,
                           phicore::adapter::v1::Utf8String *error = nullptr);
     void executeOnAllRuntimes(const std::function<void(AdapterInstance &)> &fn);
+    // Runs `task` on the factory execution backend, or inline on the calling
+    // thread when the factory did not provide one.
+    bool executeOnFactory(std::function<void()> task,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
+    void reportProtocolError(phicore::adapter::v1::Utf8String message);
+    void shutdownFactoryExecution();
     void queueDeferredResult(DeferredResult result);
     void drainDeferredResults();
     void stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId);

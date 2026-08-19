@@ -183,6 +183,8 @@ Factory methods (v1 SDK contract):
 - `onFactoryConfigChanged(...)`
 - `onFactoryActionInvoke(...)`
 - `createInstanceExecutionBackend(externalId)` (optional override for custom threading/event loop)
+- `createFactoryExecutionBackend()` (optional; `nullptr` by default, see below)
+- `onFactoryStopping()`
 - `createInstance(...)`, `destroyInstance(...)`
 
 Qt helper usage example (from `phi-adapter-sdk-qt`):
@@ -197,6 +199,53 @@ std::unique_ptr<phi::InstanceExecutionBackend> createInstanceExecutionBackend(
     return phicore::adapter::sdk::qt::createInstanceExecutionBackend();
 }
 ```
+
+#### Factory Execution Backend (v1)
+
+Factory hooks run on `HostThread` by default. Any blocking call there - a device probe, a
+synchronous HTTP request, a nested `QEventLoop` - stalls IPC for the whole sidecar, including
+every instance. A factory that blocks MUST return a backend:
+
+```cpp
+// Moves onBootstrap, onFactoryConfigChanged, onFactoryActionInvoke, onConnected,
+// onDisconnected and onProtocolError onto a dedicated thread with an event loop.
+std::unique_ptr<phi::InstanceExecutionBackend> createFactoryExecutionBackend() override
+{
+    return phicore::adapter::sdk::qt::createFactoryExecutionBackend();
+}
+
+// Objects with thread affinity must be created lazily, inside a hook, so they belong
+// to the backend thread - not in the factory constructor, which runs on the main thread.
+HttpClient &ensureHttp()
+{
+    if (!m_http) {
+        m_network = std::make_unique<QNetworkAccessManager>();
+        m_http = std::make_unique<HttpClient>(m_network.get());
+    }
+    return *m_http;
+}
+
+// ... and destroyed here, while that thread is still alive.
+void onFactoryStopping() override
+{
+    m_http.reset();
+    m_network.reset();
+}
+```
+
+Rules that come with it:
+
+- The six hooks above are serialized against each other on that backend, so factory state used
+  only by them needs no locking.
+- `createInstance(...)`, `destroyInstance(...)` and the descriptor accessors stay on
+  `HostThread` by design - blocking on the factory thread there would reintroduce exactly the
+  stall this backend removes. State shared between them and the six hooks is the adapter's
+  responsibility. `bootstrap()` and the cached factory config are safe: the SDK caches them on
+  `HostThread` before scheduling the hook.
+- The bootstrap descriptor reply is emitted from the same task as `onBootstrap(...)`, so a
+  factory that derives schema data from the static config still answers with it.
+- Returning `nullptr` (the default) keeps every hook inline on `HostThread`; existing adapters
+  are unaffected.
 
 Instance methods (v1 SDK contract):
 
@@ -471,6 +520,11 @@ Concurrency model (v1, mandatory):
 - Default SDK execution context is a dedicated worker thread per instance.
 - Factory may override `createInstanceExecutionBackend(externalId)` to provide a custom backend
   (for example Qt event-loop execution).
+- Factory-scope hooks run on `HostThread` unless the factory overrides
+  `createFactoryExecutionBackend()`; a factory that performs blocking work MUST override it.
+- Periodic instance work MUST be driven from the instance's own execution context (a timer created
+  in `start()`), never from a host-thread timer calling into instances - that races with every
+  queued instance callback.
 - `createInstance(externalId)` creates runtime object; SDK owns execution lifecycle.
 - `SyncAdapterInstanceRemoved` stops execution context and destroys the instance.
 - `send*`, `log`, `sendError`, and `sendResult` are thread-safe enqueue APIs.
@@ -683,6 +737,7 @@ What the SDK/host does for you:
 - Owns IPC transport lifecycle (`SidecarHost`, dispatch, frame I/O).
 - Routes factory/instance lifecycle messages and enforces `externalId` scope.
 - Stops execution backend and destroys instances on `SyncAdapterInstanceRemoved`.
+- Stops the factory execution backend on shutdown, after calling `onFactoryStopping()` on it.
 - Keeps command/result correlation and host-thread send serialization.
 
 What adapter code must provide:
@@ -694,6 +749,8 @@ What adapter code must provide:
   - release sockets/file descriptors/device sessions
 - `restart()` should be equivalent to `stop()` + `start()` with clean state boundaries.
 - Do not block host thread work in lifecycle hooks; use instance execution context for long work.
+- Periodic work (polling) belongs to a timer the instance creates in `start()` and destroys in
+  `stop()`, so it runs on the instance's own execution context.
 - If an adapter uses an event-loop backend, create, stop and destroy event-loop owned resources
   inside that backend context. This includes `QObject` trees, `QTimer`, sockets, reconnect timers
   and protocol/session managers.
