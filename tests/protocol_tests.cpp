@@ -432,6 +432,50 @@ void testBatchedFramesAndEscapedKeys()
     dispatcher.stop();
 }
 
+void testHandlerReentrancyIsSafe()
+{
+    // A handler that pumps its thread's event loop (nested QEventLoop in
+    // blocking HTTP/socket helpers) re-enters pollOnce on the poll thread.
+    // Frames are dispatched while the runtime lock is held, so without the
+    // re-entrancy guard this deadlocks the sidecar.
+    const std::string path = phitest::uniqueSocketPath("reentry");
+    sdk::SidecarDispatcher dispatcher(path);
+    TestClient client;
+    bool connected = false;
+    bool handlerEntered = false;
+    bool nestedReturned = false;
+
+    sdk::SidecarHandlers handlers;
+    handlers.onConnected = [&connected]() { connected = true; };
+    handlers.onChannelInvoke = [&](const sdk::ChannelInvokeRequest &) {
+        handlerEntered = true;
+        dispatcher.pollOnce(std::chrono::milliseconds(0), nullptr);
+        nestedReturned = true;
+    };
+    dispatcher.setHandlers(std::move(handlers));
+    v1::Utf8String err;
+    REQUIRE(dispatcher.start(&err));
+    REQUIRE(client.connectTo(path));
+    const auto deadline = Clock::now() + std::chrono::seconds(5);
+    while (!connected && Clock::now() < deadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(connected);
+
+    const std::string request = "{\"command\":" + cmd(v1::IpcCommand::CmdChannelInvoke)
+        + ",\"cmdId\":70,\"payload\":{\"externalId\":\"inst-1\",\"deviceExternalId\":\"dev-9\","
+          "\"channelExternalId\":\"ch-2\",\"value\":1}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 70, request));
+
+    const auto dispatchDeadline = Clock::now() + std::chrono::seconds(3);
+    while (!nestedReturned && Clock::now() < dispatchDeadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+
+    CHECK(handlerEntered);
+    CHECK_MSG(nestedReturned, "nested pollOnce did not return (deadlock)");
+
+    dispatcher.stop();
+}
+
 void testOversizeFrameLimits()
 {
     const std::string path = phitest::uniqueSocketPath("oversize");
@@ -526,6 +570,7 @@ int main()
     testFrameTypeCommandMismatchRejected();
     testClientReplacementFiresHooks();
     testBatchedFramesAndEscapedKeys();
+    testHandlerReentrancyIsSafe();
 
     if (phitest::g_failures == 0) {
         std::printf("protocol_tests: all passed\n");

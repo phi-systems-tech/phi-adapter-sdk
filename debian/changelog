@@ -3,6 +3,10 @@ phi-adapter-sdk (0.3.1-1) trixie; urgency=medium
   * Remove per-field allocations from the JSON decode path and consume the
     receive buffer with a read cursor instead of memmoving per frame (F-22).
     Internal to the shared library; no API, ABI or wire change.
+  * Fix a deadlock: frames are dispatched while the runtime lock is held, so a
+    handler that pumps its thread's event loop (nested QEventLoop in blocking
+    HTTP/socket helpers) re-entered pollOnce and wedged the sidecar. A
+    same-thread re-entrant call is now a no-op (F-30).
 
  -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 14:19:12 +0200
 

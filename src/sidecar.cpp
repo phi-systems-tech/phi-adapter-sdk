@@ -1638,6 +1638,8 @@ struct SidecarDispatcher::Impl {
     std::uint64_t suppressedLogSendFailures = 0;
     std::atomic<std::uint64_t> droppedOutboundFrames{0};
     std::int64_t lastQueueOverflowTsMs = 0;
+    // Thread currently inside pollOnce(), to detect re-entry from a handler.
+    std::atomic<std::thread::id> pollingThread{};
 };
 
 #define m_runtime m_impl->runtime
@@ -1653,6 +1655,7 @@ struct SidecarDispatcher::Impl {
 #define m_suppressedLogSendFailures m_impl->suppressedLogSendFailures
 #define m_droppedOutboundFrames m_impl->droppedOutboundFrames
 #define m_lastQueueOverflowTsMs m_impl->lastQueueOverflowTsMs
+#define m_pollingThread m_impl->pollingThread
 
 SidecarDispatcher::SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath)
     : m_impl(std::make_unique<Impl>(std::move(socketPath)))
@@ -1727,6 +1730,27 @@ bool SidecarDispatcher::pollOnce(std::chrono::milliseconds timeout, phicore::ada
             *error = "dispatcher not started";
         return false;
     }
+
+    // Frames are dispatched while the runtime lock is held, so a handler that
+    // pumps its thread's event loop (a nested QEventLoop, as blocking HTTP or
+    // socket helpers commonly use) can re-enter this function on the same
+    // thread. Re-entering would deadlock on the non-recursive runtime mutex;
+    // the outer call owns the poll and picks the pending work up on its next
+    // iteration, so the nested call is a no-op instead.
+    const std::thread::id self = std::this_thread::get_id();
+    if (m_pollingThread.load(std::memory_order_acquire) == self)
+        return true;
+
+    struct PollingScope {
+        std::atomic<std::thread::id> &slot;
+        PollingScope(std::atomic<std::thread::id> &s, std::thread::id id)
+            : slot(s)
+        {
+            slot.store(id, std::memory_order_release);
+        }
+        ~PollingScope() { slot.store(std::thread::id{}, std::memory_order_release); }
+    } pollingScope(m_pollingThread, self);
+
     flushSendQueue(nullptr);
     bool ok = false;
     {
@@ -2739,6 +2763,7 @@ bool SidecarDispatcher::sendStreamEnd(const phicore::adapter::v1::ExternalId &ex
     return sendJson(MessageType::Event, 0, body, error);
 }
 
+#undef m_pollingThread
 #undef m_started
 #undef m_sendQueue
 #undef m_sendQueueMutex
