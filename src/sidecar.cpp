@@ -81,9 +81,28 @@ constexpr std::size_t kHostQueueWarnThreshold = 512;
 constexpr std::size_t kHostQueueMaxDepth = 4096;
 constexpr std::int64_t kHostDiagRateLimitMs = 5000;
 
+// The wire contract numbers levels 1..5 (PROTOCOLL.md, "Level wire encoding");
+// the C++ enum is 0-based. Casting the enum straight onto the wire shifted every
+// level by one - core decoded Error as Warn and Trace (0, out of range) as Error.
+// Mapped explicitly here, and asserted against the documented values by
+// sdk_protocol_tests::testLogLevelWireContract.
 std::uint8_t encodeWireLevel(LogLevel level)
 {
-    return static_cast<std::uint8_t>(level);
+    switch (level) {
+    case LogLevel::Trace:
+        return 1;
+    case LogLevel::Debug:
+        return 2;
+    case LogLevel::Info:
+        return 3;
+    case LogLevel::Warn:
+        return 4;
+    case LogLevel::Error:
+        return 5;
+    }
+    // Unknown value: the contract has no "unspecified" level, and losing an entry
+    // is worse than over-reporting it.
+    return 5;
 }
 
 std::uint8_t encodeWireCategory(LogCategory category, bool incident)

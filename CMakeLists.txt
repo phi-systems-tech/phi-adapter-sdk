@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.5.0
+    VERSION 0.5.1
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )

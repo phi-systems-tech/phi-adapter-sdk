@@ -525,6 +525,72 @@ void testOversizeFrameLimits()
     dispatcher.stop();
 }
 
+// The wire values come from PROTOCOLL.md ("Level wire encoding"), not from the
+// implementation: the C++ enum is 0-based, the wire is 1-based, and casting one
+// onto the other shifted every adapter log level by one in phi-core. The table
+// below is the contract - if it ever needs editing, the contract changed.
+void testLogLevelWireContract()
+{
+    struct Expectation {
+        sdk::LogLevel level;
+        int wireValue;
+        const char *name;
+    };
+    const Expectation expectations[] = {
+        {sdk::LogLevel::Trace, 1, "trace"},
+        {sdk::LogLevel::Debug, 2, "debug"},
+        {sdk::LogLevel::Info, 3, "info"},
+        {sdk::LogLevel::Warn, 4, "warn"},
+        {sdk::LogLevel::Error, 5, "error"},
+    };
+
+    const std::string path = phitest::uniqueSocketPath("loglevel");
+    sdk::SidecarDispatcher dispatcher(path);
+    TestClient client;
+    bool connected = false;
+    sdk::SidecarHandlers handlers;
+    handlers.onConnected = [&connected]() { connected = true; };
+    dispatcher.setHandlers(std::move(handlers));
+    v1::Utf8String err;
+    REQUIRE(dispatcher.start(&err));
+    REQUIRE(client.connectTo(path));
+    const auto deadline = Clock::now() + std::chrono::seconds(5);
+    while (!connected && Clock::now() < deadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(connected);
+
+    for (const Expectation &expected : expectations) {
+        sdk::LogEntry entry;
+        entry.level = expected.level;
+        entry.category = sdk::LogCategory::Network;
+        entry.message = "level probe";
+        CHECK(dispatcher.sendLog("inst-1", "demo", entry, nullptr));
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+
+        v1::FrameHeader header{};
+        std::string payload;
+        REQUIRE(client.readFrame(2000, &header, &payload));
+        const std::string needle = "\"level\":" + std::to_string(expected.wireValue);
+        CHECK_MSG(contains(payload, needle),
+                  "%s must go on the wire as %d, got payload=%s",
+                  expected.name,
+                  expected.wireValue,
+                  payload.c_str());
+    }
+
+    // sendError is contractually level=Error with the incident bit set.
+    CHECK(dispatcher.sendError("inst-1", "demo", sdk::LogCategory::Protocol, "boom", {}, {}, {}, 0, nullptr));
+    dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    v1::FrameHeader errorHeader{};
+    std::string errorPayload;
+    REQUIRE(client.readFrame(2000, &errorHeader, &errorPayload));
+    CHECK_MSG(contains(errorPayload, "\"level\":5"), "sendError payload=%s", errorPayload.c_str());
+    // category 4 (Protocol) | 0x80 incident bit = 132
+    CHECK_MSG(contains(errorPayload, "\"category\":132"), "sendError payload=%s", errorPayload.c_str());
+
+    dispatcher.stop();
+}
+
 void testInvalidFrameHeaderDisconnects()
 {
     const std::string path = phitest::uniqueSocketPath("badmagic");
@@ -565,6 +631,7 @@ int main()
     testUnknownCommandDefaultResponse();
     testEventEnvelopeShape();
     testOversizeFrameLimits();
+    testLogLevelWireContract();
     testInvalidFrameHeaderDisconnects();
     testUnicodeEscapeDecoding();
     testFrameTypeCommandMismatchRejected();

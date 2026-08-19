@@ -105,7 +105,7 @@ Notes:
 | `EventFactoryDescriptorUpdated` | `0x1002` | `Event` | factory | `externalId:string`, `descriptor:object` | none |
 | `EventAdapterMetaUpdated` | `0x1003` | `Event` | instance | `externalId:string`, `metaPatch:object` | none |
 | `EventConnectionStateChanged` | `0x1004` | `Event` | instance | `externalId:string`, `connected:bool` | none |
-| `EventLog` | `0x1005` | `Event` | factory or instance | `externalId:string`, `plugin:string`, `level:string`, `category:uint8`, `message:string`, `ctx:string`, `params:array`, `fields:object`, `tsMs:int64` | none |
+| `EventLog` | `0x1005` | `Event` | factory or instance | `externalId:string`, `plugin:string`, `level:uint8`, `category:uint8`, `message:string`, `ctx:string`, `params:array`, `fields:object`, `tsMs:int64` | none |
 | `EventDeviceUpdated` | `0x1101` | `Event` | instance | `externalId:string`, `device:object`, `channels:array` | none |
 | `EventDeviceRemoved` | `0x1102` | `Event` | instance | `externalId:string`, `deviceExternalId:string` | none |
 | `EventChannelUpdated` | `0x1201` | `Event` | instance | `externalId:string`, `deviceExternalId:string`, `channel:object` | none |
@@ -252,6 +252,10 @@ Normalized `EventLog` fields:
 Level wire encoding:
 - adapter code uses `LogLevel` enum values
 - on the socket, `level` is encoded as `uint8`
+- the C++ enum is 0-based and the wire is 1-based: the SDK maps between them in
+  `encodeWireLevel()`. Never cast `LogLevel` straight onto the wire - that shifted
+  every level by one until 0.5.1 (`Error` arrived as `Warn`, `Trace` as `Error`).
+  `sdk_protocol_tests::testLogLevelWireContract` asserts the table below.
 - wire values:
   - `1 = Trace`
   - `2 = Debug`

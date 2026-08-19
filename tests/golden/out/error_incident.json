@@ -1,1 +1,1 @@
-{"command":4101,"payload":{"externalId":"inst-1","plugin":"demo","level":4,"category":131,"message":"Connection lost","ctx":"demo.disconnect","params":[],"fields":{},"tsMs":1755500000000}}
+{"command":4101,"payload":{"externalId":"inst-1","plugin":"demo","level":5,"category":131,"message":"Connection lost","ctx":"demo.disconnect","params":[],"fields":{},"tsMs":1755500000000}}
