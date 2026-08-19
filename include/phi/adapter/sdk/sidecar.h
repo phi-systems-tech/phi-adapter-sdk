@@ -677,6 +677,19 @@ public:
     AdapterFactory(const AdapterFactory &) = delete;
     AdapterFactory &operator=(const AdapterFactory &) = delete;
 
+    /**
+     * @brief Whether the host has asked this factory to shut down.
+     *
+     * Set from the host thread the moment teardown begins - before `onFactoryStopping()` is
+     * scheduled - so it is observable even while this thread is parked in a
+     * blocking wait and cannot run queued work. Thread-safe.
+     *
+     * Adapter code that performs blocking I/O MUST poll this between waits and
+     * abandon its work when it turns true; otherwise the cooperative shutdown
+     * path cannot win against its own timeouts (see phi::sdk::kShutdownBudget).
+     */
+    bool stopRequested() const noexcept;
+
     /// Last bootstrap payload (factory plane).
     const BootstrapRequest &bootstrap() const;
     /// Whether bootstrap payload has been received.
@@ -789,6 +802,7 @@ private:
     std::unique_ptr<AdapterInstance> hostCreateInstance(const phicore::adapter::v1::ExternalId &externalId);
     void hostDestroyInstance(std::unique_ptr<AdapterInstance> instance);
     void hostOnFactoryActionInvoke(const AdapterActionInvokeRequest &request);
+    void hostRequestStop();
     void hostOnFactoryStopping();
     void hostOnConnected();
     void hostOnDisconnected();
@@ -820,6 +834,19 @@ public:
 
     AdapterInstance(const AdapterInstance &) = delete;
     AdapterInstance &operator=(const AdapterInstance &) = delete;
+
+    /**
+     * @brief Whether the host has asked this instance to shut down.
+     *
+     * Set from the host thread the moment teardown begins - before `stop()` is
+     * scheduled - so it is observable even while this thread is parked in a
+     * blocking wait and cannot run queued work. Thread-safe.
+     *
+     * Adapter code that performs blocking I/O MUST poll this between waits and
+     * abandon its work when it turns true; otherwise the cooperative shutdown
+     * path cannot win against its own timeouts (see phi::sdk::kShutdownBudget).
+     */
+    bool stopRequested() const noexcept;
 
     int adapterId() const;
     const phicore::adapter::v1::Utf8String &pluginType() const;
@@ -936,6 +963,7 @@ private:
     void cacheConfig(const ConfigChangedRequest &request);
 
     bool hostStart();
+    void hostRequestStop();
     void hostStop();
     bool hostRestart();
     void hostOnConnected();
@@ -958,6 +986,24 @@ private:
 };
 
 /**
+ * @brief Total time budget for a sidecar shutdown.
+ *
+ * phi-core sends `SIGTERM` and kills the process 3 s later, so everything the
+ * sidecar does on the way out has to fit in here: the Qt adapters notice the
+ * signal within one 250 ms shutdown-timer tick, then `SidecarHost::stop()` gets
+ * this budget to stop the instances, join their execution backends and stop the
+ * factory backend - which leaves ~750 ms of headroom for process exit.
+ * `SidecarHost::stop()` treats it as one deadline and divides it across that
+ * work instead of giving each step its own independent timeout.
+ *
+ * Consequence for adapter code: a blocking wait inside `stop()` that is longer
+ * than the instance's slice of this budget cannot be honoured. The cooperative
+ * path only wins if every wait in a teardown path is cancellable, or short
+ * enough to finish inside the slice.
+ */
+constexpr auto kShutdownBudget = std::chrono::milliseconds(2000);
+
+/**
  * @brief High-level sidecar host that wires IPC transport and adapter class.
  */
 class SidecarHost
@@ -973,9 +1019,15 @@ public:
     bool start(phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
-     * @brief Stop IPC host.
+     * @brief Stop IPC host within `budget`.
+     *
+     * The budget is one deadline for the whole teardown: it is divided across
+     * the instances (so N instances do not multiply it), their execution
+     * backends and the factory backend. Steps that overrun their slice are
+     * reported as protocol errors and forced, which is what `kShutdownBudget`
+     * exists to keep out of the normal path.
      */
-    void stop();
+    void stop(std::chrono::milliseconds budget = kShutdownBudget);
 
     /**
      * @brief Poll IPC once.
@@ -1032,11 +1084,12 @@ private:
     bool executeOnFactory(std::function<void()> task,
                           phicore::adapter::v1::Utf8String *error = nullptr);
     void reportProtocolError(phicore::adapter::v1::Utf8String message);
-    void shutdownFactoryExecution();
+    void shutdownFactoryExecution(std::chrono::milliseconds budget);
     void queueDeferredResult(DeferredResult result);
     void drainDeferredResults();
-    void stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId);
-    void stopAndDestroyInstances();
+    void stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId,
+                                std::chrono::milliseconds budget);
+    void stopAndDestroyInstances(std::chrono::steady_clock::time_point deadline);
     void wireHandlers();
 
     std::unique_ptr<Impl> m_impl;

@@ -510,6 +510,41 @@ package builds; skipped when the SDK is consumed via `add_subdirectory`):
   `PHI_GOLDEN_UPDATE=1 ./sdk_golden_wire_tests` — review the diff and update
   `PROTOCOLL.md` (and phi-core) in the same change.
 
+Shutdown budget (v1, mandatory):
+
+- `phi::sdk::kShutdownBudget` is the total time a sidecar has to shut down. It is
+  derived from phi-core, which sends `SIGTERM` and kills the process 3 s later.
+- `SidecarHost::stop(budget)` treats it as one deadline and divides it: the instances
+  share what is left after a reserve for the factory backend, and each instance splits
+  its slice between the cooperative `stop()` and the join that follows.
+- Adapter consequence: **a blocking wait in a teardown path must be cancellable or
+  shorter than the instance's slice.** With two instances the slice is well under a
+  second, so a 3 s HTTP timeout or a 1 s socket connect cannot be waited out.
+- `AdapterInstance::stopRequested()` / `AdapterFactory::stopRequested()` is how a
+  blocking path learns about the shutdown. The host sets it from its own thread the
+  moment teardown begins - before `stop()` / `onFactoryStopping()` is even scheduled -
+  so it is observable while the execution thread sits in a socket wait and cannot run
+  queued work. Poll it between waits:
+
+```cpp
+// Chunked instead of one long wait, so the loop can give up early.
+while (waitedMs < timeoutMs) {
+    if (stopRequested())
+        return false;
+    const int slice = std::min(100, timeoutMs - waitedMs);
+    if (socket.waitForReadyRead(slice))
+        break;
+    waitedMs += slice;
+}
+```
+
+  For nested `QEventLoop` helpers, run a short poll timer that quits the loop and
+  aborts the request when `stopRequested()` turns true.
+- If an execution backend does not stop within its slice, the host forces it and then
+  **leaks that instance on purpose**: a thread may still be running inside it, and
+  `destroyInstance()` would be a use-after-free. The leak is reported as a protocol
+  error - treat it as a bug in the adapter's teardown path, not as normal operation.
+
 Concurrency model (v1, mandatory):
 
 - `HostThread` is the sidecar main thread that runs `SidecarHost::pollOnce(...)`.

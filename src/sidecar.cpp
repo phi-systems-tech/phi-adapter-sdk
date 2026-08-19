@@ -166,7 +166,31 @@ std::string shortened(std::string_view text, std::size_t maxLen = 160)
     return std::string(text.substr(0, maxLen - 3)) + "...";
 }
 
+// Rollback path for a failed instance start (not a shutdown path): the backend
+// has just been created and has at most the start task queued.
 constexpr auto kExecutionBackendStopTimeout = std::chrono::seconds(3);
+
+// Floor for a single teardown step. Below this a wait is pointless, and a
+// deadline that has already passed must not turn into a zero-timeout join that
+// forces terminate() on a thread which was about to finish anyway.
+constexpr auto kMinimumStopSlice = std::chrono::milliseconds(50);
+
+// Share of a shutdown budget reserved for the factory execution backend; the
+// instances get the rest.
+constexpr auto kFactoryStopReserveMax = std::chrono::milliseconds(500);
+
+using StopClock = std::chrono::steady_clock;
+
+std::chrono::milliseconds remainingUntil(StopClock::time_point deadline)
+{
+    const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - StopClock::now());
+    return left > std::chrono::milliseconds::zero() ? left : std::chrono::milliseconds::zero();
+}
+
+std::chrono::milliseconds atLeastMinimumSlice(std::chrono::milliseconds value)
+{
+    return value < kMinimumStopSlice ? kMinimumStopSlice : value;
+}
 
 bool isWs(char c)
 {
@@ -179,7 +203,7 @@ public:
     ~DefaultInstanceExecutionBackend() override
     {
         phicore::adapter::v1::Utf8String ignoreError;
-        stop(std::chrono::seconds(3), &ignoreError);
+        stop(kShutdownBudget, &ignoreError);
     }
 
     bool start(phicore::adapter::v1::Utf8String *error = nullptr) override
@@ -2779,6 +2803,9 @@ struct AdapterFactory::Impl {
     bool hasFactoryConfig = false;
     LogFilterCache logFilter;
     std::function<void(const phicore::adapter::v1::ActionResponse &)> actionResultSubmitter;
+    // Written by the host thread, read from the factory execution thread while
+    // it may be parked in a blocking wait.
+    std::atomic_bool stopRequested{false};
 };
 
 AdapterFactory::AdapterFactory()
@@ -2795,6 +2822,7 @@ AdapterFactory::~AdapterFactory() = default;
 #define m_hasFactoryConfig m_impl->hasFactoryConfig
 #define m_logFilter m_impl->logFilter
 #define m_actionResultSubmitter m_impl->actionResultSubmitter
+#define m_stopRequested m_impl->stopRequested
 
 
 const BootstrapRequest &AdapterFactory::bootstrap() const
@@ -2964,6 +2992,16 @@ void AdapterFactory::cacheFactoryConfig(const ConfigChangedRequest &request)
     m_hasFactoryConfig = true;
     m_logFilter = buildLogFilterCache(request.adapter);
 }
+bool AdapterFactory::stopRequested() const noexcept
+{
+    return m_stopRequested.load(std::memory_order_acquire);
+}
+
+void AdapterFactory::hostRequestStop()
+{
+    m_stopRequested.store(true, std::memory_order_release);
+}
+
 phicore::adapter::v1::Utf8String AdapterFactory::hostPluginType() const { return pluginType(); }
 AdapterDescriptor AdapterFactory::hostDescriptor() const { return descriptor(); }
 std::unique_ptr<InstanceExecutionBackend> AdapterFactory::hostCreateInstanceExecutionBackend(
@@ -3002,6 +3040,7 @@ void AdapterFactory::hostOnFactoryConfigChanged(const ConfigChangedRequest &requ
     onFactoryConfigChanged(request);
 }
 
+#undef m_stopRequested
 #undef m_actionResultSubmitter
 #undef m_logFilter
 #undef m_hasFactoryConfig
@@ -3020,6 +3059,9 @@ struct AdapterInstance::Impl {
     LogFilterCache logFilter;
     std::function<void(const phicore::adapter::v1::CmdResponse &)> cmdResultSubmitter;
     std::function<void(const phicore::adapter::v1::ActionResponse &)> actionResultSubmitter;
+    // Written by the host thread, read from the instance execution thread while
+    // it may be parked in a blocking wait.
+    std::atomic_bool stopRequested{false};
 };
 
 AdapterInstance::AdapterInstance()
@@ -3038,6 +3080,7 @@ AdapterInstance::~AdapterInstance() = default;
 #define m_logFilter m_impl->logFilter
 #define m_cmdResultSubmitter m_impl->cmdResultSubmitter
 #define m_actionResultSubmitter m_impl->actionResultSubmitter
+#define m_stopRequested m_impl->stopRequested
 
 
 int AdapterInstance::adapterId() const { return m_adapterId; }
@@ -3329,9 +3372,28 @@ void AdapterInstance::cacheConfig(const ConfigChangedRequest &request)
     m_hasConfig = true;
     m_logFilter = buildLogFilterCache(request.adapter);
 }
-bool AdapterInstance::hostStart() { return start(); }
+bool AdapterInstance::stopRequested() const noexcept
+{
+    return m_stopRequested.load(std::memory_order_acquire);
+}
+
+void AdapterInstance::hostRequestStop()
+{
+    m_stopRequested.store(true, std::memory_order_release);
+}
+
+bool AdapterInstance::hostStart()
+{
+    // A restarted instance must not inherit a stale stop request.
+    m_stopRequested.store(false, std::memory_order_release);
+    return start();
+}
 void AdapterInstance::hostStop() { stop(); }
-bool AdapterInstance::hostRestart() { return restart(); }
+bool AdapterInstance::hostRestart()
+{
+    m_stopRequested.store(false, std::memory_order_release);
+    return restart();
+}
 void AdapterInstance::hostOnConnected() { onConnected(); }
 void AdapterInstance::hostOnDisconnected() { onDisconnected(); }
 void AdapterInstance::hostOnProtocolError(const phicore::adapter::v1::Utf8String &message) { onProtocolError(message); }
@@ -3350,6 +3412,7 @@ void AdapterInstance::hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &
 void AdapterInstance::hostOnUnknownRequest(const UnknownRequest &request) { onUnknownRequest(request); }
 
 
+#undef m_stopRequested
 #undef m_actionResultSubmitter
 #undef m_cmdResultSubmitter
 #undef m_logFilter
@@ -3449,18 +3512,28 @@ bool SidecarHost::start(phicore::adapter::v1::Utf8String *error)
     }
 
     if (!m_dispatcher.start(error)) {
-        shutdownFactoryExecution();
+        shutdownFactoryExecution(kShutdownBudget);
         return false;
     }
     return true;
 }
 
-void SidecarHost::stop()
+void SidecarHost::stop(std::chrono::milliseconds budget)
 {
-    stopAndDestroyInstances();
+    // One deadline for the whole teardown (see kShutdownBudget): steps take
+    // slices of it instead of each running its own independent timeout, which is
+    // what used to let a sidecar with two instances need ~17 s to shut down
+    // inside core's 3 s SIGTERM window.
+    const auto clamped = budget > std::chrono::milliseconds::zero()
+        ? budget
+        : std::chrono::milliseconds::zero();
+    const auto deadline = StopClock::now() + clamped;
+    const auto factoryReserve = std::min(clamped / 4, kFactoryStopReserveMax);
+
+    stopAndDestroyInstances(deadline - factoryReserve);
     // Before the dispatcher: pending factory work may still produce results,
     // and it must not outlive the dispatcher it sends them through.
-    shutdownFactoryExecution();
+    shutdownFactoryExecution(atLeastMinimumSlice(remainingUntil(deadline)));
     {
         std::lock_guard<std::mutex> lock(m_resultMutex);
         m_resultQueue.clear();
@@ -3470,7 +3543,7 @@ void SidecarHost::stop()
     m_dispatcher.stop();
 }
 
-void SidecarHost::shutdownFactoryExecution()
+void SidecarHost::shutdownFactoryExecution(std::chrono::milliseconds budget)
 {
     if (!m_factoryActive)
         return;
@@ -3481,6 +3554,9 @@ void SidecarHost::shutdownFactoryExecution()
     // exiting. Without a backend this is a plain inline call.
     if (m_factory) {
         AdapterFactory *factory = m_factory;
+        // Same as for instances: a factory hook blocking in a probe can see this
+        // before the queued stopping hook gets a chance to run.
+        factory->hostRequestStop();
         phicore::adapter::v1::Utf8String scheduleError;
         if (!executeOnFactory([factory]() { factory->hostOnFactoryStopping(); }, &scheduleError))
             factory->hostOnProtocolError("Failed to dispatch factory stopping hook: " + scheduleError);
@@ -3490,7 +3566,7 @@ void SidecarHost::shutdownFactoryExecution()
         return;
     std::unique_ptr<InstanceExecutionBackend> execution = std::move(m_factoryExecution);
     phicore::adapter::v1::Utf8String stopError;
-    if (!execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory) {
+    if (!execution->stop(budget, &stopError) && m_factory) {
         // Reported inline: the backend that would have carried this is gone.
         m_factory->hostOnProtocolError("Factory execution backend stop timed out: " + stopError);
     }
@@ -3816,8 +3892,15 @@ void SidecarHost::drainDeferredResults()
     }
 }
 
-void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId)
+void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId &externalId,
+                                        std::chrono::milliseconds budget)
 {
+    // Split between the cooperative stop() and the join that follows it: the
+    // adapter gets the larger share, since a stop() that completes makes the
+    // join return immediately.
+    const auto stopBudget = atLeastMinimumSlice(budget * 3 / 5);
+    const auto joinBudget = atLeastMinimumSlice(budget - stopBudget);
+
     const auto it = m_instances.find(externalId);
     if (it == m_instances.end())
         return;
@@ -3826,6 +3909,12 @@ void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId 
     m_instances.erase(it);
     if (!runtime)
         return;
+
+    if (runtime->instance) {
+        // Observable even if the instance thread is parked in a blocking wait
+        // and cannot run the queued hostStop() yet.
+        runtime->instance->hostRequestStop();
+    }
 
     if (runtime->execution && runtime->instance) {
         struct StopCompletion {
@@ -3851,35 +3940,67 @@ void SidecarHost::stopAndDestroyInstance(const phicore::adapter::v1::ExternalId 
         } else {
             std::unique_lock<std::mutex> lock(completion->mutex);
             if (!completion->cv.wait_for(lock,
-                                         kExecutionBackendStopTimeout,
+                                         stopBudget,
                                          [&completion]() { return completion->done; })
                 && m_factory) {
-                reportProtocolError("Timed out waiting for instance stop completion for externalId='"
-                                               + externalId + "'");
+                // Almost always an uncancellable blocking wait in adapter code
+                // (see F-33): name the budget so the log points at the cause.
+                reportProtocolError("Instance stop() did not complete within "
+                                    + std::to_string(stopBudget.count())
+                                    + "ms for externalId='" + externalId + "'");
             }
         }
     }
 
+    bool forced = false;
     if (runtime->execution) {
         phicore::adapter::v1::Utf8String stopError;
-        if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory) {
+        if (!runtime->execution->stop(joinBudget, &stopError)) {
+            forced = true;
             reportProtocolError("Execution backend stop timed out for externalId='"
                                            + externalId + "': " + stopError);
         }
     }
+
+    if (forced) {
+        // The backend did not come back within its budget, so a thread may still
+        // be executing inside this instance (the default backend detaches such a
+        // thread instead of killing it). Destroying the object here would be a
+        // use-after-free, so it is leaked on purpose and destroyInstance() is
+        // skipped - a bounded leak on an abnormal teardown beats a crash.
+        reportProtocolError("Leaking instance runtime for externalId='" + externalId
+                            + "': its execution backend did not stop and may still use it");
+        (void)runtime->instance.release();
+        (void)runtime->execution.release();
+        return;
+    }
+
     if (m_factory && runtime->instance)
         m_factory->hostDestroyInstance(std::move(runtime->instance));
 }
 
-void SidecarHost::stopAndDestroyInstances()
+void SidecarHost::stopAndDestroyInstances(std::chrono::steady_clock::time_point deadline)
 {
     std::vector<phicore::adapter::v1::ExternalId> externalIds;
     externalIds.reserve(m_instances.size());
     for (const auto &entry : m_instances)
         externalIds.push_back(entry.first);
 
-    for (const auto &externalId : externalIds)
-        stopAndDestroyInstance(externalId);
+    // Signalled before the first teardown, not one by one: instances that block
+    // in I/O then unwind concurrently instead of each waiting for its turn.
+    for (const auto &externalId : externalIds) {
+        if (InstanceRuntime *runtime = findRuntime(externalId); runtime && runtime->instance)
+            runtime->instance->hostRequestStop();
+    }
+
+    // Instances share the remaining time rather than each getting the full
+    // budget, so the total stays bounded no matter how many are hosted. An
+    // instance that stops quickly leaves its unused time to the next one.
+    for (std::size_t i = 0; i < externalIds.size(); ++i) {
+        const auto pending = static_cast<std::size_t>(externalIds.size() - i);
+        const auto slice = atLeastMinimumSlice(remainingUntil(deadline) / pending);
+        stopAndDestroyInstance(externalIds[i], slice);
+    }
 }
 
 void SidecarHost::wireHandlers()
@@ -3989,7 +4110,9 @@ void SidecarHost::wireHandlers()
             reportProtocolError("InstanceRemoved must target instance scope (externalId required)");
             return;
         }
-        stopAndDestroyInstance(request.externalId);
+        // Runtime removal of a single instance: the whole budget is available
+        // because nothing else is being torn down alongside it.
+        stopAndDestroyInstance(request.externalId, kShutdownBudget);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         CmdResponse response;

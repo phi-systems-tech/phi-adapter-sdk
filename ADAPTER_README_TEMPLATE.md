@@ -111,6 +111,8 @@ Notes:
   - `stop()`: graceful shutdown (cancel timers/IO/retries, close sessions/sockets)
   - periodic polling: own timer, created in `start()` and destroyed in `stop()`, so it runs on the
     instance's execution context instead of racing with it from the host thread
+  - blocking waits: chunked and guarded by `stopRequested()`, so teardown fits into
+    `phi::sdk::kShutdownBudget` instead of being forced
   - `restart()`: clean `stop()` + `start()` semantics
 - SDK handles transport/dispatch and instance execution backend teardown; adapter code must
   ensure resource cleanup and cancellation on shutdown.

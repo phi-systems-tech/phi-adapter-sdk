@@ -377,6 +377,150 @@ void testFactoryBackendDefaultsToInline()
     host.stop();
 }
 
+// Instances whose stop() blocks past the shutdown budget: the host must bound
+// the teardown regardless, and must not spend the full budget per instance.
+class BlockingStopInstance final : public sdk::AdapterInstance
+{
+public:
+    static constexpr auto kStopBlockFor = std::chrono::seconds(5);
+
+protected:
+    bool start() override { return true; }
+
+    void stop() override
+    {
+        // Stands in for the uncancellable blocking waits F-33 is about.
+        std::this_thread::sleep_for(kStopBlockFor);
+    }
+};
+
+class BlockingStopFactory final : public sdk::AdapterFactory
+{
+protected:
+    v1::Utf8String pluginType() const override { return "test.blocking.stop"; }
+    std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
+    {
+        return std::make_unique<BlockingStopInstance>();
+    }
+};
+
+// Mirrors what an adapter with chunked blocking I/O does: sit in short waits and
+// poll stopRequested() between them. Such a thread cannot run queued work, so the
+// flag is the only way it can learn about the shutdown.
+class CooperativeInstance final : public sdk::AdapterInstance
+{
+public:
+    std::atomic_bool inWork{false};
+    std::atomic_bool sawStopRequest{false};
+
+protected:
+    bool start() override { return true; }
+
+    // Runs on this instance's execution backend, so while it is in here the
+    // backend cannot run the queued hostStop() at all.
+    void onConfigChanged(const sdk::ConfigChangedRequest &request) override
+    {
+        sdk::AdapterInstance::onConfigChanged(request);
+        inWork.store(true);
+        for (int i = 0; i < 100; ++i) { // 100 x 100ms = 10s if never interrupted
+            if (stopRequested()) {
+                sawStopRequest.store(true);
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        inWork.store(false);
+    }
+};
+
+class CooperativeFactory final : public sdk::AdapterFactory
+{
+public:
+    CooperativeInstance *created = nullptr;
+
+protected:
+    v1::Utf8String pluginType() const override { return "test.cooperative"; }
+    std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
+    {
+        auto instance = std::make_unique<CooperativeInstance>();
+        created = instance.get();
+        return instance;
+    }
+};
+
+void testStopRequestReachesBlockedInstance()
+{
+    const std::string path = phitest::uniqueSocketPath("stopflag");
+    auto factory = std::make_unique<CooperativeFactory>();
+    CooperativeFactory *factoryPtr = factory.get();
+    sdk::SidecarHost host(path, std::move(factory));
+    v1::Utf8String err;
+    REQUIRE(host.start(&err));
+
+    TestClient client;
+    REQUIRE(client.connectTo(path));
+    const std::string config = "{\"command\":258,\"cmdId\":1,\"payload\":{"
+                               "\"adapterId\":1,\"pluginType\":\"test.cooperative\","
+                               "\"externalId\":\"inst-1\",\"enabled\":true}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 1, config));
+    auto deadline = Clock::now() + std::chrono::seconds(3);
+    while (host.instance("inst-1") == nullptr && Clock::now() < deadline)
+        host.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(host.instance("inst-1") != nullptr);
+    REQUIRE(factoryPtr->created != nullptr);
+
+    // The config handler above now occupies the instance's execution thread.
+    deadline = Clock::now() + std::chrono::seconds(2);
+    while (!factoryPtr->created->inWork.load() && Clock::now() < deadline)
+        host.pollOnce(std::chrono::milliseconds(5), nullptr);
+    REQUIRE(factoryPtr->created->inWork.load());
+
+    CooperativeInstance *instance = factoryPtr->created;
+    const auto t0 = Clock::now();
+    host.stop();
+    const long tookMs = phitest::msSince(t0);
+
+    CHECK_MSG(instance->sawStopRequest.load(), "blocked instance never observed stopRequested()");
+    CHECK_MSG(tookMs < 1000, "cooperative unwind took %ldms", tookMs);
+    std::printf("stop request: blocked instance unwound in %ldms instead of 10000ms\n", tookMs);
+}
+
+void testShutdownBudgetIsShared()
+{
+    const std::string path = phitest::uniqueSocketPath("stopbudget");
+    sdk::SidecarHost host(path, std::make_unique<BlockingStopFactory>());
+    v1::Utf8String err;
+    REQUIRE(host.start(&err));
+
+    TestClient client;
+    REQUIRE(client.connectTo(path));
+
+    // Two instances, created the way core does it: config.changed per externalId.
+    for (const char *externalId : {"inst-a", "inst-b"}) {
+        const std::string config = std::string("{\"command\":258,\"cmdId\":1,\"payload\":{"
+                                               "\"adapterId\":1,\"pluginType\":\"test.blocking.stop\","
+                                               "\"externalId\":\"")
+            + externalId + "\",\"enabled\":true}}";
+        REQUIRE(client.sendFrame(v1::MessageType::Request, 1, config));
+        const auto deadline = Clock::now() + std::chrono::seconds(3);
+        while (host.instance(externalId) == nullptr && Clock::now() < deadline)
+            host.pollOnce(std::chrono::milliseconds(10), nullptr);
+        REQUIRE(host.instance(externalId) != nullptr);
+    }
+
+    const auto t0 = Clock::now();
+    host.stop();
+    const long tookMs = phitest::msSince(t0);
+
+    // Both instances block for 5s each; the budget must still hold, with room
+    // for the forced joins on top of it.
+    const long budgetMs = static_cast<long>(sdk::kShutdownBudget.count());
+    CHECK_MSG(tookMs < budgetMs + 1500, "stop() took %ldms for a %ldms budget", tookMs, budgetMs);
+    CHECK_MSG(tookMs >= budgetMs / 2, "stop() returned in %ldms - budget not honoured at all", tookMs);
+    std::printf("shutdown budget: two instances blocking 5s each stopped in %ldms (budget %ldms)\n",
+                tookMs, budgetMs);
+}
+
 } // namespace
 
 int main()
@@ -387,6 +531,8 @@ int main()
     testStopInterruptsBlockingPoll();
     testFactoryBackendKeepsPollResponsive();
     testFactoryBackendDefaultsToInline();
+    testShutdownBudgetIsShared();
+    testStopRequestReachesBlockedInstance();
 
     if (phitest::g_failures == 0) {
         std::printf("runtime_tests: all passed\n");
