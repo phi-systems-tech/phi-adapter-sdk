@@ -1,3 +1,20 @@
+phi-adapter-sdk (0.5.0-1) trixie; urgency=medium
+
+  * Add phi::sdk::kShutdownBudget and SidecarHost::stop(budget): one propagated
+    deadline for the whole teardown instead of independent per-step timeouts.
+    A sidecar with two instances could previously need ~17s to shut down while
+    phi-core kills it 3s after SIGTERM (F-33).
+  * Add AdapterInstance::stopRequested() / AdapterFactory::stopRequested(), set
+    from the host thread when teardown begins, so blocking adapter code can
+    abandon its waits - a thread parked in a socket wait cannot run a queued
+    stop().
+  * Do not destroy an instance whose execution backend failed to stop: a thread
+    may still be running inside it. The runtime is leaked and reported instead
+    (was a use-after-free, see F-35).
+  * Bounded the Qt backend's post-terminate() grace period to 250ms.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 19 Aug 2026 18:07:51 +0200
+
 phi-adapter-sdk (0.4.0-1) trixie; urgency=medium
 
   * Add AdapterFactory::createFactoryExecutionBackend(): factory-scope hooks can
