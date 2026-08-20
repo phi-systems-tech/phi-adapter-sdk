@@ -5,14 +5,19 @@
 // - stop() interrupting a blocking poll
 // - factory execution backend: blocking factory hooks must not stall the poll
 //   loop, and the default (no backend) must stay inline
+// - abandoned execution threads: accounted for and reaped, and the process
+//   leaves without running static destructors underneath one
 #include "phi/adapter/sdk/sidecar.h"
 #include "test_support.h"
 
 #include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <string>
+#include <sys/wait.h>
 #include <thread>
 
 namespace sdk = phicore::adapter::sdk;
@@ -404,6 +409,179 @@ protected:
     }
 };
 
+// An instance whose stop() outlives its slice of the shutdown budget, but not by
+// much: the host gives up on the thread, and the thread finishes shortly after.
+class LateStopInstance final : public sdk::AdapterInstance
+{
+public:
+    static constexpr auto kStopBlockFor = std::chrono::seconds(3);
+
+protected:
+    bool start() override { return true; }
+
+    void stop() override { std::this_thread::sleep_for(kStopBlockFor); }
+};
+
+class LateStopFactory final : public sdk::AdapterFactory
+{
+protected:
+    v1::Utf8String pluginType() const override { return "test.late.stop"; }
+    std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
+    {
+        return std::make_unique<LateStopInstance>();
+    }
+};
+
+// F-35: a worker that misses its stop deadline used to be detached, which threw
+// away every means of knowing it was still running. Runs before the other
+// shutdown tests so the registry starts empty and the counts can be exact.
+void testAbandonedThreadIsReapedNotDetached()
+{
+    REQUIRE(sdk::reapAbandonedExecutionThreads() == 0);
+
+    const std::string path = phitest::uniqueSocketPath("abandoned");
+    sdk::SidecarHost host(path, std::make_unique<LateStopFactory>());
+    v1::Utf8String err;
+    REQUIRE(host.start(&err));
+
+    TestClient client;
+    REQUIRE(client.connectTo(path));
+    const std::string config = "{\"command\":258,\"cmdId\":1,\"payload\":{"
+                               "\"adapterId\":1,\"pluginType\":\"test.late.stop\","
+                               "\"externalId\":\"inst-1\",\"enabled\":true}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 1, config));
+    const auto deadline = Clock::now() + std::chrono::seconds(3);
+    while (host.instance("inst-1") == nullptr && Clock::now() < deadline)
+        host.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(host.instance("inst-1") != nullptr);
+
+    host.stop();
+
+    // The worker is still inside stop(). Its thread has to be accounted for,
+    // not detached and forgotten.
+    const std::size_t stuck = sdk::reapAbandonedExecutionThreads();
+    CHECK_MSG(stuck == 1, "expected 1 abandoned thread after shutdown, got %zu", stuck);
+
+    // ...and once it does finish, it is joined. With detach() there was nothing
+    // left to observe, so this half could not be asserted at all.
+    const auto t0 = Clock::now();
+    const std::size_t left = sdk::reapAbandonedExecutionThreads(std::chrono::seconds(4));
+    CHECK_MSG(left == 0, "abandoned thread was never reaped (%zu still running)", left);
+    std::printf("abandoned thread: counted during shutdown, joined %ldms later\n",
+                phitest::msSince(t0));
+}
+
+// The other half of F-35: how the *process* ends when a thread was abandoned.
+// Observable only from outside, so the sidecar runs in a child. Forked before
+// any test has started a thread, which is also what makes the fork safe.
+void testMainExitsWithoutStaticDestructorsWhenThreadAbandoned()
+{
+    const std::string path = phitest::uniqueSocketPath("mainexit");
+    ::unlink(path.c_str());
+
+    // config.changed carries no reply, so the child reports the instance over a
+    // pipe instead. Guessing at a command that does reply would test the wire
+    // schema, not the exit path.
+    int ready[2] = {-1, -1};
+    REQUIRE(::pipe(ready) == 0);
+
+    std::fflush(nullptr); // or the child re-flushes everything printed so far
+
+    const pid_t pid = ::fork();
+    REQUIRE(pid >= 0);
+
+    if (pid == 0) {
+        ::close(ready[0]);
+        sdk::SidecarHost host(path, std::make_unique<LateStopFactory>());
+        v1::Utf8String childError;
+        if (!host.start(&childError))
+            std::_Exit(70);
+        bool announced = false;
+        sdk::SidecarMainOptions options;
+        options.pollTimeout = std::chrono::milliseconds(50);
+        options.onIteration = [&]() {
+            if (announced || host.instance("inst-1") == nullptr)
+                return;
+            announced = true;
+            const char byte = 'r';
+            (void)::write(ready[1], &byte, 1);
+        };
+        const int rc = sdk::runSidecarMain(host, options);
+        // Reached only if runSidecarMain returned, i.e. it saw nothing
+        // abandoned and let static destructors run. 71 is the old behaviour.
+        std::_Exit(rc == 0 ? 71 : 72);
+    }
+
+    ::close(ready[1]);
+
+    TestClient client;
+    bool connected = false;
+    const auto connectDeadline = Clock::now() + std::chrono::seconds(3);
+    while (Clock::now() < connectDeadline) {
+        if (client.connectTo(path)) {
+            connected = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    CHECK_MSG(connected, "child sidecar never accepted a connection");
+
+    if (connected) {
+        const std::string config = "{\"command\":258,\"cmdId\":1,\"payload\":{"
+                                   "\"adapterId\":1,\"pluginType\":\"test.late.stop\","
+                                   "\"externalId\":\"inst-1\",\"enabled\":true}}";
+        client.sendFrame(v1::MessageType::Request, 1, config);
+    }
+
+    // The instance has to exist, or shutdown has nothing to get stuck on and
+    // the test proves nothing.
+    pollfd readyPoll{};
+    readyPoll.fd = ready[0];
+    readyPoll.events = POLLIN;
+    char readyByte = 0;
+    const bool created = ::poll(&readyPoll, 1, 3000) == 1
+        && ::read(ready[0], &readyByte, 1) == 1;
+    ::close(ready[0]);
+    CHECK_MSG(created, "child never reported the instance");
+
+    const auto t0 = Clock::now();
+    ::kill(pid, SIGTERM);
+
+    int status = 0;
+    bool reaped = false;
+    const auto exitDeadline = Clock::now() + std::chrono::seconds(8);
+    while (Clock::now() < exitDeadline) {
+        if (::waitpid(pid, &status, WNOHANG) == pid) {
+            reaped = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    const long tookMs = phitest::msSince(t0);
+    if (!reaped) {
+        ::kill(pid, SIGKILL);
+        ::waitpid(pid, &status, 0);
+    }
+    ::unlink(path.c_str());
+
+    REQUIRE(reaped);
+    CHECK_MSG(WIFEXITED(status), "child was killed by signal %d instead of exiting",
+              WIFSIGNALED(status) ? WTERMSIG(status) : 0);
+    if (WIFEXITED(status)) {
+        CHECK_MSG(WEXITSTATUS(status) == 0,
+                  "child exit status %d (71 = returned through static destructors "
+                  "while a thread was still in stop())",
+                  WEXITSTATUS(status));
+    }
+    // stop() blocks for 3s; leaving on the budget rather than waiting it out is
+    // the point.
+    const long blockMs = static_cast<long>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(LateStopInstance::kStopBlockFor).count());
+    CHECK_MSG(tookMs < blockMs, "shutdown took %ldms - the abandoned thread was waited out", tookMs);
+    std::printf("main exit: process left %ldms after SIGTERM with a thread still in a %ldms stop()\n",
+                tookMs, blockMs);
+}
+
 // Mirrors what an adapter with chunked blocking I/O does: sit in short waits and
 // poll stopRequested() between them. Such a thread cannot run queued work, so the
 // flag is the only way it can learn about the shutdown.
@@ -525,12 +703,17 @@ void testShutdownBudgetIsShared()
 
 int main()
 {
+    // First: it forks, and forking is only safe while the process is still
+    // single-threaded.
+    testMainExitsWithoutStaticDestructorsWhenThreadAbandoned();
+
     testWakeupLatency();
     testWriteDeadlineOnStalledPeer();
     testQueueCapShedsOldestLogFrames();
     testStopInterruptsBlockingPoll();
     testFactoryBackendKeepsPollResponsive();
     testFactoryBackendDefaultsToInline();
+    testAbandonedThreadIsReapedNotDetached();
     testShutdownBudgetIsShared();
     testStopRequestReachesBlockedInstance();
 

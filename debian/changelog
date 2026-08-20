@@ -1,3 +1,16 @@
+phi-adapter-sdk (0.7.0-1) trixie; urgency=medium
+
+  * An execution-backend worker that misses its stop deadline is no longer
+    detached. It is kept in a registry instead, so the process can tell how many
+    such threads are still running and can still join one that finishes late
+    (F-35).
+  * New: reapAbandonedExecutionThreads(grace). runSidecarMain() calls it after
+    the host has stopped and leaves through _Exit(0) when anything is still
+    running, rather than unwinding the process underneath a live adapter thread.
+  * Additive API only; adapters do not need rebuilding for this version.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 20 Aug 2026 10:25:43 +0200
+
 phi-adapter-sdk (0.6.0-1) trixie; urgency=medium
 
   * Align the log vocabulary with the transport plane and the wire: LogLevel is

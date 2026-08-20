@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -1145,6 +1146,25 @@ struct SidecarMainOptions {
      */
     bool installSignalHandlers = true;
 };
+
+/**
+ * @brief Reap execution-backend threads that missed their stop deadline.
+ *
+ * When a backend's worker does not return within its stop budget it is still
+ * running adapter code, and a foreign call stack cannot be unwound safely. The
+ * SDK keeps such a thread rather than detaching it, so the process can account
+ * for it; this call waits up to `grace` for them to finish and joins any that
+ * do.
+ *
+ * @return the number still running.
+ *
+ * A non-zero result means the process must **not** run static destructors: the
+ * thread would then execute against a half-destroyed process, and the crash
+ * would land after shutdown was already reported. `runSidecarMain()` handles
+ * that; a hand-written main loop has to do the same.
+ */
+std::size_t reapAbandonedExecutionThreads(
+    std::chrono::milliseconds grace = std::chrono::milliseconds::zero());
 
 /**
  * @brief Run the canonical sidecar main loop: start, poll, stop.

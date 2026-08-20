@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <csignal>
+#include <cstdlib>
 #include <iostream>
 #include <thread>
 
@@ -19,6 +20,10 @@ void handleStopSignal(int)
 // Back-off after a failing poll so a persistent failure cannot turn the loop
 // into a busy spin.
 constexpr auto kPollFailureBackoff = std::chrono::milliseconds(200);
+
+// Grace for a worker that missed its stop deadline. It may be milliseconds from
+// returning, and reaping it here turns an abrupt exit back into a normal one.
+constexpr auto kAbandonedThreadGrace = std::chrono::milliseconds(250);
 
 } // namespace
 
@@ -54,6 +59,25 @@ int runSidecarMain(SidecarHost &host, const SidecarMainOptions &options)
     }
 
     host.stop();
+
+    // A worker that missed its stop budget is still executing adapter code
+    // (F-35). Returning from main would run static destructors underneath it,
+    // so once it is clear the thread is not coming back, leave without touching
+    // them: the stuck thread cannot then fault against a half-destroyed process
+    // after shutdown was already reported, and it cannot deadlock exit by
+    // holding an allocator or stdio lock.
+    const std::size_t stuck = reapAbandonedExecutionThreads(kAbandonedThreadGrace);
+    if (stuck > 0) {
+        std::cerr << "[sidecar][abandonedThreads] " << stuck
+                  << " execution thread(s) did not stop within the shutdown budget; "
+                     "exiting without static destructors" << std::endl;
+        std::cerr.flush();
+        std::cout.flush();
+        // Shutdown itself completed and was reported, so the exit status stays
+        // clean; the defect is on the stderr line above.
+        std::_Exit(0);
+    }
+
     return 0;
 }
 

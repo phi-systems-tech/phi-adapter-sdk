@@ -567,6 +567,19 @@ while (waitedMs < timeoutMs) {
   **leaks that instance on purpose**: a thread may still be running inside it, and
   `destroyInstance()` would be a use-after-free. The leak is reported as a protocol
   error - treat it as a bug in the adapter's teardown path, not as normal operation.
+- The thread itself is not detached but kept, so the process can still account for it.
+  `runSidecarMain()` calls `reapAbandonedExecutionThreads(grace)` after the host has
+  stopped: threads that finished late are joined, and if any are still running the
+  process leaves through `_Exit(0)` rather than returning. Running static destructors
+  underneath a live adapter thread is how a clean shutdown turns into a crash *after*
+  it was reported. A hand-written main loop must do the same:
+
+```cpp
+host.stop();
+if (phi::sdk::reapAbandonedExecutionThreads(std::chrono::milliseconds(250)) > 0)
+    std::_Exit(0); // a thread is still in adapter code; do not unwind the process
+return 0;
+```
 
 Concurrency model (v1, mandatory):
 
