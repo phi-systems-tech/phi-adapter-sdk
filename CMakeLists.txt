@@ -90,6 +90,12 @@ install(
         PATTERN "*.h"
 )
 install(
+    DIRECTORY include/phi/adapter/testing
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/phi/adapter
+    FILES_MATCHING
+        PATTERN "*.h"
+)
+install(
     DIRECTORY include/phi/adapter/sdk
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/phi/adapter
     FILES_MATCHING
