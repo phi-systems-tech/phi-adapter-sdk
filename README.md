@@ -63,7 +63,19 @@ With that alias, common contract types are available as:
 - `phi::CmdResponse`, `phi::ActionResponse`, `phi::CmdStatus`, `phi::ActionResultType`
 - `phi::Adapter`, `phi::Device`, `phi::Channel`, `phi::Room`, `phi::Group`, `phi::Scene`
 
-## STRICT V1 POLICY: NO FALLBACKS, NO BACKWARD COMPATIBILITY
+## STRICT V1 POLICY: NO FALLBACKS, NO BACKWARD COMPATIBILITY (while v1 is being shaped)
+
+This policy is **temporary and has an end**. It applies while v1 is still being
+cut - everything is rebuilt together, so breaking a shape costs a rebuild and
+nothing else. It stops applying once the SDK is something somebody outside can
+build against (M4, "API stabilization"), and from then on the rule is the
+opposite: **the protocol is backward compatible, and breaking it takes a major
+version.**
+
+Both halves matter, and the second is what the promise above - that adapters
+keep working across phi-core releases - actually rests on. What an adapter
+survives is core releases *that do not move the protocol version*; the version
+in the frame header is what says so.
 
 - SDK ABI/API changes are intentional in v1 cleanup; compatibility shims are not provided.
 - Do not implement legacy aliases for schema keys, action ids, channel ids, or enum names.
