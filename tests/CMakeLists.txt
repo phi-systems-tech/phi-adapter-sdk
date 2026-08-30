@@ -16,6 +16,12 @@ target_link_libraries(sdk_golden_wire_tests PRIVATE phi::adapter-sdk Threads::Th
 target_compile_definitions(sdk_golden_wire_tests
     PRIVATE PHI_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
+# Vocabulary rather than runtime: the contract alone, no Qt and no event loop,
+# which is the point of it living there.
+add_executable(sdk_tlsconfig_tests tlsconfig_tests.cpp)
+target_link_libraries(sdk_tlsconfig_tests PRIVATE phi::adapter-contract)
+
+add_test(NAME sdk_tlsconfig_tests COMMAND sdk_tlsconfig_tests)
 add_test(NAME sdk_runtime_tests COMMAND sdk_runtime_tests)
 add_test(NAME sdk_protocol_tests COMMAND sdk_protocol_tests)
 add_test(NAME sdk_golden_wire_tests COMMAND sdk_golden_wire_tests)
