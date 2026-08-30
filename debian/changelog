@@ -1,3 +1,12 @@
+phi-adapter-sdk (0.8.0-1) trixie; urgency=medium
+
+  * The TLS fields an adapter offers are decided in the contract: tls,
+    tlsCaFile, tlsVerifyHostname, with the reading of their values
+    beside them so every adapter takes the same answer from the same
+    value. Off unless asked, and verified when on.
+
+ -- Marius Schumacher <google@phisys.com>  Sun, 30 Aug 2026 10:41:29 +0200
+
 phi-adapter-sdk (0.7.1-1) trixie; urgency=medium
 
   * Ships phi/adapter/testing/check.h: the assertion helpers the phi test
