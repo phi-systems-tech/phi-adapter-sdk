@@ -1,3 +1,13 @@
+phi-adapter-sdk (0.13.2-1) trixie; urgency=medium
+
+  * HttpClient clears OpenSSL's thread-local error queue before each TLS
+    call and does not shut down a session whose handshake never finished.
+    Two clients on one thread (a poll and an event stream) otherwise read
+    each other's leftovers as failures: "shutdown while in init" ended a
+    healthy stream at hue's start.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Tue, 08 Sep 2026 19:08:32 +0200
+
 phi-adapter-sdk (0.13.1-1) trixie; urgency=medium
 
   * ButtonPresses takes the arrival time as well as the device time: the

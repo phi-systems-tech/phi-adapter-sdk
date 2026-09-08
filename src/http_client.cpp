@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -268,10 +269,17 @@ struct HttpClient::Impl {
         writeWatch.reset();
         if (ssl) {
             // A close_notify is polite but not worth waiting for on a
-            // non-blocking socket; the peer sees the FIN either way.
-            SSL_shutdown(ssl);
+            // non-blocking socket; the peer sees the FIN either way. Not
+            // before the handshake is done, though: a shutdown then leaves
+            // "shutdown while in init" on OpenSSL's thread-local error
+            // queue, and SSL_get_error() in the *other* client on this
+            // thread - the event stream next to the poll - reports it as
+            // its own failure.
+            if (SSL_is_init_finished(ssl))
+                SSL_shutdown(ssl);
             SSL_free(ssl);
             ssl = nullptr;
+            ERR_clear_error();
         }
         if (sslCtx) {
             SSL_CTX_free(sslCtx);
@@ -461,6 +469,7 @@ struct HttpClient::Impl {
     /// One step of the handshake; the socket says when the next is possible.
     void continueHandshake()
     {
+        ERR_clear_error();
         const int rc = SSL_connect(ssl);
         if (rc == 1) {
             handshaking = false;
@@ -512,6 +521,7 @@ struct HttpClient::Impl {
         while (written < outbound.size()) {
             const std::size_t left = outbound.size() - written;
             if (ssl) {
+                ERR_clear_error();
                 const int sent = SSL_write(ssl, outbound.data() + written, static_cast<int>(left));
                 if (sent > 0) {
                     written += static_cast<std::size_t>(sent);
@@ -559,6 +569,7 @@ struct HttpClient::Impl {
             char buffer[kReadChunk];
             ssize_t got = 0;
             if (ssl) {
+                ERR_clear_error();
                 const int n = SSL_read(ssl, buffer, sizeof(buffer));
                 if (n > 0) {
                     got = n;
