@@ -36,7 +36,11 @@ target_link_libraries(sdk_http_fetch_tests PRIVATE phi::adapter-sdk OpenSSL::SSL
 # The client, against a server that recomputes the digest rather than checking
 # that a header is present.
 add_executable(sdk_http_client_tests http_client_tests.cpp)
-target_link_libraries(sdk_http_client_tests PRIVATE phi::adapter-sdk Threads::Threads)
+target_link_libraries(sdk_http_client_tests PRIVATE phi::adapter-sdk OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+
+# What a stream of button events becomes: one thing per gesture.
+add_executable(sdk_button_presses_tests button_presses_tests.cpp)
+target_link_libraries(sdk_button_presses_tests PRIVATE phi::adapter-sdk)
 
 # Composite channel values and the field that stands for them.
 add_executable(sdk_channel_value_tests channel_value_tests.cpp)
@@ -52,6 +56,7 @@ add_test(NAME sdk_channel_value_tests COMMAND sdk_channel_value_tests)
 add_test(NAME sdk_http_auth_tests COMMAND sdk_http_auth_tests)
 add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
 add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
+add_test(NAME sdk_button_presses_tests COMMAND sdk_button_presses_tests)
 add_test(NAME sdk_http_fetch_tests COMMAND sdk_http_fetch_tests)
 add_test(NAME sdk_loop_execution_backend_tests COMMAND sdk_loop_execution_backend_tests)
 add_test(NAME sdk_runtime_tests COMMAND sdk_runtime_tests)

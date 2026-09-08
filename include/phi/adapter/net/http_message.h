@@ -73,6 +73,16 @@ public:
     [[nodiscard]] State state() const { return m_state; }
     void reset();
 
+    /// The head has been read: status and headers are final, and the framing
+    /// below is known. A caller streaming a body that never ends takes over
+    /// from here rather than letting the parser hold the whole stream.
+    [[nodiscard]] bool headComplete() const { return m_headComplete; }
+    /// Offset of the first body byte in everything consumed so far.
+    [[nodiscard]] std::size_t bodyStart() const { return m_bodyStart; }
+    [[nodiscard]] bool chunked() const { return m_chunked; }
+    [[nodiscard]] bool hasContentLength() const { return m_hasContentLength; }
+    [[nodiscard]] std::size_t contentLength() const { return m_contentLength; }
+
 private:
     State parse();
     State parseHead();

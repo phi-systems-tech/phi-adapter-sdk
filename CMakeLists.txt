@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.12.0
+    VERSION 0.13.0
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )
@@ -15,7 +15,7 @@ include(CMakePackageConfigHelpers)
 # is how libQt6Core got onto the box in the first place.
 find_package(phi-runtime CONFIG REQUIRED)
 
-# MD5 for HTTP digest authentication, and TLS for the blocking fetch. OpenSSL
+# MD5 for HTTP digest authentication, and TLS for both HTTP clients. OpenSSL
 # rather than libcurl: Debian's libcurl pulls librtmp and with it the GnuTLS
 # chain the licence rule exists to keep out - which is the reasoning phi-core's
 # own client was written under, and it is that client's TLS that lives here now.
@@ -42,6 +42,7 @@ add_library(phi_adapter_sdk SHARED
     src/runtime.cpp
     src/sidecar.cpp
     src/sidecar_main.cpp
+    src/button_presses.cpp
     src/http_auth.cpp
     src/http_client.cpp
     src/http_fetch.cpp

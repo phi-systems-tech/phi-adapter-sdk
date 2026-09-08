@@ -126,6 +126,13 @@ Rationale:
 - Single-click automations are not spuriously triggered before a double/triple click is recognized.
 - Hold interactions behave consistently even when vendor protocols differ.
 
+The machine that implements this is `sdk::ButtonPresses`
+(`phi/adapter/sdk/button_presses.h`), shared by every adapter that reports
+buttons. It holds a release for 500 ms and reports exactly one thing when the
+window closes; it has no clock of its own - it says when a window is due and
+the adapter arms one timer per button - so two adapters cannot drift apart on
+what a double click is, as they had.
+
 ## Coalescing, Dedupe, ACK And Result (v1)
 
 - `cmd.channel.invoke` ACK is transport-level acceptance only (request accepted by core pipeline).
@@ -1145,8 +1152,9 @@ same thing on both paths. What differs is only how a caller waits.
 | waits | never; driven by a `phi::runtime::Loop` | blocks the calling thread |
 | one at a time | yes — `send()` refuses while busy | one call, one exchange |
 | authentication | digest, answered and then cached per origin | none |
-| TLS | not yet | yes |
+| TLS | yes | yes |
 | redirects | no | up to `maxRedirects` |
+| streaming | `stream()`: pieces as they arrive, for a server-sent event stream | no |
 | for | an adapter instance, on its own loop | a probe, or a caller with a thread to spare |
 
 Use `HttpClient` from anything that runs on a loop. The nested `QEventLoop` it
@@ -1162,7 +1170,11 @@ watching a form. It is also what phi-core's translation fetches run on, which
 is why TLS and redirects are on this side: a caller on the open internet needs
 both and a caller on the LAN needs neither.
 
-TLS takes its settings from `v1::TlsSettings` (see **TLS fields**) rather than
-its own flags, and the verification decisions live in one place
+Both take TLS from `v1::TlsSettings` (see **TLS fields**) rather than their own
+flags. `HttpClient::Call::tlsServerName` names the certificate a device has to
+present when that is not the host in the URL - a Hue bridge is dialled by IP
+and certifies its bridge id under Signify's own root - which keeps the
+hostname check on where turning it off would accept anything that root ever
+signed. The verification decisions live in one place
 (`src/net_tls.h`) — including the one that matters: turning off the hostname
 check leaves the chain check on.

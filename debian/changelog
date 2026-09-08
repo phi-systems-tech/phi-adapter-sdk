@@ -1,3 +1,21 @@
+phi-adapter-sdk (0.13.0-1) trixie; urgency=medium
+
+  * HttpClient (the loop client) speaks TLS, through the same net_tls
+    decisions as fetch(): chain always checked, a named CA in addition to
+    the system store, hostname check off is not accept anything. A
+    Call::tlsServerName names the certificate to expect when it is not the
+    URL host - a Hue bridge dialled by IP certifies its bridge id.
+  * HttpClient::stream(): the head, then body pieces as they arrive,
+    decoded, for a server-sent event stream; done when it ends.
+  * A host with several addresses is tried address by address; an IPv6
+    address nobody listens on is not a dead peer.
+  * sdk::ButtonPresses: the button-event policy as one shared machine,
+    500 ms either/or, no clock of its own.
+  * No ABI change for existing symbols; HttpClient::Call grew fields, so
+    adapters using it are rebuilt against this version.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Tue, 08 Sep 2026 18:12:49 +0200
+
 phi-adapter-sdk (0.12.0-1) trixie; urgency=medium
 
   * net::fetch(): the whole HTTP exchange on the calling thread, with TLS and

@@ -14,15 +14,21 @@
 // client can answer is answered and the request repeated, and the challenge is
 // then kept, so the round trip happens once per connection to a device and not
 // once per request.
+//
+// TLS takes the contract's own settings (`v1::TlsSettings`) and the decisions
+// that must not drift - chain always checked, hostname check off is not accept
+// anything - live in src/net_tls.h, shared with the blocking fetch().
 
 #include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "phi/adapter/net/http_auth.h"
 #include "phi/adapter/net/http_message.h"
+#include "phi/adapter/v1/tlsconfig.h"
 
 namespace phi::runtime {
 class Loop;
@@ -34,18 +40,32 @@ class HttpClient
 {
 public:
     struct Call {
-        /// `http://host[:port]/path`. `https://` is refused for now - see the
-        /// note on Result::error - because nothing that has moved off Qt needs
-        /// it yet and a half-built TLS is worse than a stated gap.
+        /// `http://host[:port]/path` or `https://host[:port]/path`.
         std::string url;
         std::string method = "GET";
         std::vector<Header> headers;
         std::string body;
         /// Empty user and password means no authentication is attempted.
         Credentials credentials;
-        /// Covers the whole call: resolve, connect, write, read, and the
-        /// repeat after a challenge.
+        /// Covers the whole call: resolve, connect, handshake, write, read,
+        /// and the repeat after a challenge. For a stream it covers up to
+        /// the response head; the stream itself has no deadline.
         std::chrono::milliseconds timeout{5000};
+        /// For an https URL: a CA trusted in addition to the system store,
+        /// and whether the certificate has to name the host. `enabled` is
+        /// not read; the URL scheme already decided.
+        v1::TlsSettings tls;
+        /**
+         * @brief The name the certificate has to carry, when it is not the
+         * host in the URL.
+         *
+         * A Hue bridge is dialled by its IP address and certifies its bridge
+         * id, signed by Signify's own root. Naming that id here keeps the
+         * hostname check on - the alternative, turning the check off because
+         * the URL host can never match, accepts any certificate that root
+         * ever signed.
+         */
+        std::string tlsServerName;
     };
 
     struct Result {
@@ -69,6 +89,23 @@ public:
 
     using Done = std::function<void(Result)>;
 
+    /**
+     * @brief What a caller of stream() gets, and when.
+     *
+     * `head` once the status and headers are in, `chunk` for every piece of
+     * body as it arrives - decoded, so a chunked transfer reads like a plain
+     * one - and `done` when the stream ends, by the server closing it, by an
+     * error, or by cancel(). `done`'s Result carries the status and headers
+     * and an empty body; `ok` is false when it ended in an error.
+     *
+     * For a server-sent event stream, which is a GET that never finishes.
+     */
+    struct StreamHandlers {
+        std::function<void(int status, const std::vector<Header> &headers)> head;
+        std::function<void(std::string_view piece)> chunk;
+        Done done;
+    };
+
     /// Owned by, and used from, the thread whose loop this is.
     explicit HttpClient(phi::runtime::Loop &loop);
     ~HttpClient();
@@ -81,6 +118,10 @@ public:
     /// False when a call is already in flight; `done` is then never called.
     /// The callback runs on the loop's thread and may start the next call.
     bool send(Call call, Done done);
+
+    /// False when a call is already in flight. Authentication is not
+    /// answered on a stream: a 401 ends it with `unauthorized` set.
+    bool stream(Call call, StreamHandlers handlers);
 
     /// Drops whatever is in flight without calling `done`.
     void cancel();

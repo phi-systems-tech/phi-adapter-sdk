@@ -9,6 +9,8 @@
 #include "phi/adapter/net/http_client.h"
 #include "phi/runtime/epollloop.h"
 
+#include "tls_test_server.h"
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -19,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 using namespace phicore::adapter::net;
 using namespace std::chrono_literals;
@@ -397,6 +400,232 @@ void testWhatIsRefusedOutright()
     PHI_CHECK(!client.busy());
 }
 
+
+// --- TLS and streaming -------------------------------------------------------
+
+/// A PEM to trust, written once for the process and removed at exit.
+struct CertificateFixture {
+    phitest::TestCertificate certificate;
+    std::string pemPath;
+    bool ok = false;
+
+    CertificateFixture()
+    {
+        char dir[] = "/tmp/phi-sdk-tls-XXXXXX";
+        if (::mkdtemp(dir) == nullptr)
+            return;
+        pemPath = std::string(dir) + "/ca.pem";
+        ok = certificate.create(pemPath);
+    }
+    ~CertificateFixture()
+    {
+        if (!pemPath.empty()) {
+            ::unlink(pemPath.c_str());
+            ::rmdir(pemPath.substr(0, pemPath.rfind('/')).c_str());
+        }
+    }
+};
+
+HttpClient::Result runOne(HttpClient::Call call)
+{
+    phi::runtime::EpollLoop loop;
+    HttpClient client(loop);
+    std::optional<HttpClient::Result> result;
+    client.send(std::move(call), [&](HttpClient::Result r) {
+        result = std::move(r);
+        loop.stop();
+    });
+    phi::runtime::Timer watchdog = loop.timerAfter(6s, [&loop]() { loop.stop(); });
+    loop.run();
+    return result.value_or(HttpClient::Result{.error = "no result"});
+}
+
+std::string okResponse(const std::string &body)
+{
+    return "HTTP/1.1 200 OK\r\nContent-Length: " + std::to_string(body.size())
+        + "\r\nConnection: close\r\n\r\n" + body;
+}
+
+/// A certificate for `localhost` is accepted when the bundle names its
+/// issuer, refused when the name does not match, refused by the system store,
+/// and - the case the Hue bridge needs - accepted for an address that is not
+/// its name when the caller says which name to expect.
+void testTlsIsVerified()
+{
+    CertificateFixture fixture;
+    PHI_CHECK(fixture.ok);
+    if (!fixture.ok)
+        return;
+    phitest::TestServer server;
+    PHI_CHECK(server.start([](const std::string &) { return okResponse("secure"); },
+                           &fixture.certificate));
+
+    HttpClient::Call byName;
+    byName.url = "https://localhost:" + std::to_string(server.port()) + "/x";
+    byName.tls.caFile = fixture.pemPath;
+    byName.timeout = 4000ms;
+    HttpClient::Result result = runOne(byName);
+    PHI_CHECK_MSG(result.ok, "%s", result.error.c_str());
+    PHI_CHECK(result.body == "secure");
+
+    // Dialled by address: the certificate names localhost, not 127.0.0.1.
+    HttpClient::Call byAddress = byName;
+    byAddress.url = "https://127.0.0.1:" + std::to_string(server.port()) + "/x";
+    result = runOne(byAddress);
+    PHI_CHECK_MSG(!result.ok, "a certificate for another name was accepted");
+    PHI_CHECK_MSG(result.error.find("certificate") != std::string::npos, "error was: %s",
+                  result.error.c_str());
+
+    // ...unless the caller says which name the certificate has to carry.
+    HttpClient::Call expectingName = byAddress;
+    expectingName.tlsServerName = "localhost";
+    result = runOne(expectingName);
+    PHI_CHECK_MSG(result.ok, "%s", result.error.c_str());
+
+    // The wrong expected name is still wrong.
+    HttpClient::Call wrongName = byAddress;
+    wrongName.tlsServerName = "bridge-0123";
+    result = runOne(wrongName);
+    PHI_CHECK(!result.ok);
+
+    // Nothing trusts a self-signed certificate on its own.
+    HttpClient::Call systemStore = byName;
+    systemStore.tls.caFile.clear();
+    result = runOne(systemStore);
+    PHI_CHECK_MSG(!result.ok, "a self-signed certificate was accepted by the system store");
+
+    // Off is not accept anything: with no bundle the chain still fails.
+    HttpClient::Call noCheckNoBundle = byAddress;
+    noCheckNoBundle.tls.caFile.clear();
+    noCheckNoBundle.tls.verifyHostname = false;
+    result = runOne(noCheckNoBundle);
+    PHI_CHECK(!result.ok);
+}
+
+/// Pieces arrive as they are sent, decoded; the end of the stream ends it.
+void testAStreamDeliversAsItGoes()
+{
+    phitest::TestServer server;
+    PHI_CHECK(server.start(
+        [](const std::string &) {
+            return std::vector<std::string>{
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+                "Transfer-Encoding: chunked\r\n\r\n"
+                "b\r\ndata: one\n\n\r\n",
+                "b\r\ndata: two\n\n\r\n",
+                "5\r\ndata:\r\n",
+                "8\r\n three\n\n\r\n0\r\n\r\n",
+            };
+        },
+        60));
+
+    phi::runtime::EpollLoop loop;
+    HttpClient client(loop);
+    int headStatus = 0;
+    std::vector<std::string> pieces;
+    std::vector<long long> pieceAt;
+    std::optional<HttpClient::Result> ended;
+    const auto started = std::chrono::steady_clock::now();
+    HttpClient::Call call;
+    call.url = "http://127.0.0.1:" + std::to_string(server.port()) + "/eventstream";
+    call.headers.emplace_back("Accept", "text/event-stream");
+    call.timeout = 300ms; // covers the head only
+    PHI_CHECK(client.stream(call, {
+        .head = [&](int status, const std::vector<Header> &) { headStatus = status; },
+        .chunk = [&](std::string_view piece) {
+            pieces.emplace_back(piece);
+            pieceAt.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                  std::chrono::steady_clock::now() - started).count());
+        },
+        .done = [&](HttpClient::Result r) { ended = std::move(r); loop.stop(); },
+    }));
+    PHI_CHECK(client.busy());
+    phi::runtime::Timer watchdog = loop.timerAfter(6s, [&loop]() { loop.stop(); });
+    loop.run();
+
+    PHI_CHECK(headStatus == 200);
+    std::string all;
+    for (const std::string &piece : pieces)
+        all += piece;
+    PHI_CHECK_MSG(all == "data: one\n\ndata: two\n\ndata: three\n\n", "got '%s'", all.c_str());
+    // Three pauses of 60 ms in the server: the first piece must not have
+    // waited for the last, and the head timeout of 300 ms must not have
+    // ended a stream that outlived it.
+    PHI_CHECK(pieces.size() >= 2);
+    if (pieceAt.size() >= 2)
+        PHI_CHECK_MSG(pieceAt.back() - pieceAt.front() >= 100, "pieces were held back until the end");
+    PHI_CHECK(ended.has_value());
+    if (ended) {
+        PHI_CHECK_MSG(ended->ok, "%s", ended->error.c_str());
+        PHI_CHECK(ended->status == 200);
+    }
+    PHI_CHECK(!client.busy());
+}
+
+/// A stream cancelled from a chunk callback stops there, with no `done`.
+void testAStreamCanBeCancelledFromInside()
+{
+    phitest::TestServer server;
+    PHI_CHECK(server.start(
+        [](const std::string &) {
+            return std::vector<std::string>{
+                "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nabcd\r\n",
+                "4\r\nefgh\r\n0\r\n\r\n",
+            };
+        },
+        60));
+    phi::runtime::EpollLoop loop;
+    HttpClient client(loop);
+    int chunks = 0;
+    bool doneCalled = false;
+    HttpClient::Call call;
+    call.url = "http://127.0.0.1:" + std::to_string(server.port()) + "/s";
+    call.timeout = 2000ms;
+    client.stream(call, {
+        .head = nullptr,
+        .chunk = [&](std::string_view) { ++chunks; client.cancel(); loop.stop(); },
+        .done = [&](HttpClient::Result) { doneCalled = true; },
+    });
+    phi::runtime::Timer watchdog = loop.timerAfter(4s, [&loop]() { loop.stop(); });
+    loop.run();
+    PHI_CHECK(chunks == 1);
+    PHI_CHECK(!doneCalled);
+    PHI_CHECK(!client.busy());
+
+    // And it can be used again.
+    std::optional<HttpClient::Result> again;
+    HttpClient::Call plain = call;
+    client.send(plain, [&](HttpClient::Result r) { again = std::move(r); loop.stop(); });
+    phi::runtime::Timer watchdog2 = loop.timerAfter(4s, [&loop]() { loop.stop(); });
+    loop.run();
+    PHI_CHECK(again.has_value() && again->ok && again->body == "abcdefgh");
+}
+
+/// A 4xx head ends a stream at once, and a 401 is named as such.
+void testAStreamRefusedIsNamed()
+{
+    phitest::TestServer server;
+    PHI_CHECK(server.start([](const std::string &) {
+        return std::string("HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n");
+    }));
+    phi::runtime::EpollLoop loop;
+    HttpClient client(loop);
+    std::optional<HttpClient::Result> ended;
+    bool anyChunk = false;
+    HttpClient::Call call;
+    call.url = "http://127.0.0.1:" + std::to_string(server.port()) + "/s";
+    call.timeout = 2000ms;
+    client.stream(call, {
+        .head = nullptr,
+        .chunk = [&](std::string_view) { anyChunk = true; },
+        .done = [&](HttpClient::Result r) { ended = std::move(r); loop.stop(); },
+    });
+    phi::runtime::Timer watchdog = loop.timerAfter(4s, [&loop]() { loop.stop(); });
+    loop.run();
+    PHI_CHECK(!anyChunk);
+    PHI_CHECK(ended.has_value() && !ended->ok && ended->unauthorized && ended->status == 401);
+}
+
 } // namespace
 
 int main()
@@ -408,5 +637,9 @@ int main()
     testASilentServerCostsItsTimeoutAndNoMore();
     testNothingListening();
     testWhatIsRefusedOutright();
+    testTlsIsVerified();
+    testAStreamDeliversAsItGoes();
+    testAStreamCanBeCancelledFromInside();
+    testAStreamRefusedIsNamed();
     return phi::testing::report("sdk_http_client_tests");
 }
