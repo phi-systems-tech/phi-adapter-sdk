@@ -16,14 +16,20 @@ target_link_libraries(sdk_golden_wire_tests PRIVATE phi::adapter-sdk Threads::Th
 target_compile_definitions(sdk_golden_wire_tests
     PRIVATE PHI_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
+# The Qt-free execution backend: one thread, one loop, a bounded stop.
+add_executable(sdk_loop_execution_backend_tests loop_execution_backend_tests.cpp)
+target_link_libraries(sdk_loop_execution_backend_tests PRIVATE phi::adapter-sdk Threads::Threads)
+
 # Vocabulary rather than runtime: the contract alone, no Qt and no event loop,
 # which is the point of it living there.
 add_executable(sdk_tlsconfig_tests tlsconfig_tests.cpp)
 target_link_libraries(sdk_tlsconfig_tests PRIVATE phi::adapter-contract)
 
 add_test(NAME sdk_tlsconfig_tests COMMAND sdk_tlsconfig_tests)
+add_test(NAME sdk_loop_execution_backend_tests COMMAND sdk_loop_execution_backend_tests)
 add_test(NAME sdk_runtime_tests COMMAND sdk_runtime_tests)
 add_test(NAME sdk_protocol_tests COMMAND sdk_protocol_tests)
 add_test(NAME sdk_golden_wire_tests COMMAND sdk_golden_wire_tests)
 set_tests_properties(sdk_runtime_tests sdk_protocol_tests sdk_golden_wire_tests
+    sdk_loop_execution_backend_tests
     PROPERTIES TIMEOUT 120)

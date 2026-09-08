@@ -1,13 +1,19 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.8.0
+    VERSION 0.9.0
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+
+# The loop execution backend is built on phi-runtime's EpollLoop. It is a hard
+# dependency rather than an option because it is what replaces the Qt backend:
+# an adapter that cannot arm a timer has to bring its own event loop, and that
+# is how libQt6Core got onto the box in the first place.
+find_package(phi-runtime CONFIG REQUIRED)
 
 set(PHI_ADAPTER_SDK_CMAKE_INSTALL_DIR "lib/cmake/phi-adapter-sdk")
 
@@ -30,6 +36,7 @@ add_library(phi_adapter_sdk SHARED
     src/runtime.cpp
     src/sidecar.cpp
     src/sidecar_main.cpp
+    src/loop_execution_backend.cpp
     src/linux/uds_epoll_transport.cpp
 )
 add_library(phi::adapter-sdk ALIAS phi_adapter_sdk)
@@ -53,6 +60,9 @@ target_include_directories(phi_adapter_sdk
 target_link_libraries(phi_adapter_sdk
     PUBLIC
         phi::adapter-contract
+        # Public: an adapter that takes the loop backend also writes
+        # Loop::current()->timerEvery(...), so it needs the headers.
+        phi::runtime
 )
 
 target_compile_definitions(phi_adapter_sdk
