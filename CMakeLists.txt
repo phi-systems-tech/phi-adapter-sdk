@@ -43,6 +43,8 @@ add_library(phi_adapter_sdk SHARED
     src/sidecar.cpp
     src/sidecar_main.cpp
     src/http_auth.cpp
+    src/http_client.cpp
+    src/http_message.cpp
     src/loop_execution_backend.cpp
     src/linux/uds_epoll_transport.cpp
 )

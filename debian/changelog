@@ -10,6 +10,17 @@ phi-adapter-sdk (0.10.0-1) trixie; urgency=medium
     RFCs print - RFC 2617 section 3.5 and RFC 7616 section 3.9.1 - are
     reproduced byte for byte in the tests, so the arithmetic is checked
     against somebody else's answer rather than against itself.
+  * phi/adapter/net/http_message.h: HTTP/1.1 framing, incremental, so a
+    response arriving in whatever pieces the network chose is read correctly -
+    Content-Length, chunked, and the older form framed only by the close.
+  * phi/adapter/net/http_client.h: one request at a time on a phi::runtime
+    loop, with the challenge round trip handled inside and the answer kept, so
+    it happens once per device rather than once per request. The Qt-free
+    replacement for QNetworkAccessManager plus a nested QEventLoop - and the
+    nested loop is the part worth losing: it dispatched every queued callback,
+    so any adapter callback could run inside any other.
+  * `https://` is refused with a plain message rather than half-built. Nothing
+    that has left Qt needs it yet.
   * Builds against libssl-dev for MD5.
 
  -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 08 Sep 2026 11:35:00 +0200

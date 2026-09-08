@@ -24,6 +24,16 @@ target_link_libraries(sdk_loop_execution_backend_tests PRIVATE phi::adapter-sdk 
 add_executable(sdk_http_auth_tests http_auth_tests.cpp)
 target_link_libraries(sdk_http_auth_tests PRIVATE phi::adapter-sdk)
 
+# HTTP/1.1 framing: the request that goes out, and a response arriving in
+# whatever pieces the network chose.
+add_executable(sdk_http_message_tests http_message_tests.cpp)
+target_link_libraries(sdk_http_message_tests PRIVATE phi::adapter-sdk)
+
+# The client, against a server that recomputes the digest rather than checking
+# that a header is present.
+add_executable(sdk_http_client_tests http_client_tests.cpp)
+target_link_libraries(sdk_http_client_tests PRIVATE phi::adapter-sdk Threads::Threads)
+
 # Vocabulary rather than runtime: the contract alone, no Qt and no event loop,
 # which is the point of it living there.
 add_executable(sdk_tlsconfig_tests tlsconfig_tests.cpp)
@@ -31,10 +41,12 @@ target_link_libraries(sdk_tlsconfig_tests PRIVATE phi::adapter-contract)
 
 add_test(NAME sdk_tlsconfig_tests COMMAND sdk_tlsconfig_tests)
 add_test(NAME sdk_http_auth_tests COMMAND sdk_http_auth_tests)
+add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
+add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
 add_test(NAME sdk_loop_execution_backend_tests COMMAND sdk_loop_execution_backend_tests)
 add_test(NAME sdk_runtime_tests COMMAND sdk_runtime_tests)
 add_test(NAME sdk_protocol_tests COMMAND sdk_protocol_tests)
 add_test(NAME sdk_golden_wire_tests COMMAND sdk_golden_wire_tests)
 set_tests_properties(sdk_runtime_tests sdk_protocol_tests sdk_golden_wire_tests
-    sdk_loop_execution_backend_tests
+    sdk_loop_execution_backend_tests sdk_http_client_tests
     PROPERTIES TIMEOUT 120)
