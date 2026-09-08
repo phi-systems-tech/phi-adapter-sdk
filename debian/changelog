@@ -1,3 +1,12 @@
+phi-adapter-sdk (0.13.1-1) trixie; urgency=medium
+
+  * ButtonPresses takes the arrival time as well as the device time: the
+    multi-press window runs on arrival, the report carries the device
+    time. A bridge delivering events 300 ms late shortened the window to
+    200 ms; a quadruple click arrived as two doubles.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Tue, 08 Sep 2026 19:00:43 +0200
+
 phi-adapter-sdk (0.13.0-1) trixie; urgency=medium
 
   * HttpClient (the loop client) speaks TLS, through the same net_tls

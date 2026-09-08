@@ -24,7 +24,8 @@ std::vector<ButtonPresses::Report> ButtonPresses::flush(Memory &memory)
     return out;
 }
 
-ButtonPresses::Outcome ButtonPresses::onEvent(const std::string &key, Code code, std::int64_t tsMs)
+ButtonPresses::Outcome ButtonPresses::onEvent(const std::string &key, Code code,
+                                              std::int64_t tsMs, std::int64_t nowMs)
 {
     Outcome out;
     if (code == Code::None)
@@ -33,10 +34,11 @@ ButtonPresses::Outcome ButtonPresses::onEvent(const std::string &key, Code code,
 
     switch (code) {
     case Code::ShortPressRelease:
-        // Held: the next half second decides what it was.
+        // Held: the next half second decides what it was. Half a second
+        // from now, not from when the device says it happened.
         ++memory.releases;
         memory.lastReleaseTs = tsMs;
-        out.windowUntilMs = tsMs + kMultiPressWindowMs;
+        out.windowUntilMs = nowMs + kMultiPressWindowMs;
         break;
     case Code::InitialPress:
         // The second press of a double click is a press like any other;

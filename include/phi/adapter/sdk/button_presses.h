@@ -18,6 +18,13 @@
 // is what makes a double click playable in a test in no time at all, and what
 // keeps this out of the adapters, where two copies had already drifted apart.
 //
+// Two times go in with every event: when the device says it happened, and
+// when it arrived here. The window runs on arrival, because that is the clock
+// the caller's timer runs on: a bridge that stamps an event and delivers it
+// 300 ms later would otherwise shorten a 500 ms window to 200, and a fast
+// quadruple click was measured arriving as two doubles. The report carries
+// the device's time, which is when the finger was on the button.
+//
 // A long press that repeats within kLongPressRepeatWindowMs of the previous
 // one is reported as a repeat. A device that counts for itself ("double" in
 // its own vocabulary) is believed as it is.
@@ -52,8 +59,10 @@ public:
         bool cancelWindow = false;
     };
 
-    /// `key` names one button: device and channel.
-    Outcome onEvent(const std::string &key, v1::ButtonEventCode code, std::int64_t tsMs);
+    /// `key` names one button: device and channel. `eventTsMs` is the
+    /// device's time for the event, `nowMs` the caller's clock at arrival.
+    Outcome onEvent(const std::string &key, v1::ButtonEventCode code, std::int64_t eventTsMs,
+                    std::int64_t nowMs);
 
     /// The window for `key` has passed: what the held releases amount to.
     std::vector<Report> onWindowClosed(const std::string &key);
