@@ -1,3 +1,26 @@
+phi-adapter-sdk (0.12.0-1) trixie; urgency=medium
+
+  * net::fetch(): the whole HTTP exchange on the calling thread, with TLS and
+    redirects. phi-core had written all of this a second time - a request
+    line, both body framings, the redirect rules and the certificate checks -
+    and two things that read bytes off a network eventually disagree about one
+    of them.
+  * It shares the framing with HttpClient rather than repeating it:
+    serializeRequest() and ResponseParser, so a chunked body means the same on
+    the loop path and the blocking one. What still differs between the two is
+    only how a caller waits.
+  * TLS settings come from v1::TlsSettings instead of a bare CA path, and the
+    verification decisions moved into one place (src/net_tls.h) - among them
+    the one worth not making twice: turning off the hostname check leaves the
+    chain check on. A named certificate is now trusted in addition to the
+    system store rather than instead of it, which is what the contract's own
+    description of the field already said.
+  * OpenSSL::SSL is linked, not only OpenSSL::Crypto. No ABI change: symbols
+    were added, the soname is unchanged, and adapters built against 0.11.0
+    keep running.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Tue, 08 Sep 2026 14:44:11 +0200
+
 phi-adapter-sdk (0.11.0-1) trixie; urgency=medium
 
   * ChannelDataType::Json and sendChannelObjectStateUpdated(): a composite

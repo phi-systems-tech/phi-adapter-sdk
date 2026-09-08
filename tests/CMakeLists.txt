@@ -29,6 +29,10 @@ target_link_libraries(sdk_http_auth_tests PRIVATE phi::adapter-sdk)
 add_executable(sdk_http_message_tests http_message_tests.cpp)
 target_link_libraries(sdk_http_message_tests PRIVATE phi::adapter-sdk)
 
+# The blocking exchange: framings, redirects, the deadline, and the TLS checks.
+add_executable(sdk_http_fetch_tests http_fetch_tests.cpp)
+target_link_libraries(sdk_http_fetch_tests PRIVATE phi::adapter-sdk OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+
 # The client, against a server that recomputes the digest rather than checking
 # that a header is present.
 add_executable(sdk_http_client_tests http_client_tests.cpp)
@@ -48,10 +52,11 @@ add_test(NAME sdk_channel_value_tests COMMAND sdk_channel_value_tests)
 add_test(NAME sdk_http_auth_tests COMMAND sdk_http_auth_tests)
 add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
 add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
+add_test(NAME sdk_http_fetch_tests COMMAND sdk_http_fetch_tests)
 add_test(NAME sdk_loop_execution_backend_tests COMMAND sdk_loop_execution_backend_tests)
 add_test(NAME sdk_runtime_tests COMMAND sdk_runtime_tests)
 add_test(NAME sdk_protocol_tests COMMAND sdk_protocol_tests)
 add_test(NAME sdk_golden_wire_tests COMMAND sdk_golden_wire_tests)
 set_tests_properties(sdk_runtime_tests sdk_protocol_tests sdk_golden_wire_tests
-    sdk_loop_execution_backend_tests sdk_http_client_tests
+    sdk_loop_execution_backend_tests sdk_http_client_tests sdk_http_fetch_tests
     PROPERTIES TIMEOUT 120)

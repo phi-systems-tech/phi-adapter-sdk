@@ -1132,3 +1132,37 @@ standing in the middle of it — and unlike a browser, which at least shows a
 warning page, an adapter would connect silently while the interface said "TLS".
 An endpoint with a self-signed certificate has a correct answer already: name
 the certificate in `tlsCaFile`.
+
+## HTTP (`phi/adapter/net`)
+
+Two clients, one HTTP. What they share is the framing: `serializeRequest()`
+writes the request and `ResponseParser` reads the answer, so `Content-Length`,
+`chunked`, a body split across three reads and a head that never ends mean the
+same thing on both paths. What differs is only how a caller waits.
+
+| | `HttpClient` (`http_client.h`) | `fetch()` (`http_fetch.h`) |
+| --- | --- | --- |
+| waits | never; driven by a `phi::runtime::Loop` | blocks the calling thread |
+| one at a time | yes — `send()` refuses while busy | one call, one exchange |
+| authentication | digest, answered and then cached per origin | none |
+| TLS | not yet | yes |
+| redirects | no | up to `maxRedirects` |
+| for | an adapter instance, on its own loop | a probe, or a caller with a thread to spare |
+
+Use `HttpClient` from anything that runs on a loop. The nested `QEventLoop` it
+replaces is the thing worth being rid of: it dispatched whatever was queued for
+the thread, so any adapter callback could run inside any other — a
+configuration change halfway through a poll, a write landing between a value
+being read and being reported, a teardown freeing the reply the frame below it
+was waiting on.
+
+Use `fetch()` when the caller is a thread that exists for one request and has
+nothing else to do until it is answered — a factory probe, with somebody
+watching a form. It is also what phi-core's translation fetches run on, which
+is why TLS and redirects are on this side: a caller on the open internet needs
+both and a caller on the LAN needs neither.
+
+TLS takes its settings from `v1::TlsSettings` (see **TLS fields**) rather than
+its own flags, and the verification decisions live in one place
+(`src/net_tls.h`) — including the one that matters: turning off the hostname
+check leaves the chain check on.

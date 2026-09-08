@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.11.0
+    VERSION 0.12.0
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )
@@ -15,10 +15,10 @@ include(CMakePackageConfigHelpers)
 # is how libQt6Core got onto the box in the first place.
 find_package(phi-runtime CONFIG REQUIRED)
 
-# MD5 for HTTP digest authentication, and TLS when the client grows it. OpenSSL
+# MD5 for HTTP digest authentication, and TLS for the blocking fetch. OpenSSL
 # rather than libcurl: Debian's libcurl pulls librtmp and with it the GnuTLS
-# chain the licence rule exists to keep out - the same reasoning phi-core's own
-# client was written under.
+# chain the licence rule exists to keep out - which is the reasoning phi-core's
+# own client was written under, and it is that client's TLS that lives here now.
 find_package(OpenSSL REQUIRED)
 
 set(PHI_ADAPTER_SDK_CMAKE_INSTALL_DIR "lib/cmake/phi-adapter-sdk")
@@ -44,7 +44,9 @@ add_library(phi_adapter_sdk SHARED
     src/sidecar_main.cpp
     src/http_auth.cpp
     src/http_client.cpp
+    src/http_fetch.cpp
     src/http_message.cpp
+    src/net_tls.cpp
     src/loop_execution_backend.cpp
     src/linux/uds_epoll_transport.cpp
 )
@@ -73,6 +75,7 @@ target_link_libraries(phi_adapter_sdk
         # Loop::current()->timerEvery(...), so it needs the headers.
         phi::runtime
     PRIVATE
+        OpenSSL::SSL
         OpenSSL::Crypto
 )
 
