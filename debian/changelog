@@ -1,19 +1,16 @@
-phi-adapter-sdk (0.9.0-1) trixie; urgency=medium
+phi-adapter-sdk (0.10.0-1) trixie; urgency=medium
 
-  * createLoopExecutionBackend(): the Qt-free instance execution backend.
-    One named thread, one phi::runtime::EpollLoop, adapter callbacks one at
-    a time in submission order - what sdk::qt::createInstanceExecutionBackend
-    did, without libQt6Core. What the default backend could not do is the
-    point of it: inside a callback, phi::runtime::Loop::current() is that
-    thread's loop, so an adapter arms its own timers and watches its own
-    descriptors. Having no way to do that is why adapters reached for QTimer
-    and pulled QtCore onto the box behind it.
-  * Stop stays bounded. A callback that will not return is handed to the
-    abandoned-thread registry exactly as the default backend hands one over
-    (F-35), so one wedged instance cannot hold a sidecar's teardown open.
-  * The registry moved from sidecar.cpp into abandoned_threads.h now that two
-    backends hand threads to it.
-  * Builds against libphi-runtime.
+  * HTTP authentication, in phi/adapter/net/http_auth.h: reading a
+    WWW-Authenticate challenge and answering it with Digest MD5 (qop=auth,
+    MD5-sess, and the older RFC 2069 form) or Basic. What
+    QNetworkAccessManager did for the adapters without anyone writing a line
+    of it, and the piece the FRITZ!Box adapter cannot leave Qt without - a
+    FRITZ!Box answers TR-064 with Digest MD5 and nothing else.
+  * Pure: a header string in, a header string out. Both worked examples the
+    RFCs print - RFC 2617 section 3.5 and RFC 7616 section 3.9.1 - are
+    reproduced byte for byte in the tests, so the arithmetic is checked
+    against somebody else's answer rather than against itself.
+  * Builds against libssl-dev for MD5.
 
- -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 08 Sep 2026 10:05:00 +0200
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 08 Sep 2026 11:35:00 +0200
 

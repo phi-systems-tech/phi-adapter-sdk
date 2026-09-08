@@ -2,7 +2,7 @@ Source: phi-adapter-sdk
 Section: libs
 Priority: optional
 Maintainer: Marius Schumacher <marius.schumacher@phisys.com>
-Build-Depends: debhelper-compat (= 13), cmake, libphi-runtime-dev
+Build-Depends: debhelper-compat (= 13), cmake, libphi-runtime-dev, libssl-dev
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 Homepage: https://github.com/phi-systems-tech/phi-adapter-sdk
@@ -18,6 +18,6 @@ Description: PHI adapter SDK runtime
 Package: phi-adapter-sdk-dev
 Section: libdevel
 Architecture: all
-Depends: ${misc:Depends}, phi-adapter-sdk (= ${binary:Version}), libphi-runtime-dev
+Depends: ${misc:Depends}, phi-adapter-sdk (= ${binary:Version}), libphi-runtime-dev, libssl-dev
 Description: PHI adapter SDK development files
  Headers, CMake config files and helper macros for PHI adapters.

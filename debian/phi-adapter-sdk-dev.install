@@ -1,4 +1,5 @@
 usr/include/phi/adapter/v1
+usr/include/phi/adapter/net
 usr/include/phi/adapter/sdk
 usr/include/phi/adapter/testing
 usr/lib/cmake/phi-adapter-sdk
