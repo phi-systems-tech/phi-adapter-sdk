@@ -34,12 +34,17 @@ target_link_libraries(sdk_http_message_tests PRIVATE phi::adapter-sdk)
 add_executable(sdk_http_client_tests http_client_tests.cpp)
 target_link_libraries(sdk_http_client_tests PRIVATE phi::adapter-sdk Threads::Threads)
 
+# Composite channel values and the field that stands for them.
+add_executable(sdk_channel_value_tests channel_value_tests.cpp)
+target_link_libraries(sdk_channel_value_tests PRIVATE phi::adapter-contract)
+
 # Vocabulary rather than runtime: the contract alone, no Qt and no event loop,
 # which is the point of it living there.
 add_executable(sdk_tlsconfig_tests tlsconfig_tests.cpp)
 target_link_libraries(sdk_tlsconfig_tests PRIVATE phi::adapter-contract)
 
 add_test(NAME sdk_tlsconfig_tests COMMAND sdk_tlsconfig_tests)
+add_test(NAME sdk_channel_value_tests COMMAND sdk_channel_value_tests)
 add_test(NAME sdk_http_auth_tests COMMAND sdk_http_auth_tests)
 add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
 add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)

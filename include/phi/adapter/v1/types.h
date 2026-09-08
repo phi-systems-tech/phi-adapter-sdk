@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
 #include "phi/adapter/v1/value.h"
@@ -212,6 +213,30 @@ enum class ChannelKind : std::uint16_t {
     SceneTrigger = 300,
 };
 
+/**
+ * @brief The field of a composite channel value that carries its scalar meaning.
+ *
+ * A `Json` channel's value is an object, and everything that has to reduce it
+ * to one comparable thing - a history sample, an automation condition - uses
+ * this field. Naming it here rather than letting each side pick means the
+ * history, the rules and the adapter cannot disagree about what the channel
+ * "is".
+ *
+ * Empty for every kind with no composite form, which is all but one of them.
+ */
+[[nodiscard]] constexpr std::string_view channelProjectionField(ChannelKind kind) noexcept
+{
+    switch (kind) {
+    case ChannelKind::DeviceSoftwareUpdate:
+        // status: UpToDate, UpdateAvailable, Downloading, Installing, ...
+        // The versions beside it are for a person to read, not to compare.
+        return "status";
+    default:
+        return {};
+    }
+}
+
+
 enum class ChannelDataType : std::uint8_t {
     Unknown = 0,
     Bool = 1,
@@ -220,6 +245,18 @@ enum class ChannelDataType : std::uint8_t {
     String = 4,
     Color = 5,
     Enum = 6,
+    /**
+     * @brief A composite value: a flat set of named scalars.
+     *
+     * For the kinds whose meaning genuinely does not fit in one number - a
+     * firmware update is a status *and* two versions, and reporting only one
+     * of the three loses the other two. Not a general escape hatch: the fields
+     * are scalars, there is no nesting, and every kind that uses this names
+     * one field as its scalar meaning through channelProjectionField().
+     *
+     * Colour predates this and keeps its own type and its own transport.
+     */
+    Json = 7,
 };
 
 enum class ConnectivityStatus : std::uint8_t {

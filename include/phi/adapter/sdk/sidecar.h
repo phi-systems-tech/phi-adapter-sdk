@@ -513,6 +513,12 @@ public:
                                  const phicore::adapter::v1::ScalarValue &value,
                                  std::int64_t tsMs = 0,
                                  phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendChannelObjectStateUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                       const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                       const phicore::adapter::v1::ExternalId &channelExternalId,
+                                       const phicore::adapter::v1::ChannelValueFields &fields,
+                                       std::int64_t tsMs = 0,
+                                       phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendChannelColorStateUpdated(const phicore::adapter::v1::ExternalId &externalId,
                                       const phicore::adapter::v1::ExternalId &deviceExternalId,
                                       const phicore::adapter::v1::ExternalId &channelExternalId,
@@ -924,6 +930,23 @@ protected:
                                  const phicore::adapter::v1::ScalarValue &value,
                                  std::int64_t tsMs = 0,
                                  phicore::adapter::v1::Utf8String *error = nullptr);
+    /**
+     * @brief A composite channel state: named scalars, one object on the wire.
+     *
+     * For a `ChannelDataType::Json` channel. The fields are serialized here,
+     * so a caller cannot produce a document that breaks the envelope, and the
+     * kind's `channelProjectionField()` decides which of them the history and
+     * the automation conditions see - the adapter does not choose that.
+     *
+     * A firmware update is the case this exists for: a status and two versions,
+     * where reporting only the status loses the two a person wants to read and
+     * reporting only a version loses the answer.
+     */
+    bool sendChannelObjectStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                       const phicore::adapter::v1::ExternalId &channelExternalId,
+                                       const phicore::adapter::v1::ChannelValueFields &fields,
+                                       std::int64_t tsMs = 0,
+                                       phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendChannelColorStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
                                       const phicore::adapter::v1::ExternalId &channelExternalId,
                                       double r,

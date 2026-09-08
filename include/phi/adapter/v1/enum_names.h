@@ -250,7 +250,7 @@ inline constexpr std::array<EnumValueName, 42> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::SceneTrigger), "SceneTrigger" },
 }};
 
-inline constexpr std::array<EnumValueName, 7> kChannelDataTypeNames = {{
+inline constexpr std::array<EnumValueName, 8> kChannelDataTypeNames = {{
     { static_cast<int>(ChannelDataType::Unknown), "Unknown" },
     { static_cast<int>(ChannelDataType::Bool), "Bool" },
     { static_cast<int>(ChannelDataType::Int), "Int" },
@@ -258,6 +258,7 @@ inline constexpr std::array<EnumValueName, 7> kChannelDataTypeNames = {{
     { static_cast<int>(ChannelDataType::String), "String" },
     { static_cast<int>(ChannelDataType::Color), "Color" },
     { static_cast<int>(ChannelDataType::Enum), "Enum" },
+    { static_cast<int>(ChannelDataType::Json), "Json" },
 }};
 
 inline constexpr std::array<EnumValueName, 4> kConnectivityStatusNames = {{

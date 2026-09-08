@@ -2521,6 +2521,47 @@ bool SidecarDispatcher::sendChannelStateUpdated(const phicore::adapter::v1::Exte
     return sendJson(MessageType::Event, 0, body, error);
 }
 
+bool SidecarDispatcher::sendChannelObjectStateUpdated(
+    const phicore::adapter::v1::ExternalId &externalId,
+    const phicore::adapter::v1::ExternalId &deviceExternalId,
+    const phicore::adapter::v1::ExternalId &channelExternalId,
+    const phicore::adapter::v1::ChannelValueFields &fields,
+    std::int64_t tsMs,
+    phicore::adapter::v1::Utf8String *error)
+{
+    const std::int64_t timestamp = tsMs > 0 ? tsMs : nowMs();
+    std::string body;
+    bool first = true;
+    openEnvelope(body, IpcCommand::EventChannelStateUpdated, first);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "deviceExternalId");
+    body += jsonQuoted(deviceExternalId);
+    appendFieldPrefix(body, first, "channelExternalId");
+    body += jsonQuoted(channelExternalId);
+    appendFieldPrefix(body, first, "value");
+    // Built here rather than taken as text: the envelope is assembled by hand,
+    // so a caller's malformed document would not be rejected, it would corrupt
+    // the frame around it.
+    body += "{";
+    bool firstField = true;
+    for (const auto &[name, value] : fields) {
+        if (name.empty())
+            continue;
+        if (!firstField)
+            body += ",";
+        firstField = false;
+        body += jsonQuoted(name);
+        body += ":";
+        appendScalarJson(body, value);
+    }
+    body += "}";
+    appendFieldPrefix(body, first, "tsMs");
+    body += std::to_string(timestamp);
+    closeEnvelope(body);
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
 bool SidecarDispatcher::sendChannelColorStateUpdated(const phicore::adapter::v1::ExternalId &externalId,
                                                      const phicore::adapter::v1::ExternalId &deviceExternalId,
                                                      const phicore::adapter::v1::ExternalId &channelExternalId,
@@ -3255,6 +3296,19 @@ bool AdapterInstance::sendChannelStateUpdated(const phicore::adapter::v1::Extern
         ? m_dispatcher->sendChannelStateUpdated(m_externalId, deviceExternalId, channelExternalId, value, tsMs, error)
         : false;
 }
+bool AdapterInstance::sendChannelObjectStateUpdated(
+    const phicore::adapter::v1::ExternalId &deviceExternalId,
+    const phicore::adapter::v1::ExternalId &channelExternalId,
+    const phicore::adapter::v1::ChannelValueFields &fields,
+    std::int64_t tsMs,
+    phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher
+        ? m_dispatcher->sendChannelObjectStateUpdated(m_externalId, deviceExternalId,
+                                                      channelExternalId, fields, tsMs, error)
+        : false;
+}
+
 bool AdapterInstance::sendChannelColorStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
                                                    const phicore::adapter::v1::ExternalId &channelExternalId,
                                                    double r,

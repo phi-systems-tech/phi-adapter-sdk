@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <variant>
+#include <utility>
 #include <vector>
 
 namespace phicore::adapter::v1 {
@@ -20,5 +21,15 @@ using JsonText = Utf8String;
 // still emit canonical values per ChannelDataType.
 using ScalarValue = std::variant<std::monostate, bool, std::int64_t, double, Utf8String>;
 using ScalarList = std::vector<ScalarValue>;
+
+/**
+ * @brief A composite channel value: named scalars, no nesting.
+ *
+ * The shape a `ChannelDataType::Json` channel is transported in. Flat and
+ * scalar on purpose - it is what every composite kind actually needs, it makes
+ * an invalid document impossible to build, and a projection field has to name
+ * a scalar anyway.
+ */
+using ChannelValueFields = std::vector<std::pair<Utf8String, ScalarValue>>;
 
 } // namespace phicore::adapter::v1
