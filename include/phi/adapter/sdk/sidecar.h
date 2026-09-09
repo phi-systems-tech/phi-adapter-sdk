@@ -1086,9 +1086,9 @@ public:
     /**
      * @brief Descriptor for integrating the sidecar into a foreign event loop.
      *
-     * See `SidecarDispatcher::pollDescriptor()`. Qt-based adapters can watch it
-     * with a `QSocketNotifier` (see `phi-adapter-sdk-qt`) instead of polling on
-     * a timer.
+     * See `SidecarDispatcher::pollDescriptor()`. An adapter on a foreign loop
+     * watches it for readability instead of polling on a timer -
+     * `createLoopExecutionBackend()` does exactly that on a phi::runtime loop.
      */
     int pollDescriptor() const noexcept;
 

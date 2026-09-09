@@ -3,10 +3,9 @@
 // Canonical color contract for v1 adapters. Qt-free on purpose: converting
 // between the canonical sRGB representation and a device's native color space
 // (Hue/Zigbee xy, HSV, ...) is an adapter responsibility, so every adapter must
-// be able to do it without pulling in Qt or phi-adapter-sdk-qt.
-//
-// The Qt wrapper (phi/adapter/qt/color.h in phi-adapter-sdk-qt) only adds the
-// Qt meta-type registration on top of these types and functions.
+// be able to do it without pulling in a toolkit for it. The Qt wrapper that
+// once mirrored these types (phi-adapter-sdk-qt) is retired; every adapter uses
+// these directly.
 
 #include <algorithm>
 #include <cmath>
