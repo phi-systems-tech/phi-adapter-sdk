@@ -1,3 +1,15 @@
+phi-adapter-sdk (0.13.4-1) trixie; urgency=medium
+
+  * An action descriptor carries its own timeoutMs. Core answers in the
+    adapter's place when a command outlives the adapter's timeout, and
+    that figure is written for ordinary traffic: an action that waits on
+    the physical world, such as commissioning waiting for a device to
+    start advertising, needs a deadline of its own or the caller is told
+    "Command timed out" while the adapter is still working. Zero keeps
+    the adapter's figure, so nothing changes for anyone who says nothing.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 10 Sep 2026 23:45:00 +0200
+
 phi-adapter-sdk (0.13.3-1) trixie; urgency=medium
 
   * An instance is configured before its start() runs. The
