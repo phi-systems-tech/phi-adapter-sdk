@@ -117,11 +117,6 @@ struct AdapterActionDescriptor {
     bool hasForm = false;
     bool danger = false;
     int cooldownMs = 0;
-    // How long core waits for this one action before it answers in the
-    // adapter's place. Zero leaves the adapter's own command timeout in
-    // charge, which is right for anything that talks to a device already
-    // there; an action that waits for hardware to show up needs its own.
-    int timeoutMs = 0;
     JsonText confirmJson;
     JsonText metaJson;
 };

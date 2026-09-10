@@ -1553,10 +1553,6 @@ std::string actionToJson(const AdapterActionDescriptor &action)
     out += (action.danger ? "true" : "false");
     appendFieldPrefix(out, first, "cooldownMs");
     out += std::to_string(action.cooldownMs);
-    if (action.timeoutMs > 0) {
-        appendFieldPrefix(out, first, "timeoutMs");
-        out += std::to_string(action.timeoutMs);
-    }
     if (!trim(action.confirmJson).empty()) {
         appendFieldPrefix(out, first, "confirm");
         out += jsonTokenOrDefault(action.confirmJson, "{}");
