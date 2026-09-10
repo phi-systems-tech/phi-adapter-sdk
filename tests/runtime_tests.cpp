@@ -7,6 +7,7 @@
 //   loop, and the default (no backend) must stay inline
 // - abandoned execution threads: accounted for and reaped, and the process
 //   leaves without running static destructors underneath one
+// - an instance is configured before its start() runs, not after
 #include "phi/adapter/sdk/sidecar.h"
 #include "test_support.h"
 
@@ -432,6 +433,74 @@ protected:
     }
 };
 
+// An instance that reads its configuration where the Matter adapter reads its
+// HCI index: in start(), before anything it configures has come up.
+class ConfigAtStartInstance final : public sdk::AdapterInstance
+{
+public:
+    std::atomic_bool sawConfig{false};
+    std::string metaAtStart;
+
+protected:
+    bool start() override
+    {
+        metaAtStart = config().adapter.metaJson;
+        sawConfig.store(hasConfig());
+        return true;
+    }
+};
+
+class ConfigAtStartFactory final : public sdk::AdapterFactory
+{
+public:
+    ConfigAtStartInstance *last = nullptr;
+
+protected:
+    v1::Utf8String pluginType() const override { return "test.config.at.start"; }
+    std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
+    {
+        auto instance = std::make_unique<ConfigAtStartInstance>();
+        last = instance.get();
+        return instance;
+    }
+};
+
+// An instance exists because a config.changed arrived, so start() has no reason
+// to run unconfigured. It used to: the request was handed over only after
+// start() returned, and every setting read there took its default. That is what
+// kept BLE commissioning off in the Matter adapter however the instance was
+// configured.
+void testInstanceIsConfiguredBeforeStart()
+{
+    const std::string path = phitest::uniqueSocketPath("config-at-start");
+    auto factory = std::make_unique<ConfigAtStartFactory>();
+    ConfigAtStartFactory *factoryPtr = factory.get();
+    sdk::SidecarHost host(path, std::move(factory));
+    v1::Utf8String err;
+    REQUIRE(host.start(&err));
+
+    TestClient client;
+    REQUIRE(client.connectTo(path));
+    const std::string config = "{\"command\":258,\"cmdId\":1,\"payload\":{"
+                               "\"adapterId\":1,\"adapter\":{"
+                               "\"pluginType\":\"test.config.at.start\","
+                               "\"externalId\":\"inst-1\","
+                               "\"meta\":{\"bleAdapter\":0}}}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 1, config));
+    const auto deadline = Clock::now() + std::chrono::seconds(3);
+    while (host.instance("inst-1") == nullptr && Clock::now() < deadline)
+        host.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(host.instance("inst-1") != nullptr);
+    REQUIRE(factoryPtr->last != nullptr);
+
+    CHECK_MSG(factoryPtr->last->sawConfig.load(), "start() ran without a configuration");
+    CHECK_MSG(factoryPtr->last->metaAtStart.find("bleAdapter") != std::string::npos,
+              "start() saw meta '%s', which does not carry the setting the request sent",
+              factoryPtr->last->metaAtStart.c_str());
+
+    host.stop();
+}
+
 // F-35: a worker that misses its stop deadline used to be detached, which threw
 // away every means of knowing it was still running. Runs before the other
 // shutdown tests so the registry starts empty and the counts can be exact.
@@ -713,6 +782,7 @@ int main()
     testStopInterruptsBlockingPoll();
     testFactoryBackendKeepsPollResponsive();
     testFactoryBackendDefaultsToInline();
+    testInstanceIsConfiguredBeforeStart();
     testAbandonedThreadIsReapedNotDetached();
     testShutdownBudgetIsShared();
     testStopRequestReachesBlockedInstance();

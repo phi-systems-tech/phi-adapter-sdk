@@ -1,3 +1,15 @@
+phi-adapter-sdk (0.13.3-1) trixie; urgency=medium
+
+  * An instance is configured before its start() runs. The
+    config.changed that creates the instance was handed over only after
+    start() returned, so a setting read in start() always took its
+    default. The Matter adapter reads the HCI index there, because the
+    CHIP stack wants it before the controller comes up, and BLE
+    commissioning therefore stayed off however the instance was
+    configured.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 10 Sep 2026 19:57:04 +0200
+
 phi-adapter-sdk (0.13.2-1) trixie; urgency=medium
 
   * HttpClient clears OpenSSL's thread-local error queue before each TLS

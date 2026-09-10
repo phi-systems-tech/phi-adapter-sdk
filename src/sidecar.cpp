@@ -3788,6 +3788,23 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
             queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
         });
     createdInstance->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
+    // The configuration before the first start, not after it.
+    //
+    // An instance is created because a config.changed arrived, and that
+    // request already carries everything the instance is configured with. It
+    // used to be handed over only once `start()` had returned, which left
+    // `start()` as the one callback that could never read its own settings:
+    // `hasConfig()` was false, and an adapter that reads a setting there took
+    // the default instead. The Matter adapter is where that showed - the HCI
+    // index for BLE commissioning is read in `start()`, because the CHIP stack
+    // wants it before the controller comes up, so BLE stayed off however the
+    // instance was configured.
+    //
+    // The `config.changed` that follows this call is not made redundant by it:
+    // it is the same request, and an adapter that does its work in
+    // `onConfigChanged` still gets it. What changes is only that `start()` is
+    // no longer configured after the fact.
+    createdInstance->cacheConfig(request);
 
     auto runtime = std::make_unique<InstanceRuntime>();
     runtime->externalId = request.adapter.externalId;
