@@ -55,8 +55,8 @@ Describe adapter scope and technical integration boundaries.
 - Document static discovery config `<plugin>-config.json` (`discovery` array) and supported keys
   (`kind`, `mdnsServiceType`, `ssdpSt`, `defaultPort`, `hints`)
 - State explicitly that v1 discovery config is strict (no aliases/fallback keys)
-- Document layout hints (`layout` / `field.ui`) and action placement rules
-- Document action-result form patch behavior (`formValuesJson`, `fieldChoicesJson`, `reloadLayout`)
+- Document the form layout the adapter chooses (dialog `width`/`columns`/`labelWidth`, field `cells`, buttons in `actions`)
+- Document action-result form patch behavior (`formValues`, `fieldChoices`, `reloadLayout`)
 - Minimal example
 
 ### Build

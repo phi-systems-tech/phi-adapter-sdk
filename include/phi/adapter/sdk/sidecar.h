@@ -8,11 +8,13 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <variant>
 
 #include "phi/adapter/v1/contract.h"
+#include "phi/adapter/sdk/schema_json.h"
 
 namespace phicore::adapter::sdk {
 
@@ -249,8 +251,8 @@ struct AdapterDescriptor {
     int maxInstances = 0;
     /// Adapter capabilities.
     phicore::adapter::v1::AdapterCapabilities capabilities;
-    /// Adapter config schema as JSON object text (UTF-8), expected object shape.
-    phicore::adapter::v1::JsonText configSchemaJson;
+    /// Adapter config forms; none for an adapter without settings.
+    std::optional<phicore::adapter::v1::AdapterConfigSchema> configSchema;
 };
 
 // Shared log vocabulary.
@@ -748,7 +750,7 @@ protected:
     virtual int timeoutMs() const;
     virtual int maxInstances() const;
     virtual phicore::adapter::v1::AdapterCapabilities capabilities() const;
-    virtual phicore::adapter::v1::JsonText configSchemaJson() const;
+    virtual std::optional<phicore::adapter::v1::AdapterConfigSchema> configSchema() const;
     virtual AdapterDescriptor descriptor() const;
     virtual std::unique_ptr<InstanceExecutionBackend> createInstanceExecutionBackend(
         const phicore::adapter::v1::ExternalId &externalId);

@@ -25,21 +25,12 @@ struct Adapter {
 
 using AdapterList = std::vector<Adapter>;
 
-struct AdapterConfigOption {
-    Utf8String value;
-    Utf8String label;
-};
-
-using AdapterConfigOptionList = std::vector<AdapterConfigOption>;
-
-struct AdapterConfigResponsiveInt {
-    int xs = 0;
-    int sm = 0;
-    int md = 0;
-    int lg = 0;
-    int xl = 0;
-    int xxl = 0;
-};
+// ------------------------------------------------------------- config forms
+//
+// A form says what it means, not how many grid units it takes. The adapter
+// picks from the steps below; the client owns the numbers, the same for every
+// adapter, and falls back on its own when a wish does not fit: buttons move
+// below their control first, then labels move above, then columns collapse.
 
 struct AdapterConfigFieldVisibility {
     Utf8String fieldKey;
@@ -47,17 +38,35 @@ struct AdapterConfigFieldVisibility {
     AdapterConfigVisibilityOp op = AdapterConfigVisibilityOp::Equals;
 };
 
-struct AdapterConfigFieldLayout {
-    AdapterConfigResponsiveInt span;
-    int position = 0;
-    bool hasLabelPosition = false;
-    AdapterConfigLabelPosition labelPosition = AdapterConfigLabelPosition::Left;
-    int labelSpan = 0;
-    int controlSpan = 0;
-    bool hasActionPosition = false;
-    AdapterConfigActionPosition actionPosition = AdapterConfigActionPosition::None;
-    int actionSpan = 0;
+/// The dialog a form is shown in.
+struct AdapterFormLayout {
+    AdapterConfigSize width = AdapterConfigSize::Normal;
+    /// 1 to 3 columns of cells, each cell a label, a control and its buttons.
+    int columns = 1;
+    AdapterConfigSize labelWidth = AdapterConfigSize::Normal;
 };
+
+struct AdapterConfigFieldLayout {
+    /// Order within the form; fields without one keep their declaration order.
+    int position = 0;
+    /// Cells taken, from 1 to the form's columns.
+    int cells = 1;
+    /// Start a new row even if the current one has room.
+    bool newRow = false;
+    /// Narrow for a port or a timeout; Wide also takes the button column when
+    /// the field has no buttons of its own.
+    AdapterConfigSize controlWidth = AdapterConfigSize::Normal;
+    AdapterConfigLabelPosition labelPosition = AdapterConfigLabelPosition::Auto;
+    AdapterConfigActionPosition actionPosition = AdapterConfigActionPosition::Auto;
+};
+
+/// A button that belongs to a field; `id` is an action of the same scope.
+struct AdapterConfigAction {
+    Utf8String id;
+    Utf8String label;
+};
+
+using AdapterConfigActionList = std::vector<AdapterConfigAction>;
 
 struct AdapterConfigField {
     Utf8String key;
@@ -65,43 +74,33 @@ struct AdapterConfigField {
 
     Utf8String label;
     Utf8String description;
-    Utf8String actionId;
-    Utf8String actionLabel;
 
     Utf8String placeholder;
     ScalarValue defaultValue;
 
     AdapterConfigFieldVisibility visibility;
     AdapterConfigFieldLayout layout;
+    /// The action whose form this field belongs to; empty for the section form.
     Utf8String parentActionId;
+    AdapterConfigActionList actions;
 
     AdapterConfigOptionList options;
+    /// A select offering those choices of the named multi-select that are
+    /// selected there.
+    Utf8String choicesFrom;
+    /// The field holds one value per choice of the named select and shows the
+    /// one for the choice selected there.
+    Utf8String perChoiceOf;
     JsonText metaJson;
     AdapterConfigFieldFlags flags = AdapterConfigFieldFlag::None;
 };
 
 using AdapterConfigFieldList = std::vector<AdapterConfigField>;
 
-struct AdapterConfigSectionLayoutDefaults {
-    AdapterConfigResponsiveInt span;
-    AdapterConfigLabelPosition labelPosition = AdapterConfigLabelPosition::Left;
-    int labelSpan = 8;
-    int controlSpan = 16;
-    AdapterConfigActionPosition actionPosition = AdapterConfigActionPosition::None;
-    int actionSpan = 6;
-};
-
-struct AdapterConfigSectionLayout {
-    int gridUnits = 24;
-    int gutterX = 12;
-    int gutterY = 8;
-    AdapterConfigSectionLayoutDefaults defaults;
-};
-
 struct AdapterConfigSection {
     Utf8String title;
     Utf8String description;
-    AdapterConfigSectionLayout layout;
+    AdapterFormLayout layout;
     AdapterConfigFieldList fields;
 };
 
@@ -117,6 +116,8 @@ struct AdapterActionDescriptor {
     bool hasForm = false;
     bool danger = false;
     int cooldownMs = 0;
+    /// The dialog of an action with a form.
+    AdapterFormLayout formLayout;
     JsonText confirmJson;
     JsonText metaJson;
 };

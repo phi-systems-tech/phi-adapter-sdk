@@ -45,6 +45,35 @@ struct CmdResponse {
     std::int64_t tsMs = 0;
 };
 
+struct AdapterConfigOption {
+    Utf8String value;
+    Utf8String label;
+};
+
+using AdapterConfigOptionList = std::vector<AdapterConfigOption>;
+
+/// A value per choice of another field: `{choice value, value}` pairs.
+using AdapterConfigPerChoiceValues = std::vector<std::pair<Utf8String, ScalarValue>>;
+
+/// What one form field holds: a scalar, a list (a multi-select), or one value
+/// per choice of the field it names in `perChoiceOf`.
+using AdapterFormValueData = std::variant<ScalarValue, ScalarList, AdapterConfigPerChoiceValues>;
+
+struct AdapterFormValue {
+    Utf8String key;
+    AdapterFormValueData data;
+};
+
+using AdapterFormValues = std::vector<AdapterFormValue>;
+
+/// The choices one select offers, sent with a form rather than declared.
+struct AdapterFieldChoices {
+    Utf8String key;
+    AdapterConfigOptionList choices;
+};
+
+using AdapterFieldChoicesList = std::vector<AdapterFieldChoices>;
+
 struct ActionResponse {
     CmdId id = 0;
     CmdStatus status = CmdStatus::Success;
@@ -54,8 +83,8 @@ struct ActionResponse {
     ActionResultType resultType = ActionResultType::None;
     ScalarValue resultValue;
     JsonText resultValueJson;
-    JsonText formValuesJson;
-    JsonText fieldChoicesJson;
+    AdapterFormValues formValues;
+    AdapterFieldChoicesList fieldChoices;
     bool reloadLayout = false;
     std::int64_t tsMs = 0;
 };
@@ -343,19 +372,33 @@ enum class AdapterConfigFieldType : std::uint8_t {
     Port = 5,
     QrCode = 6,
     Select = 7,
-    Action = 8,
+    /// No control of its own: the field's `actions` as one row of buttons.
+    Actions = 8,
+    /// A heading that opens a group of fields; label and description only.
+    Section = 9,
 };
 
+/// One size scale for everything in a form that is a width: the dialog, the
+/// label column, a control. What a step measures is the client's to decide.
+enum class AdapterConfigSize : std::uint8_t {
+    Normal = 0,
+    Narrow = 1,
+    Wide = 2,
+};
+
+/// Where a field's label goes. `Auto` beside the control while both fit, above
+/// it otherwise - the client decides, from the widths it knows.
 enum class AdapterConfigLabelPosition : std::uint8_t {
-    Top = 0,
-    Left = 1,
-    Right = 2,
+    Auto = 0,
+    Top = 1,
+    None = 2,
 };
 
+/// Where a field's buttons go. `Auto` beside the control while they fit, below
+/// it otherwise.
 enum class AdapterConfigActionPosition : std::uint8_t {
-    None = 0,
-    Inline = 1,
-    Below = 2,
+    Auto = 0,
+    Below = 1,
 };
 
 enum class AdapterConfigVisibilityOp : std::uint8_t {

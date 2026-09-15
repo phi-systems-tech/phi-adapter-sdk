@@ -98,10 +98,13 @@ protected:
         response.status = phi::CmdStatus::Success;
         if (request.actionId == "browseHosts") {
             response.resultType = phi::ActionResultType::None;
-            response.formValuesJson =
-                R"json({"trackedMacs":["1c:90:ff:0b:58:77","26:d2:aa:57:79:46"]})json";
-            response.fieldChoicesJson =
-                R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"},{"value":"cc:8c:bf:76:0c:54","label":"Heater (192.168.1.26)"}]})json";
+            const phi::Utf8String zigbee = "1c:90:ff:0b:58:77";
+            const phi::Utf8String phone = "26:d2:aa:57:79:46";
+            response.formValues = {{"trackedMacs", phi::ScalarList{zigbee, phone}}};
+            response.fieldChoices = {{"trackedMacs",
+                                      {{zigbee, "Zigbee (192.168.1.77)"},
+                                       {phone, "Phone (192.168.1.76)"},
+                                       {"cc:8c:bf:76:0c:54", "Heater (192.168.1.26)"}}}};
             response.reloadLayout = false;
         } else if (request.actionId == "startRun") {
             response.resultType = phi::ActionResultType::None;

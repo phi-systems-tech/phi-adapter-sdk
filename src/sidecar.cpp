@@ -1536,6 +1536,153 @@ std::string jsonTokenOrDefault(const std::string &json, std::string_view fallbac
     return std::string(token);
 }
 
+std::string configEnumName(std::string_view enumType, int value)
+{
+    return phicore::adapter::v1::enum_names::enumNameFor(enumType, value);
+}
+
+void appendFormLayoutJson(std::string &out, const phicore::adapter::v1::AdapterFormLayout &layout)
+{
+    out += "{\"width\":";
+    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.width)));
+    out += ",\"columns\":";
+    out += std::to_string(layout.columns);
+    out += ",\"labelWidth\":";
+    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.labelWidth)));
+    out.push_back('}');
+}
+
+void appendOptionListJson(std::string &out, const phicore::adapter::v1::AdapterConfigOptionList &options)
+{
+    out.push_back('[');
+    bool first = true;
+    for (const auto &option : options) {
+        if (!first)
+            out.push_back(',');
+        first = false;
+        out += "{\"value\":";
+        out += jsonQuoted(option.value);
+        out += ",\"label\":";
+        out += jsonQuoted(option.label.empty() ? option.value : option.label);
+        out.push_back('}');
+    }
+    out.push_back(']');
+}
+
+void appendConfigFieldJson(std::string &out, const phicore::adapter::v1::AdapterConfigField &field)
+{
+    using namespace phicore::adapter::v1;
+    out.push_back('{');
+    bool first = true;
+    appendFieldPrefix(out, first, "key");
+    out += jsonQuoted(field.key);
+    appendFieldPrefix(out, first, "type");
+    out += jsonQuoted(configEnumName("AdapterConfigFieldType", static_cast<int>(field.type)));
+    appendFieldPrefix(out, first, "label");
+    out += jsonQuoted(field.label);
+    if (!field.description.empty()) {
+        appendFieldPrefix(out, first, "description");
+        out += jsonQuoted(field.description);
+    }
+    if (!field.placeholder.empty()) {
+        appendFieldPrefix(out, first, "placeholder");
+        out += jsonQuoted(field.placeholder);
+    }
+    if (!std::holds_alternative<std::monostate>(field.defaultValue)) {
+        appendFieldPrefix(out, first, "default");
+        appendScalarJson(out, field.defaultValue);
+    }
+    if (field.flags != AdapterConfigFieldFlag::None) {
+        appendFieldPrefix(out, first, "flags");
+        appendArrayOfStrings(out, enum_names::flagNamesFor("AdapterConfigFieldFlag", static_cast<int>(field.flags)));
+    }
+    if (!field.options.empty()) {
+        appendFieldPrefix(out, first, "choices");
+        appendOptionListJson(out, field.options);
+    }
+    if (!field.choicesFrom.empty()) {
+        appendFieldPrefix(out, first, "choicesFrom");
+        out += jsonQuoted(field.choicesFrom);
+    }
+    if (!field.perChoiceOf.empty()) {
+        appendFieldPrefix(out, first, "perChoiceOf");
+        out += jsonQuoted(field.perChoiceOf);
+    }
+    if (!field.parentActionId.empty()) {
+        appendFieldPrefix(out, first, "parentActionId");
+        out += jsonQuoted(field.parentActionId);
+    }
+    if (!field.actions.empty()) {
+        appendFieldPrefix(out, first, "actions");
+        out.push_back('[');
+        bool firstAction = true;
+        for (const AdapterConfigAction &action : field.actions) {
+            if (!firstAction)
+                out.push_back(',');
+            firstAction = false;
+            out += "{\"id\":";
+            out += jsonQuoted(action.id);
+            out += ",\"label\":";
+            out += jsonQuoted(action.label);
+            out.push_back('}');
+        }
+        out.push_back(']');
+    }
+    if (!field.visibility.fieldKey.empty()) {
+        appendFieldPrefix(out, first, "visibility");
+        out += "{\"fieldKey\":";
+        out += jsonQuoted(field.visibility.fieldKey);
+        out += ",\"value\":";
+        appendScalarJson(out, field.visibility.value);
+        out += ",\"op\":";
+        out += jsonQuoted(configEnumName("AdapterConfigVisibilityOp", static_cast<int>(field.visibility.op)));
+        out.push_back('}');
+    }
+    const AdapterConfigFieldLayout &layout = field.layout;
+    appendFieldPrefix(out, first, "layout");
+    out += "{\"position\":";
+    out += std::to_string(layout.position);
+    out += ",\"cells\":";
+    out += std::to_string(layout.cells);
+    out += ",\"newRow\":";
+    out += layout.newRow ? "true" : "false";
+    out += ",\"controlWidth\":";
+    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.controlWidth)));
+    out += ",\"labelPosition\":";
+    out += jsonQuoted(configEnumName("AdapterConfigLabelPosition", static_cast<int>(layout.labelPosition)));
+    out += ",\"actionPosition\":";
+    out += jsonQuoted(configEnumName("AdapterConfigActionPosition", static_cast<int>(layout.actionPosition)));
+    out.push_back('}');
+    if (!trim(field.metaJson).empty()) {
+        appendFieldPrefix(out, first, "meta");
+        out += jsonTokenOrDefault(field.metaJson, "{}");
+    }
+    out.push_back('}');
+}
+
+void appendConfigSectionJson(std::string &out, const phicore::adapter::v1::AdapterConfigSection &section)
+{
+    out.push_back('{');
+    bool first = true;
+    appendFieldPrefix(out, first, "title");
+    out += jsonQuoted(section.title);
+    appendFieldPrefix(out, first, "description");
+    out += jsonQuoted(section.description);
+    appendFieldPrefix(out, first, "layout");
+    appendFormLayoutJson(out, section.layout);
+    appendFieldPrefix(out, first, "fields");
+    out.push_back('[');
+    bool firstField = true;
+    for (const auto &field : section.fields) {
+        if (!firstField)
+            out.push_back(',');
+        firstField = false;
+        appendConfigFieldJson(out, field);
+    }
+    out.push_back(']');
+    out.push_back('}');
+}
+
 std::string actionToJson(const AdapterActionDescriptor &action)
 {
     std::string out;
@@ -1553,6 +1700,10 @@ std::string actionToJson(const AdapterActionDescriptor &action)
     out += (action.danger ? "true" : "false");
     appendFieldPrefix(out, first, "cooldownMs");
     out += std::to_string(action.cooldownMs);
+    if (action.hasForm) {
+        appendFieldPrefix(out, first, "formLayout");
+        appendFormLayoutJson(out, action.formLayout);
+    }
     if (!trim(action.confirmJson).empty()) {
         appendFieldPrefix(out, first, "confirm");
         out += jsonTokenOrDefault(action.confirmJson, "{}");
@@ -1629,9 +1780,7 @@ std::string descriptorToJson(const AdapterDescriptor &descriptor)
     appendFieldPrefix(out, first, "capabilities");
     out += capabilitiesToJson(descriptor.capabilities);
     appendFieldPrefix(out, first, "configSchema");
-    out += trim(descriptor.configSchemaJson).empty()
-        ? "null"
-        : jsonTokenOrDefault(descriptor.configSchemaJson, "{}");
+    out += descriptor.configSchema ? configSchemaToJson(*descriptor.configSchema) : "null";
     out.push_back('}');
     return out;
 }
@@ -1679,6 +1828,59 @@ ActionResponse invalidArgumentActionResponse(CmdId cmdId, const std::string &mes
 }
 
 } // namespace
+
+phicore::adapter::v1::JsonText configSchemaToJson(const phicore::adapter::v1::AdapterConfigSchema &schema)
+{
+    std::string out = "{\"factory\":";
+    appendConfigSectionJson(out, schema.factory);
+    out += ",\"instance\":";
+    appendConfigSectionJson(out, schema.instance);
+    out.push_back('}');
+    return out;
+}
+
+phicore::adapter::v1::JsonText formValuesToJson(const phicore::adapter::v1::AdapterFormValues &values)
+{
+    using namespace phicore::adapter::v1;
+    std::string out;
+    out.push_back('{');
+    bool first = true;
+    for (const AdapterFormValue &value : values) {
+        if (value.key.empty())
+            continue;
+        appendFieldPrefix(out, first, value.key);
+        if (const auto *scalar = std::get_if<ScalarValue>(&value.data)) {
+            appendScalarJson(out, *scalar);
+        } else if (const auto *list = std::get_if<ScalarList>(&value.data)) {
+            appendScalarListJson(out, *list);
+        } else {
+            out.push_back('{');
+            bool firstChoice = true;
+            for (const auto &[choice, entry] : std::get<AdapterConfigPerChoiceValues>(value.data)) {
+                appendFieldPrefix(out, firstChoice, choice);
+                appendScalarJson(out, entry);
+            }
+            out.push_back('}');
+        }
+    }
+    out.push_back('}');
+    return out;
+}
+
+phicore::adapter::v1::JsonText fieldChoicesToJson(const phicore::adapter::v1::AdapterFieldChoicesList &choices)
+{
+    std::string out;
+    out.push_back('{');
+    bool first = true;
+    for (const auto &entry : choices) {
+        if (entry.key.empty())
+            continue;
+        appendFieldPrefix(out, first, entry.key);
+        appendOptionListJson(out, entry.choices);
+    }
+    out.push_back('}');
+    return out;
+}
 
 struct SidecarDispatcher::Impl {
     explicit Impl(phicore::adapter::v1::Utf8String socketPath)
@@ -2311,8 +2513,6 @@ bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore
 {
     const std::int64_t tsMs = response.tsMs > 0 ? response.tsMs : nowMs();
     const auto resultValueJson = trim(response.resultValueJson);
-    const auto formValues = trim(response.formValuesJson);
-    const auto fieldChoices = trim(response.fieldChoicesJson);
     std::string body;
     bool first = true;
     openEnvelopeWithCmdId(body, IpcCommand::ResultAction, response.id, first);
@@ -2331,13 +2531,13 @@ bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore
         body += jsonTokenOrDefault(std::string(resultValueJson), "null");
     else
         appendScalarJson(body, response.resultValue);
-    if (!formValues.empty()) {
+    if (!response.formValues.empty()) {
         appendFieldPrefix(body, first, "formValues");
-        appendMetaJson(body, std::string(formValues));
+        body += formValuesToJson(response.formValues);
     }
-    if (!fieldChoices.empty()) {
+    if (!response.fieldChoices.empty()) {
         appendFieldPrefix(body, first, "fieldChoices");
-        appendMetaJson(body, std::string(fieldChoices));
+        body += fieldChoicesToJson(response.fieldChoices);
     }
     if (response.reloadLayout) {
         appendFieldPrefix(body, first, "reloadLayout");
@@ -2951,7 +3151,10 @@ phicore::adapter::v1::Utf8String AdapterFactory::imageBase64() const { return {}
 int AdapterFactory::timeoutMs() const { return 10000; }
 int AdapterFactory::maxInstances() const { return 0; }
 phicore::adapter::v1::AdapterCapabilities AdapterFactory::capabilities() const { return {}; }
-phicore::adapter::v1::JsonText AdapterFactory::configSchemaJson() const { return {}; }
+std::optional<phicore::adapter::v1::AdapterConfigSchema> AdapterFactory::configSchema() const
+{
+    return std::nullopt;
+}
 
 AdapterDescriptor AdapterFactory::descriptor() const
 {
@@ -2965,7 +3168,7 @@ AdapterDescriptor AdapterFactory::descriptor() const
     out.timeoutMs = timeoutMs();
     out.maxInstances = maxInstances();
     out.capabilities = capabilities();
-    out.configSchemaJson = configSchemaJson();
+    out.configSchema = configSchema();
     return out;
 }
 

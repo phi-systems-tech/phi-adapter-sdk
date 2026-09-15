@@ -168,7 +168,43 @@ sdk::AdapterDescriptor fixtureDescriptor()
     action.danger = false;
     action.cooldownMs = 0;
     descriptor.capabilities.factoryActions.push_back(action);
-    descriptor.configSchemaJson = "{\"fields\":[]}";
+    v1::AdapterActionDescriptor pair;
+    pair.id = "pair";
+    pair.label = "Pair";
+    pair.hasForm = true;
+    pair.formLayout.width = v1::AdapterConfigSize::Narrow;
+    descriptor.capabilities.instanceActions.push_back(pair);
+
+    v1::AdapterConfigSchema schema;
+    schema.factory.title = "Bridge";
+    schema.factory.layout.columns = 2;
+    schema.factory.layout.labelWidth = v1::AdapterConfigSize::Narrow;
+    v1::AdapterConfigField host;
+    host.key = "host";
+    host.type = v1::AdapterConfigFieldType::Hostname;
+    host.label = "Host";
+    host.flags = v1::AdapterConfigFieldFlag::Required;
+    host.actions.push_back({"probe", "Probe"});
+    schema.factory.fields.push_back(host);
+    v1::AdapterConfigField port;
+    port.key = "port";
+    port.type = v1::AdapterConfigFieldType::Port;
+    port.label = "Port";
+    port.defaultValue = std::int64_t{443};
+    port.layout.controlWidth = v1::AdapterConfigSize::Narrow;
+    schema.factory.fields.push_back(port);
+    v1::AdapterConfigField device;
+    device.key = "deviceId";
+    device.type = v1::AdapterConfigFieldType::Select;
+    device.label = "Device";
+    device.choicesFrom = "devices";
+    device.parentActionId = "pair";
+    device.layout.cells = 2;
+    device.layout.newRow = true;
+    device.layout.labelPosition = v1::AdapterConfigLabelPosition::Top;
+    device.layout.actionPosition = v1::AdapterConfigActionPosition::Below;
+    schema.instance.fields.push_back(device);
+    descriptor.configSchema = schema;
     return descriptor;
 }
 
@@ -236,8 +272,10 @@ void runOutboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client, bo
              r.status = v1::CmdStatus::Success;
              r.resultType = v1::ActionResultType::Boolean;
              r.resultValue = true;
-             r.formValuesJson = "{\"host\":\"bridge.local\"}";
-             r.fieldChoicesJson = "{\"port\":[{\"value\":\"80\",\"label\":\"HTTP\"}]}";
+             r.formValues = {{"host", v1::ScalarValue{v1::Utf8String("bridge.local")}},
+                             {"devices", v1::ScalarList{v1::Utf8String("a"), v1::Utf8String("b")}},
+                             {"ip", v1::AdapterConfigPerChoiceValues{{"a", v1::Utf8String("10.0.0.2")}}}};
+             r.fieldChoices = {{"port", {{"80", "HTTP"}}}};
              r.reloadLayout = true;
              r.tsMs = kFixedTsMs;
              return d.sendActionResult(r, nullptr);

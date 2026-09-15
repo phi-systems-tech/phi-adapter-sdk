@@ -268,7 +268,7 @@ inline constexpr std::array<EnumValueName, 4> kConnectivityStatusNames = {{
     { static_cast<int>(ConnectivityStatus::Disconnected), "Disconnected" },
 }};
 
-inline constexpr std::array<EnumValueName, 9> kAdapterConfigFieldTypeNames = {{
+inline constexpr std::array<EnumValueName, 10> kAdapterConfigFieldTypeNames = {{
     { static_cast<int>(AdapterConfigFieldType::String), "String" },
     { static_cast<int>(AdapterConfigFieldType::Password), "Password" },
     { static_cast<int>(AdapterConfigFieldType::Integer), "Integer" },
@@ -277,18 +277,24 @@ inline constexpr std::array<EnumValueName, 9> kAdapterConfigFieldTypeNames = {{
     { static_cast<int>(AdapterConfigFieldType::Port), "Port" },
     { static_cast<int>(AdapterConfigFieldType::QrCode), "QrCode" },
     { static_cast<int>(AdapterConfigFieldType::Select), "Select" },
-    { static_cast<int>(AdapterConfigFieldType::Action), "Action" },
+    { static_cast<int>(AdapterConfigFieldType::Actions), "Actions" },
+    { static_cast<int>(AdapterConfigFieldType::Section), "Section" },
+}};
+
+inline constexpr std::array<EnumValueName, 3> kAdapterConfigSizeNames = {{
+    { static_cast<int>(AdapterConfigSize::Normal), "Normal" },
+    { static_cast<int>(AdapterConfigSize::Narrow), "Narrow" },
+    { static_cast<int>(AdapterConfigSize::Wide), "Wide" },
 }};
 
 inline constexpr std::array<EnumValueName, 3> kAdapterConfigLabelPositionNames = {{
+    { static_cast<int>(AdapterConfigLabelPosition::Auto), "Auto" },
     { static_cast<int>(AdapterConfigLabelPosition::Top), "Top" },
-    { static_cast<int>(AdapterConfigLabelPosition::Left), "Left" },
-    { static_cast<int>(AdapterConfigLabelPosition::Right), "Right" },
+    { static_cast<int>(AdapterConfigLabelPosition::None), "None" },
 }};
 
-inline constexpr std::array<EnumValueName, 3> kAdapterConfigActionPositionNames = {{
-    { static_cast<int>(AdapterConfigActionPosition::None), "None" },
-    { static_cast<int>(AdapterConfigActionPosition::Inline), "Inline" },
+inline constexpr std::array<EnumValueName, 2> kAdapterConfigActionPositionNames = {{
+    { static_cast<int>(AdapterConfigActionPosition::Auto), "Auto" },
     { static_cast<int>(AdapterConfigActionPosition::Below), "Below" },
 }};
 
@@ -397,6 +403,8 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kConnectivityStatusNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigFieldType"))
         return valueToName(kAdapterConfigFieldTypeNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigSize"))
+        return valueToName(kAdapterConfigSizeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigLabelPosition"))
         return valueToName(kAdapterConfigLabelPositionNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigActionPosition"))
@@ -464,6 +472,8 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kConnectivityStatusNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigFieldType"))
         return parseNameToValue(kAdapterConfigFieldTypeNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigSize"))
+        return parseNameToValue(kAdapterConfigSizeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigLabelPosition"))
         return parseNameToValue(kAdapterConfigLabelPositionNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigActionPosition"))

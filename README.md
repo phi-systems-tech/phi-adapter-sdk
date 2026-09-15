@@ -218,7 +218,7 @@ Factory methods (v1 SDK contract):
 
 - `pluginType()`
 - `displayName()`, `description()`, `apiVersion()`, `iconSvg()`, `imageBase64()`
-- `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchemaJson()`
+- `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchema()`
   - `timeoutMs()` is adapter/device default timeout metadata (descriptor), not sidecar command timeout ownership
 - `descriptor()` (default build from first-class overrides)
 - `onBootstrap(...)`
@@ -647,7 +647,7 @@ Optional Qt event loop model (v1, allowed):
   - instance scope: `onConfigChanged`, `onChannelInvoke`, `onAdapterActionInvoke`, ...
 - Outbound IPC calls: `send*` (`sendDeviceUpdated`, `sendChannelStateUpdated`, `sendError`, ...)
 - Static descriptor overrides: `displayName()`, `description()`, `iconSvg()`, `imageBase64()`,
-  `apiVersion()`, `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchemaJson()`
+  `apiVersion()`, `timeoutMs()`, `maxInstances()`, `capabilities()`, `configSchema()`
 
 ### Minimal Structure
 
@@ -979,10 +979,10 @@ Minimal static discovery config example:
 To avoid form state loss on async action+reload flows, `ActionResponse` supports optional
 structured form patch fields in addition to `resultType/resultValue`:
 
-- `formValuesJson`: JSON object with field values to apply to the open action form
-  (example: `{"trackedMacs":["aa:bb:...","cc:dd:..."]}`).
-- `fieldChoicesJson`: JSON object mapping field keys to choice arrays
-  (example: `{"trackedMacs":[{"value":"...","label":"..."}]}`).
+- `formValues`: values to apply to the open action form, one `AdapterFormValue` per field:
+  a `ScalarValue`, a `ScalarList` (a multi-select) or `AdapterConfigPerChoiceValues`
+  (a field with `perChoiceOf`).
+- `fieldChoices`: the choices a select offers, as `{key, AdapterConfigOptionList}`.
 - `resultValueJson`: optional JSON value serialized upstream as the normal
   `resultValue` field. Use this for structured action results such as
   run metadata objects.
@@ -992,7 +992,7 @@ Rules:
 
 - Keep schema static; patch values/choices dynamically through action result.
 - For actions that mutate selectable lists (`probe`, `browse`, discovery-style actions),
-  return both `formValuesJson` and `fieldChoicesJson` in one response.
+  return both `formValues` and `fieldChoices` in one response.
 - Do not encode these patches into scalar `resultValue`; use structured patch fields.
 - Scalar `resultValue` remains valid for primitive action results.
 - Structured action results must use `resultValueJson`; they are exposed upstream
@@ -1041,13 +1041,53 @@ Current architecture note:
 ## Schema Handling (v1)
 
 - Adapter config schema is part of the first-class descriptor field `configSchema`.
-- Implement schema via `AdapterFactory::configSchemaJson()` as UTF-8 JSON object text.
-- Return an object (`{...}`), not arrays/scalars.
+- Declare it by overriding `AdapterFactory::configSchema()` and returning an
+  `AdapterConfigSchema`. The SDK writes the JSON (`phi/adapter/sdk/schema_json.h`);
+  an adapter never writes schema, form value or choice JSON itself.
 - Keep schema keys stable across releases; treat key renames/removals as breaking changes.
 - Use `sendFactoryDescriptorUpdated()` when static descriptor data changes at runtime.
   This sends the full current `factoryDescriptor()` (built from `descriptor()`).
 - Do not send static schema/icon/description/displayName through `sendAdapterMetaUpdated(...)`.
 - Use `sendAdapterMetaUpdated(...)` only for dynamic runtime metadata.
+
+### Form layout
+
+A form says what it means, not how many grid units it takes. The client owns
+the numbers - the same for every adapter - and gives way on its own when a
+wish does not fit: buttons move below their control first, then labels move
+above, then columns collapse.
+
+The dialog (`AdapterConfigSection::layout` for the factory and instance forms,
+`AdapterActionDescriptor::formLayout` for an action with `hasForm`):
+
+| Member | Values |
+|---|---|
+| `width` | `AdapterConfigSize::Narrow` / `Normal` / `Wide` |
+| `columns` | 1 to 3; each cell is a label, a control and the control's buttons |
+| `labelWidth` | `Narrow` / `Normal` / `Wide` |
+
+A field (`AdapterConfigField::layout`):
+
+| Member | Values |
+|---|---|
+| `position` | order in the form; 0 keeps declaration order |
+| `cells` | cells taken, 1 to `columns` |
+| `newRow` | start a new row even if the current one has room |
+| `controlWidth` | `Narrow` (a port, a timeout), `Normal`, `Wide` (also the button column when the field has no buttons) |
+| `labelPosition` | `Auto` (beside while it fits), `Top`, `None` |
+| `actionPosition` | `Auto` (beside while it fits), `Below` |
+
+Buttons belong to a field: `AdapterConfigField::actions` lists `{id, label}` of
+actions in the same scope. A field of type `Actions` has no control and shows its
+buttons as a row; a field of type `Section` is a heading for the fields after it.
+
+Two fields depend on another:
+
+- `choicesFrom = "devices"`: a select that offers those choices of the
+  multi-select `devices` that are selected there.
+- `perChoiceOf = "deviceId"`: the field holds one value per choice of the select
+  `deviceId` and shows the one for the choice selected there. Its form value is
+  `AdapterConfigPerChoiceValues`, and so is what the form sends back.
 
 ### Bootstrap Flow
 
@@ -1067,10 +1107,10 @@ phicore::adapter::v1::ActionResponse resp;
 resp.id = request.cmdId;
 resp.status = phicore::adapter::v1::CmdStatus::Success;
 resp.resultType = phicore::adapter::v1::ActionResultType::None;
-resp.formValuesJson =
-    R"json({"trackedMacs":["1c:90:ff:0b:58:77","26:d2:aa:57:79:46"]})json";
-resp.fieldChoicesJson =
-    R"json({"trackedMacs":[{"value":"1c:90:ff:0b:58:77","label":"Zigbee (192.168.1.77)"},{"value":"26:d2:aa:57:79:46","label":"Phone (192.168.1.76)"}]})json";
+const phicore::adapter::v1::Utf8String zigbee = "1c:90:ff:0b:58:77";
+const phicore::adapter::v1::Utf8String phone = "26:d2:aa:57:79:46";
+resp.formValues = {{"trackedMacs", phicore::adapter::v1::ScalarList{zigbee, phone}}};
+resp.fieldChoices = {{"trackedMacs", {{zigbee, "Zigbee (192.168.1.77)"}, {phone, "Phone (192.168.1.76)"}}}};
 resp.reloadLayout = false;
 phicore::adapter::v1::Utf8String err;
 sendResult(resp, &err);
@@ -1103,15 +1143,28 @@ sendResult(resp, &err);
 ### Minimal Schema Example
 
 ```cpp
-phicore::adapter::v1::JsonText configSchemaJson() const override {
-    return R"json({
-      "type": "object",
-      "properties": {
-        "host": { "type": "string", "title": "Host" },
-        "port": { "type": "integer", "title": "Port", "minimum": 1, "maximum": 65535 },
-        "forcedPort": { "type": "integer", "title": "Forced Port", "minimum": 1, "maximum": 65535 }
-      }
-    })json";
+std::optional<phicore::adapter::v1::AdapterConfigSchema> configSchema() const override
+{
+    using namespace phicore::adapter::v1;
+    AdapterConfigSchema schema;
+    schema.factory.layout.columns = 2;
+
+    AdapterConfigField host;
+    host.key = "host";
+    host.type = AdapterConfigFieldType::Hostname;
+    host.label = "Host";
+    host.flags = AdapterConfigFieldFlag::Required;
+    host.actions = {{"probe", "Probe"}};
+
+    AdapterConfigField port;
+    port.key = "port";
+    port.type = AdapterConfigFieldType::Port;
+    port.label = "Port";
+    port.defaultValue = std::int64_t{80};
+    port.layout.controlWidth = AdapterConfigSize::Narrow;
+
+    schema.factory.fields = {host, port};
+    return schema;
 }
 ```
 
