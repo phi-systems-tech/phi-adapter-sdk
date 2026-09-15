@@ -10,6 +10,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <variant>
 
@@ -488,13 +489,15 @@ public:
 
     /**
      * @brief Publish adapter meta patch (`command=EventAdapterMetaUpdated`).
-     * @param metaPatchJson JSON object text for dynamic runtime metadata only.
+     * @param patch Settings values and facts a client shows; a null value
+     *        removes the key. What only the adapter itself reads back belongs
+     *        in its state directory, not here.
      *
      * Static adapter identity/capabilities/schema belong to descriptor transport
      * (`ResponseFactoryDescriptor` / `EventFactoryDescriptorUpdated`).
      */
     bool sendAdapterMetaUpdated(const phicore::adapter::v1::ExternalId &externalId,
-                                const phicore::adapter::v1::JsonText &metaPatchJson,
+                                const phicore::adapter::v1::AdapterFormValues &patch,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
@@ -888,6 +891,23 @@ public:
     const ConfigChangedRequest &config() const;
     bool hasConfig() const;
 
+    /**
+     * @brief The directory this instance keeps what only it reads back.
+     *
+     * `<tenant data>/adapters/<pluginType>/<externalId>`, from
+     * `PHI_ADAPTER_STATE_DIR` when set, else beside the IPC socket core handed
+     * out. Created on the first write. Device caches, discovered hosts and the
+     * like live here rather than in the adapter meta, which is for what a
+     * client shows.
+     */
+    phicore::adapter::v1::Utf8String stateDirectory() const;
+    /// The content of a file in the state directory; nothing when it does not exist.
+    std::optional<std::string> readStateFile(std::string_view name) const;
+    /// Replaces a file in the state directory atomically (mode 0640).
+    bool writeStateFile(std::string_view name,
+                        std::string_view content,
+                        phicore::adapter::v1::Utf8String *error = nullptr) const;
+
     /// Structured log helper for adapter implementers.
     /// `params` replace `%1`, `%2`, ... in `message`; `ctx` is the translation context.
     bool log(LogLevel level,
@@ -925,7 +945,8 @@ protected:
                    const phicore::adapter::v1::JsonText &fieldsJson = {},
                    std::int64_t tsMs = 0,
                    phicore::adapter::v1::Utf8String *error = nullptr);
-    bool sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
+    /// Settings values and facts a client shows; a null value removes the key.
+    bool sendAdapterMetaUpdated(const phicore::adapter::v1::AdapterFormValues &patch,
                                 phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
                                  const phicore::adapter::v1::ExternalId &channelExternalId,

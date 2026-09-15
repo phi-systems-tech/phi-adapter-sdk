@@ -131,13 +131,16 @@ inline constexpr std::array<EnumValueName, 9> kCmdStatusNames = {{
     { static_cast<int>(CmdStatus::NotImplemented), "NotImplemented" },
 }};
 
-inline constexpr std::array<EnumValueName, 6> kActionResultTypeNames = {{
+inline constexpr std::array<EnumValueName, 9> kActionResultTypeNames = {{
     { static_cast<int>(ActionResultType::None), "None" },
     { static_cast<int>(ActionResultType::Boolean), "Boolean" },
     { static_cast<int>(ActionResultType::Integer), "Integer" },
     { static_cast<int>(ActionResultType::Float), "Float" },
     { static_cast<int>(ActionResultType::String), "String" },
     { static_cast<int>(ActionResultType::StringList), "StringList" },
+    { static_cast<int>(ActionResultType::Display), "Display" },
+    { static_cast<int>(ActionResultType::Run), "Run" },
+    { static_cast<int>(ActionResultType::Data), "Data" },
 }};
 
 inline constexpr std::array<EnumValueName, 13> kDeviceClassNames = {{
@@ -298,6 +301,20 @@ inline constexpr std::array<EnumValueName, 2> kAdapterConfigActionPositionNames 
     { static_cast<int>(AdapterConfigActionPosition::Below), "Below" },
 }};
 
+inline constexpr std::array<EnumValueName, 4> kAdapterActionPlacementNames = {{
+    { static_cast<int>(AdapterActionPlacement::Card), "Card" },
+    { static_cast<int>(AdapterActionPlacement::Field), "Field" },
+    { static_cast<int>(AdapterActionPlacement::Device), "Device" },
+    { static_cast<int>(AdapterActionPlacement::Hidden), "Hidden" },
+}};
+
+inline constexpr std::array<EnumValueName, 4> kAdapterActionKindNames = {{
+    { static_cast<int>(AdapterActionKind::Command), "Command" },
+    { static_cast<int>(AdapterActionKind::OpenDialog), "OpenDialog" },
+    { static_cast<int>(AdapterActionKind::Query), "Query" },
+    { static_cast<int>(AdapterActionKind::Create), "Create" },
+}};
+
 inline constexpr std::array<EnumValueName, 2> kAdapterConfigVisibilityOpNames = {{
     { static_cast<int>(AdapterConfigVisibilityOp::Equals), "Equals" },
     { static_cast<int>(AdapterConfigVisibilityOp::Contains), "Contains" },
@@ -403,6 +420,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kConnectivityStatusNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigFieldType"))
         return valueToName(kAdapterConfigFieldTypeNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterActionPlacement"))
+        return valueToName(kAdapterActionPlacementNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterActionKind"))
+        return valueToName(kAdapterActionKindNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigSize"))
         return valueToName(kAdapterConfigSizeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigLabelPosition"))
@@ -472,6 +493,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kConnectivityStatusNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigFieldType"))
         return parseNameToValue(kAdapterConfigFieldTypeNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterActionPlacement"))
+        return parseNameToValue(kAdapterActionPlacementNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterActionKind"))
+        return parseNameToValue(kAdapterActionKindNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigSize"))
         return parseNameToValue(kAdapterConfigSizeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigLabelPosition"))

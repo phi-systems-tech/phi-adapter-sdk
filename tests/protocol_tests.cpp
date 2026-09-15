@@ -497,13 +497,14 @@ void testOversizeFrameLimits()
 
     // Outbound: senders must refuse frames above kMaxPayloadSize locally.
     const v1::Utf8String big(v1::kMaxPayloadSize + 1024, 'x');
+    const v1::AdapterFormValues bigPatch = {{"blob", v1::ScalarValue{big}}};
     v1::Utf8String sendErr;
-    CHECK(!dispatcher.sendAdapterMetaUpdated("inst-1", "{\"blob\":\"" + big + "\"}", &sendErr));
+    CHECK(!dispatcher.sendAdapterMetaUpdated("inst-1", bigPatch, &sendErr));
     CHECK_MSG(contains(sendErr, "kMaxPayloadSize"), "err=%s", sendErr.c_str());
 
     // A frame at the limit is still fine (no disconnect, no error).
     v1::Utf8String okErr;
-    CHECK(dispatcher.sendAdapterMetaUpdated("inst-1", "{}", &okErr));
+    CHECK(dispatcher.sendAdapterMetaUpdated("inst-1", v1::AdapterFormValues{}, &okErr));
     dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
     v1::FrameHeader okHeader{};
     std::string okPayload;

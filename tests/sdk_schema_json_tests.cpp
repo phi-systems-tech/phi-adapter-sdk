@@ -76,7 +76,11 @@ void testFieldWithEveryOptionalMemberSet()
     field.layout.controlWidth = AdapterConfigSize::Wide;
     field.layout.labelPosition = AdapterConfigLabelPosition::Top;
     field.layout.actionPosition = AdapterConfigActionPosition::Below;
-    field.metaJson = "{\"x\":1}";
+    field.minValue = 1.5;
+    field.maxValue = 99.5;
+    field.step = 0.5;
+    field.appendTo = "history";
+    field.reloadsForm = true;
 
     const std::string expectedField =
         "{\"key\":\"k\",\"type\":\"Select\",\"label\":\"L\",\"description\":\"D\",\"placeholder\":\"P\","
@@ -87,8 +91,52 @@ void testFieldWithEveryOptionalMemberSet()
         "\"visibility\":{\"fieldKey\":\"other\",\"value\":true,\"op\":\"Contains\"},"
         "\"layout\":{\"position\":3,\"cells\":2,\"newRow\":true,\"controlWidth\":\"Wide\","
         "\"labelPosition\":\"Top\",\"actionPosition\":\"Below\"},"
-        "\"meta\":{\"x\":1}}";
+        "\"min\":1.5,\"max\":99.5,\"step\":0.5,\"appendTo\":\"history\",\"reloadsForm\":true}";
     PHI_CHECK(schemaWithFactoryField(field) == wrapFactoryField(expectedField));
+}
+
+void testMinMaxStepAppendToReloadsFormOmittedThenPresent()
+{
+    AdapterConfigField field;
+    field.key = "k";
+    field.label = "L";
+    // All absent: nothing beyond layout.
+    PHI_CHECK(schemaWithFactoryField(field) ==
+              wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson + "}"));
+
+    // min/max/step set independently of one another.
+    field.minValue = 0.0;
+    PHI_CHECK(schemaWithFactoryField(field) ==
+              wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
+                                ",\"min\":0}"));
+    field.minValue.reset();
+
+    field.maxValue = 10.0;
+    PHI_CHECK(schemaWithFactoryField(field) ==
+              wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
+                                ",\"max\":10}"));
+    field.maxValue.reset();
+
+    field.step = 2.0;
+    PHI_CHECK(schemaWithFactoryField(field) ==
+              wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
+                                ",\"step\":2}"));
+    field.step.reset();
+
+    // appendTo empty: omitted; set: present.
+    PHI_CHECK(field.appendTo.empty());
+    field.appendTo = "targets";
+    PHI_CHECK(schemaWithFactoryField(field) ==
+              wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
+                                ",\"appendTo\":\"targets\"}"));
+    field.appendTo.clear();
+
+    // reloadsForm false: omitted; true: present.
+    PHI_CHECK(!field.reloadsForm);
+    field.reloadsForm = true;
+    PHI_CHECK(schemaWithFactoryField(field) ==
+              wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
+                                ",\"reloadsForm\":true}"));
 }
 
 void testEveryFieldTypeNameSerializesToItsWireName()
@@ -337,6 +385,52 @@ void testFieldChoicesEmptyListProducesEmptyObject()
     PHI_CHECK(fieldChoicesToJson({}) == "{}");
 }
 
+// formValuesFromJson: scalars, arrays of scalars, objects of scalars; anything
+// nested deeper is skipped rather than parsed. Round-tripped back through
+// formValuesToJson to assert on the parsed shape without touching the variant
+// internals directly.
+
+void testFormValuesFromJsonParsesScalars()
+{
+    const auto values = formValuesFromJson("{\"a\":1,\"b\":\"x\",\"c\":true}");
+    PHI_CHECK(formValuesToJson(values) == "{\"a\":1,\"b\":\"x\",\"c\":true}");
+}
+
+void testFormValuesFromJsonParsesListsOfScalars()
+{
+    const auto values = formValuesFromJson("{\"list\":[1,\"two\",true]}");
+    PHI_CHECK(formValuesToJson(values) == "{\"list\":[1,\"two\",true]}");
+}
+
+void testFormValuesFromJsonParsesObjectsOfScalarsAsPerChoiceValues()
+{
+    const auto values = formValuesFromJson("{\"perchoice\":{\"x\":1,\"y\":\"z\"}}");
+    PHI_CHECK(formValuesToJson(values) == "{\"perchoice\":{\"x\":1,\"y\":\"z\"}}");
+}
+
+void testFormValuesFromJsonNonObjectTextYieldsNothing()
+{
+    PHI_CHECK(formValuesToJson(formValuesFromJson("\"just a string\"")) == "{}");
+    PHI_CHECK(formValuesToJson(formValuesFromJson("[1,2,3]")) == "{}");
+    PHI_CHECK(formValuesToJson(formValuesFromJson("")) == "{}");
+}
+
+void testFormValuesFromJsonSkipsElementsNestedDeeperThanAScalar()
+{
+    // A non-scalar element inside a list is dropped, the rest of the list kept.
+    const auto listValues = formValuesFromJson("{\"list\":[1,{\"x\":1},3]}");
+    PHI_CHECK(formValuesToJson(listValues) == "{\"list\":[1,3]}");
+
+    // A non-scalar entry inside a per-choice object is dropped the same way.
+    const auto perChoiceValues = formValuesFromJson("{\"perchoice\":{\"a\":1,\"b\":{\"c\":2}}}");
+    PHI_CHECK(formValuesToJson(perChoiceValues) == "{\"perchoice\":{\"a\":1}}");
+
+    // An object two levels deep: every entry of the inner object is dropped,
+    // leaving the key with an empty per-choice map rather than being skipped.
+    const auto deepValues = formValuesFromJson("{\"deep\":{\"inner\":{\"x\":1}}}");
+    PHI_CHECK(formValuesToJson(deepValues) == "{\"deep\":{}}");
+}
+
 } // namespace
 
 int main()
@@ -344,6 +438,7 @@ int main()
     testDefaultConstructedSchemaIsTwoEmptySections();
     testDefaultConstructedFieldOmitsEveryOptionalMember();
     testFieldWithEveryOptionalMemberSet();
+    testMinMaxStepAppendToReloadsFormOmittedThenPresent();
     testEveryFieldTypeNameSerializesToItsWireName();
     testFormLayoutCoversEverySizeAndColumnCount();
     testFieldLayoutCoversEveryControlWidthLabelAndActionPosition();
@@ -355,5 +450,10 @@ int main()
     testFormValuesEmptyListProducesEmptyObject();
     testFieldChoicesLabelFallsBackToValueAndEmptyKeySkipped();
     testFieldChoicesEmptyListProducesEmptyObject();
+    testFormValuesFromJsonParsesScalars();
+    testFormValuesFromJsonParsesListsOfScalars();
+    testFormValuesFromJsonParsesObjectsOfScalarsAsPerChoiceValues();
+    testFormValuesFromJsonNonObjectTextYieldsNothing();
+    testFormValuesFromJsonSkipsElementsNestedDeeperThanAScalar();
     return phi::testing::report("sdk_schema_json_tests");
 }

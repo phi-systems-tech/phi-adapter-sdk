@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -91,7 +92,14 @@ struct AdapterConfigField {
     /// The field holds one value per choice of the named select and shows the
     /// one for the choice selected there.
     Utf8String perChoiceOf;
-    JsonText metaJson;
+    /// Bounds and step of a number.
+    std::optional<double> minValue;
+    std::optional<double> maxValue;
+    std::optional<double> step;
+    /// The result of this field's action is also added to the named multi-select.
+    Utf8String appendTo;
+    /// A change of this field asks the adapter for the form again.
+    bool reloadsForm = false;
     AdapterConfigFieldFlags flags = AdapterConfigFieldFlag::None;
 };
 
@@ -109,17 +117,36 @@ struct AdapterConfigSchema {
     AdapterConfigSection instance;
 };
 
+/// The question asked before an action runs; none when `title` is empty.
+struct AdapterActionConfirm {
+    Utf8String title;
+    Utf8String message;
+    Utf8String okLabel;
+    Utf8String cancelLabel;
+};
+
 struct AdapterActionDescriptor {
     Utf8String id;
     Utf8String label;
     Utf8String description;
+    AdapterActionPlacement placement = AdapterActionPlacement::Card;
+    AdapterActionKind kind = AdapterActionKind::Command;
+    bool requiresAck = true;
     bool hasForm = false;
     bool danger = false;
     int cooldownMs = 0;
+    /// How long the action may take before core answers in the adapter's
+    /// place; 0 means the adapter's command timeout.
+    int timeoutMs = 0;
     /// The dialog of an action with a form.
     AdapterFormLayout formLayout;
-    JsonText confirmJson;
-    JsonText metaJson;
+    /// Ask the adapter for the form's values and choices before showing it.
+    bool loadFormOnOpen = false;
+    /// The label of the dialog's submit button; the client's own when empty.
+    Utf8String submitLabel;
+    /// The form field the action's result is written into.
+    Utf8String resultField;
+    AdapterActionConfirm confirm;
 };
 
 using AdapterActionDescriptorList = std::vector<AdapterActionDescriptor>;
@@ -130,7 +157,6 @@ struct AdapterCapabilities {
     AdapterFlags flags = AdapterFlag::None;
     AdapterActionDescriptorList factoryActions;
     AdapterActionDescriptorList instanceActions;
-    JsonText defaultsJson;
 };
 
 } // namespace phicore::adapter::v1

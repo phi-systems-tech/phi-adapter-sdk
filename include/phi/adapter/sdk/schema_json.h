@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 #include "phi/adapter/v1/contract.h"
 
 namespace phicore::adapter::sdk {
@@ -17,6 +19,15 @@ namespace phicore::adapter::sdk {
 /// The `formValues` object of an action result: `{key: scalar | list | {choice: scalar}}`.
 [[nodiscard]] phicore::adapter::v1::JsonText formValuesToJson(
     const phicore::adapter::v1::AdapterFormValues &values);
+
+/**
+ * @brief Form values from a JSON object: an action's params, a form's submit.
+ *
+ * Scalars, lists of scalars and `{choice: scalar}` objects - the three shapes a
+ * form field holds. Anything nested deeper is not a form value and is skipped,
+ * as is everything when the text is not an object.
+ */
+[[nodiscard]] phicore::adapter::v1::AdapterFormValues formValuesFromJson(std::string_view objectJson);
 
 /// The `fieldChoices` object of an action result: `{key: [{value, label}]}`.
 [[nodiscard]] phicore::adapter::v1::JsonText fieldChoicesToJson(

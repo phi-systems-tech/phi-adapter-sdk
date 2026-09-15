@@ -107,8 +107,9 @@ void testWriteDeadlineOnStalledPeer()
     // Queue far more data than the socket buffers can hold (~200 x 64KB).
     const auto t0 = Clock::now();
     const v1::Utf8String big(64 * 1024, 'x');
+    const v1::AdapterFormValues patch = {{"blob", v1::ScalarValue{big}}};
     for (int i = 0; i < 200; ++i)
-        dispatcher.sendAdapterMetaUpdated("inst", "{\"blob\":\"" + big + "\"}", nullptr);
+        dispatcher.sendAdapterMetaUpdated("inst", patch, nullptr);
 
     while (!disconnected.load() && phitest::msSince(t0) < 20000)
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -768,6 +769,86 @@ void testShutdownBudgetIsShared()
                 tookMs, budgetMs);
 }
 
+// AdapterInstance::stateDirectory()/readStateFile()/writeStateFile(): these
+// are public and AdapterInstance has no pure virtuals, so a plain instance
+// (never bound to a dispatcher/context) exercises them directly - no need
+// for a SidecarHost or a subclass.
+
+struct ScopedEnvVar {
+    std::string name;
+    bool hadPrevious = false;
+    std::string previous;
+
+    ScopedEnvVar(const char *n, const char *value) : name(n)
+    {
+        if (const char *existing = std::getenv(n)) {
+            hadPrevious = true;
+            previous = existing;
+        }
+        ::setenv(n, value, 1);
+    }
+    ~ScopedEnvVar()
+    {
+        if (hadPrevious)
+            ::setenv(name.c_str(), previous.c_str(), 1);
+        else
+            ::unsetenv(name.c_str());
+    }
+};
+
+void testStateDirectoryUsesStateDirEnvOverride()
+{
+    char tmpl[] = "/tmp/phi-sdk-statedir-XXXXXX";
+    const char *dir = ::mkdtemp(tmpl);
+    REQUIRE(dir != nullptr);
+    ScopedEnvVar env("PHI_ADAPTER_STATE_DIR", dir);
+
+    sdk::AdapterInstance instance; // never bound: pluginType/externalId default to ""
+    const std::string expected = std::string(dir) + "/default/default";
+    CHECK(instance.stateDirectory() == expected);
+}
+
+void testStateDirectoryDerivesFromSocketPathWhenStateDirUnset()
+{
+    ScopedEnvVar socketEnv("PHI_ADAPTER_SOCKET_PATH", "/var/lib/phi/tenant7/ipc/demo.sock");
+    ::unsetenv("PHI_ADAPTER_STATE_DIR");
+
+    sdk::AdapterInstance instance;
+    CHECK(instance.stateDirectory() == "/var/lib/phi/tenant7/adapters/default/default");
+}
+
+void testWriteStateFileThenReadStateFileRoundtrips()
+{
+    char tmpl[] = "/tmp/phi-sdk-statedir-XXXXXX";
+    const char *dir = ::mkdtemp(tmpl);
+    REQUIRE(dir != nullptr);
+    ScopedEnvVar env("PHI_ADAPTER_STATE_DIR", dir);
+
+    sdk::AdapterInstance instance;
+
+    // Nothing written yet.
+    CHECK(!instance.readStateFile("cache.json").has_value());
+
+    v1::Utf8String error;
+    REQUIRE(instance.writeStateFile("cache.json", "{\"hosts\":[\"a\"]}", &error));
+    const auto content = instance.readStateFile("cache.json");
+    REQUIRE(content.has_value());
+    CHECK(*content == "{\"hosts\":[\"a\"]}");
+
+    // A replace overwrites atomically.
+    REQUIRE(instance.writeStateFile("cache.json", "{\"hosts\":[]}", &error));
+    const auto replaced = instance.readStateFile("cache.json");
+    REQUIRE(replaced.has_value());
+    CHECK(*replaced == "{\"hosts\":[]}");
+
+    // Unsafe characters in the file name are sanitized rather than escaping
+    // the state directory.
+    REQUIRE(instance.writeStateFile("../../etc/passwd", "nope", &error));
+    const auto sanitized = instance.readStateFile("../../etc/passwd");
+    REQUIRE(sanitized.has_value());
+    CHECK(*sanitized == "nope");
+}
+
 } // namespace
 
 int main()
@@ -786,6 +867,9 @@ int main()
     testAbandonedThreadIsReapedNotDetached();
     testShutdownBudgetIsShared();
     testStopRequestReachesBlockedInstance();
+    testStateDirectoryUsesStateDirEnvOverride();
+    testStateDirectoryDerivesFromSocketPathWhenStateDirUnset();
+    testWriteStateFileThenReadStateFileRoundtrips();
 
     if (phitest::g_failures == 0) {
         std::printf("runtime_tests: all passed\n");

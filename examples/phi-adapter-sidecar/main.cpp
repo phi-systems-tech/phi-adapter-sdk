@@ -107,9 +107,12 @@ protected:
                                        {"cc:8c:bf:76:0c:54", "Heater (192.168.1.26)"}}}};
             response.reloadLayout = false;
         } else if (request.actionId == "startRun") {
-            response.resultType = phi::ActionResultType::None;
-            response.resultValueJson =
-                R"json({"runId":"run-42","streamKind":"adapter.run","streamParams":{"runId":"run-42","mode":"ws","scenario":"handshake"},"batch":false})json";
+            response.resultType = phi::ActionResultType::Run;
+            response.run.runId = "run-42";
+            response.run.streamKind = "adapter.run";
+            response.run.streamParams = {{"runId", phi::Utf8String("run-42")},
+                                         {"mode", phi::Utf8String("ws")},
+                                         {"scenario", phi::Utf8String("handshake")}};
         } else {
             response.resultType = phi::ActionResultType::String;
             response.resultValue = phi::Utf8String("ok");

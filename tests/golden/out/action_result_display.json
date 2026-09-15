@@ -1,0 +1,1 @@
+{"command":8194,"cmdId":14,"payload":{"status":0,"error":"","errorCtx":"","errorParams":[],"resultType":6,"resultValue":{"text":"Scan this on your phone","code":"123456","qr":"otpauth://pair/demo?code=123456"},"tsMs":1755500000000}}

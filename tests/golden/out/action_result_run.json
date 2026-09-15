@@ -1,0 +1,1 @@
+{"command":8194,"cmdId":15,"payload":{"status":0,"error":"","errorCtx":"","errorParams":[],"resultType":7,"resultValue":{"runId":"run-1","streamKind":"adapter.log","streamParams":{"tail":100},"abortActionId":"abort","abortParams":{"runId":"run-1"},"batch":true},"tsMs":1755500000000}}

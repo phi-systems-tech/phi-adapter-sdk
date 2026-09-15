@@ -33,6 +33,12 @@ enum class ActionResultType : std::uint8_t {
     Float = 3,
     String = 4,
     StringList = 5,
+    /// `ActionResponse::display`: a text, a code to copy, a QR payload.
+    Display = 6,
+    /// `ActionResponse::run`: a run that streams its progress.
+    Run = 7,
+    /// `ActionResponse::dataJson`: a machine-readable answer for tools, not for a person.
+    Data = 8,
 };
 
 struct CmdResponse {
@@ -74,6 +80,26 @@ struct AdapterFieldChoices {
 
 using AdapterFieldChoicesList = std::vector<AdapterFieldChoices>;
 
+/// What a person is shown for an action's result.
+struct AdapterResultDisplay {
+    Utf8String text;
+    /// Something to copy or type elsewhere: a pairing code, a dataset.
+    Utf8String code;
+    /// A payload to show as a QR code.
+    Utf8String qr;
+};
+
+/// A long action that runs on and streams what it does.
+struct AdapterRunHandle {
+    Utf8String runId;
+    Utf8String streamKind;
+    ChannelValueFields streamParams;
+    /// The action that stops the run, with its params.
+    Utf8String abortActionId;
+    ChannelValueFields abortParams;
+    bool batch = false;
+};
+
 struct ActionResponse {
     CmdId id = 0;
     CmdStatus status = CmdStatus::Success;
@@ -81,8 +107,14 @@ struct ActionResponse {
     ScalarList errorParams;
     Utf8String errorContext;
     ActionResultType resultType = ActionResultType::None;
+    /// The result for the scalar result types.
     ScalarValue resultValue;
-    JsonText resultValueJson;
+    /// The result for `ActionResultType::Display`.
+    AdapterResultDisplay display;
+    /// The result for `ActionResultType::Run`.
+    AdapterRunHandle run;
+    /// The result for `ActionResultType::Data`: JSON a tool reads.
+    JsonText dataJson;
     AdapterFormValues formValues;
     AdapterFieldChoicesList fieldChoices;
     bool reloadLayout = false;
@@ -399,6 +431,26 @@ enum class AdapterConfigLabelPosition : std::uint8_t {
 enum class AdapterConfigActionPosition : std::uint8_t {
     Auto = 0,
     Below = 1,
+};
+
+/// Where a client offers an action.
+enum class AdapterActionPlacement : std::uint8_t {
+    /// On the adapter's card.
+    Card = 0,
+    /// Only as a button of a form field that lists it in `actions`.
+    Field = 1,
+    /// In a device's menu; the params carry deviceId and externalId.
+    Device = 2,
+    /// Nowhere in the UI: for tools and tests.
+    Hidden = 3,
+};
+
+/// What invoking an action does, as a client should present it.
+enum class AdapterActionKind : std::uint8_t {
+    Command = 0,
+    OpenDialog = 1,
+    Query = 2,
+    Create = 3,
 };
 
 enum class AdapterConfigVisibilityOp : std::uint8_t {

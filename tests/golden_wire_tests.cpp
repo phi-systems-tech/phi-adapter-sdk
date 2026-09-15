@@ -164,15 +164,27 @@ sdk::AdapterDescriptor fixtureDescriptor()
     action.id = "probe";
     action.label = "Probe";
     action.description = "Connectivity probe";
+    action.placement = v1::AdapterActionPlacement::Device;
+    action.kind = v1::AdapterActionKind::Query;
+    action.requiresAck = false;
     action.hasForm = false;
     action.danger = false;
     action.cooldownMs = 0;
+    action.timeoutMs = 5000;
     descriptor.capabilities.factoryActions.push_back(action);
     v1::AdapterActionDescriptor pair;
     pair.id = "pair";
     pair.label = "Pair";
+    pair.kind = v1::AdapterActionKind::OpenDialog;
     pair.hasForm = true;
     pair.formLayout.width = v1::AdapterConfigSize::Narrow;
+    pair.loadFormOnOpen = true;
+    pair.submitLabel = "Pair now";
+    pair.resultField = "deviceId";
+    pair.confirm.title = "Pair device?";
+    pair.confirm.message = "This puts the bridge into pairing mode.";
+    pair.confirm.okLabel = "Pair";
+    pair.confirm.cancelLabel = "Cancel";
     descriptor.capabilities.instanceActions.push_back(pair);
 
     v1::AdapterConfigSchema schema;
@@ -280,6 +292,48 @@ void runOutboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client, bo
              r.tsMs = kFixedTsMs;
              return d.sendActionResult(r, nullptr);
          }},
+        {"action_result_display", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
+             v1::ActionResponse r;
+             r.id = 14;
+             r.status = v1::CmdStatus::Success;
+             r.resultType = v1::ActionResultType::Display;
+             r.display.text = "Scan this on your phone";
+             r.display.code = "123456";
+             r.display.qr = "otpauth://pair/demo?code=123456";
+             r.tsMs = kFixedTsMs;
+             return d.sendActionResult(r, nullptr);
+         }},
+        {"action_result_run", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
+             v1::ActionResponse r;
+             r.id = 15;
+             r.status = v1::CmdStatus::Success;
+             r.resultType = v1::ActionResultType::Run;
+             r.run.runId = "run-1";
+             r.run.streamKind = "adapter.log";
+             r.run.streamParams = {{"tail", static_cast<std::int64_t>(100)}};
+             r.run.abortActionId = "abort";
+             r.run.abortParams = {{"runId", v1::Utf8String("run-1")}};
+             r.run.batch = true;
+             r.tsMs = kFixedTsMs;
+             return d.sendActionResult(r, nullptr);
+         }},
+        {"action_result_data", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
+             v1::ActionResponse r;
+             r.id = 16;
+             r.status = v1::CmdStatus::Success;
+             r.resultType = v1::ActionResultType::Data;
+             r.dataJson = "{\"count\":3,\"items\":[\"a\",\"b\"]}";
+             r.tsMs = kFixedTsMs;
+             return d.sendActionResult(r, nullptr);
+         }},
+        {"action_result_data_blank_is_null", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
+             v1::ActionResponse r;
+             r.id = 17;
+             r.status = v1::CmdStatus::Success;
+             r.resultType = v1::ActionResultType::Data;
+             r.tsMs = kFixedTsMs;
+             return d.sendActionResult(r, nullptr);
+         }},
         {"connection_state_changed", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
              return d.sendConnectionStateChanged("inst-1", true, nullptr);
          }},
@@ -300,7 +354,10 @@ void runOutboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client, bo
                                 nullptr);
          }},
         {"adapter_meta_updated", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
-             return d.sendAdapterMetaUpdated("inst-1", "{\"bridgeModel\":\"BSB002\"}", nullptr);
+             const v1::AdapterFormValues patch = {
+                 {"bridgeModel", v1::ScalarValue{v1::Utf8String("BSB002")}},
+             };
+             return d.sendAdapterMetaUpdated("inst-1", patch, nullptr);
          }},
         {"factory_descriptor_updated", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
              return d.sendAdapterDescriptorUpdated("", fixtureDescriptor(), nullptr);

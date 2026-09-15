@@ -141,7 +141,7 @@ Rules:
 - action handlers use `ResultAction`
 - return-value based completion is not part of v1; completion is explicit via `sendResult(...)`
 - scalar action results are serialized through `resultValue`
-- structured action results are serialized through `resultValueJson` in the SDK API
+- structured action results are typed in the SDK API: `ActionResultType::Display` (`display`: text, code, qr), `Run` (`run`: a streamed run) and `Data` (`dataJson`: an answer for tools); all go out as `resultValue`
   and appear upstream as the normal `resultValue` JSON value
 
 ## 3. Logging Contract

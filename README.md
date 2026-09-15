@@ -983,9 +983,6 @@ structured form patch fields in addition to `resultType/resultValue`:
   a `ScalarValue`, a `ScalarList` (a multi-select) or `AdapterConfigPerChoiceValues`
   (a field with `perChoiceOf`).
 - `fieldChoices`: the choices a select offers, as `{key, AdapterConfigOptionList}`.
-- `resultValueJson`: optional JSON value serialized upstream as the normal
-  `resultValue` field. Use this for structured action results such as
-  run metadata objects.
 - `reloadLayout`: optional boolean hint; when `true`, UI/core may re-request action layout.
 
 Rules:
@@ -995,8 +992,11 @@ Rules:
   return both `formValues` and `fieldChoices` in one response.
 - Do not encode these patches into scalar `resultValue`; use structured patch fields.
 - Scalar `resultValue` remains valid for primitive action results.
-- Structured action results must use `resultValueJson`; they are exposed upstream
-  as the normal `resultValue` JSON value.
+- Structured results are typed and go out as the normal `resultValue`:
+  - `ActionResultType::Display` with `display` - a text, a `code` to copy, a `qr` payload;
+  - `ActionResultType::Run` with `run` - see below;
+  - `ActionResultType::Data` with `dataJson` - a machine-readable answer for tools and
+    tests, never for a person.
 - This pattern is generic and must work for any adapter action form, not only settings dialogs.
 
 ## Long-Running Action Runs (v1)
@@ -1006,15 +1006,9 @@ Long-running adapter-owned runs are still started through a normal one-shot
 
 Contract for adapter authors:
 
-- If an action starts an observable long-running run, `resultValueJson` should
-  contain a structured object exposed upstream as `resultValue`.
-- Recommended canonical keys in that object:
-  - `runId`
-  - `streamKind`
-  - `streamParams`
-  - optional `abortActionId`
-  - optional `abortParams`
-  - `batch`
+- If an action starts an observable long-running run, it answers with
+  `ActionResultType::Run` and fills `run`: `runId`, `streamKind`, `streamParams`,
+  optional `abortActionId` with `abortParams`, and `batch`.
 - Recommended generic stream kind:
   - `adapter.run`
 - `streamParams` should contain the minimum data needed for a later
@@ -1048,7 +1042,30 @@ Current architecture note:
 - Use `sendFactoryDescriptorUpdated()` when static descriptor data changes at runtime.
   This sends the full current `factoryDescriptor()` (built from `descriptor()`).
 - Do not send static schema/icon/description/displayName through `sendAdapterMetaUpdated(...)`.
-- Use `sendAdapterMetaUpdated(...)` only for dynamic runtime metadata.
+- `sendAdapterMetaUpdated(...)` takes `AdapterFormValues`: settings values and facts a
+  client shows (a version, a summary line). A null `ScalarValue` removes the key.
+- What only the adapter itself reads back - device caches, what a probe found - is not
+  meta: core stores the meta and sends it to every signed-in client on every change.
+  Keep it in the instance's state directory: `stateDirectory()`,
+  `readStateFile(name)`, `writeStateFile(name, content)` (atomic, mode 0640).
+
+### Actions
+
+`AdapterActionDescriptor` says where and how an action is offered, in typed fields:
+
+| Member | Meaning |
+|---|---|
+| `placement` | `Card` (the adapter card), `Field` (a button of a form field that lists it in `actions`), `Device` (the device menu; params carry `deviceId` and `externalId`), `Hidden` (tools and tests) |
+| `kind`, `requiresAck` | how a client presents invoking it |
+| `hasForm`, `formLayout`, `loadFormOnOpen`, `submitLabel` | the dialog of an action with a form; `loadFormOnOpen` asks the adapter for values and choices before it opens |
+| `resultField` | the form field the action's result is written into |
+| `timeoutMs` | how long core waits for this action; 0 is the adapter's command timeout |
+| `danger`, `confirm` | a red button, and the question asked first (`title`, `message`, `okLabel`, `cancelLabel`) |
+
+A form field's own parameters are typed too: `minValue`, `maxValue`, `step` for a
+number, `appendTo` (the result of the field's action also goes into that
+multi-select) and `reloadsForm` (a change asks the adapter for the form again).
+Defaults are the fields' `defaultValue`; there is no separate defaults object.
 
 ### Form layout
 
@@ -1118,24 +1135,17 @@ sendResult(resp, &err);
 
 ### Structured Run Metadata Example
 
-Long-running actions should return attachment metadata through `resultValueJson`:
+Long-running actions answer with a run handle:
 
 ```cpp
 phicore::adapter::v1::ActionResponse resp;
 resp.id = request.cmdId;
 resp.status = phicore::adapter::v1::CmdStatus::Success;
-resp.resultType = phicore::adapter::v1::ActionResultType::None;
-resp.resultValueJson =
-    R"json({
-      "runId": "run-42",
-      "streamKind": "adapter.run",
-      "streamParams": {
-        "runId": "run-42",
-        "mode": "ws",
-        "scenario": "handshake"
-      },
-      "batch": false
-    })json";
+resp.resultType = phicore::adapter::v1::ActionResultType::Run;
+resp.run.runId = "run-42";
+resp.run.streamKind = "adapter.run";
+resp.run.streamParams = {{"runId", phicore::adapter::v1::Utf8String("run-42")},
+                         {"mode", phicore::adapter::v1::Utf8String("ws")}};
 phicore::adapter::v1::Utf8String err;
 sendResult(resp, &err);
 ```

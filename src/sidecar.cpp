@@ -2,6 +2,10 @@
 #include "runtime_internal.h"
 #include "abandoned_threads.h"
 
+#include <sys/stat.h>
+#include <unistd.h>
+#include <cerrno>
+#include <cstdio>
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -1653,9 +1657,25 @@ void appendConfigFieldJson(std::string &out, const phicore::adapter::v1::Adapter
     out += ",\"actionPosition\":";
     out += jsonQuoted(configEnumName("AdapterConfigActionPosition", static_cast<int>(layout.actionPosition)));
     out.push_back('}');
-    if (!trim(field.metaJson).empty()) {
-        appendFieldPrefix(out, first, "meta");
-        out += jsonTokenOrDefault(field.metaJson, "{}");
+    if (field.minValue) {
+        appendFieldPrefix(out, first, "min");
+        appendDoubleJson(out, *field.minValue);
+    }
+    if (field.maxValue) {
+        appendFieldPrefix(out, first, "max");
+        appendDoubleJson(out, *field.maxValue);
+    }
+    if (field.step) {
+        appendFieldPrefix(out, first, "step");
+        appendDoubleJson(out, *field.step);
+    }
+    if (!field.appendTo.empty()) {
+        appendFieldPrefix(out, first, "appendTo");
+        out += jsonQuoted(field.appendTo);
+    }
+    if (field.reloadsForm) {
+        appendFieldPrefix(out, first, "reloadsForm");
+        out += "true";
     }
     out.push_back('}');
 }
@@ -1694,23 +1714,45 @@ std::string actionToJson(const AdapterActionDescriptor &action)
     out += jsonQuoted(action.label);
     appendFieldPrefix(out, first, "description");
     out += jsonQuoted(action.description);
+    appendFieldPrefix(out, first, "placement");
+    out += jsonQuoted(configEnumName("AdapterActionPlacement", static_cast<int>(action.placement)));
+    appendFieldPrefix(out, first, "kind");
+    out += jsonQuoted(configEnumName("AdapterActionKind", static_cast<int>(action.kind)));
+    appendFieldPrefix(out, first, "requiresAck");
+    out += (action.requiresAck ? "true" : "false");
     appendFieldPrefix(out, first, "hasForm");
     out += (action.hasForm ? "true" : "false");
     appendFieldPrefix(out, first, "danger");
     out += (action.danger ? "true" : "false");
     appendFieldPrefix(out, first, "cooldownMs");
     out += std::to_string(action.cooldownMs);
+    appendFieldPrefix(out, first, "timeoutMs");
+    out += std::to_string(action.timeoutMs);
     if (action.hasForm) {
         appendFieldPrefix(out, first, "formLayout");
         appendFormLayoutJson(out, action.formLayout);
+        appendFieldPrefix(out, first, "loadFormOnOpen");
+        out += (action.loadFormOnOpen ? "true" : "false");
+        if (!action.submitLabel.empty()) {
+            appendFieldPrefix(out, first, "submitLabel");
+            out += jsonQuoted(action.submitLabel);
+        }
     }
-    if (!trim(action.confirmJson).empty()) {
+    if (!action.resultField.empty()) {
+        appendFieldPrefix(out, first, "resultField");
+        out += jsonQuoted(action.resultField);
+    }
+    if (!action.confirm.title.empty()) {
         appendFieldPrefix(out, first, "confirm");
-        out += jsonTokenOrDefault(action.confirmJson, "{}");
-    }
-    if (!trim(action.metaJson).empty()) {
-        appendFieldPrefix(out, first, "meta");
-        out += jsonTokenOrDefault(action.metaJson, "{}");
+        out += "{\"title\":";
+        out += jsonQuoted(action.confirm.title);
+        out += ",\"message\":";
+        out += jsonQuoted(action.confirm.message);
+        out += ",\"okLabel\":";
+        out += jsonQuoted(action.confirm.okLabel);
+        out += ",\"cancelLabel\":";
+        out += jsonQuoted(action.confirm.cancelLabel);
+        out.push_back('}');
     }
     out.push_back('}');
     return out;
@@ -1733,6 +1775,64 @@ std::string actionListToJson(const std::vector<AdapterActionDescriptor> &actions
     return out;
 }
 
+void appendScalarFieldsJson(std::string &out, const phicore::adapter::v1::ChannelValueFields &fields)
+{
+    out.push_back('{');
+    bool first = true;
+    for (const auto &[key, value] : fields) {
+        appendFieldPrefix(out, first, key);
+        appendScalarJson(out, value);
+    }
+    out.push_back('}');
+}
+
+/// The `resultValue` of an action result, in the shape its result type names.
+void appendActionResultValueJson(std::string &out, const ActionResponse &response)
+{
+    switch (response.resultType) {
+    case ActionResultType::Display: {
+        const auto &display = response.display;
+        out += "{\"text\":";
+        out += jsonQuoted(display.text);
+        if (!display.code.empty()) {
+            out += ",\"code\":";
+            out += jsonQuoted(display.code);
+        }
+        if (!display.qr.empty()) {
+            out += ",\"qr\":";
+            out += jsonQuoted(display.qr);
+        }
+        out.push_back('}');
+        return;
+    }
+    case ActionResultType::Run: {
+        const auto &run = response.run;
+        out += "{\"runId\":";
+        out += jsonQuoted(run.runId);
+        out += ",\"streamKind\":";
+        out += jsonQuoted(run.streamKind);
+        out += ",\"streamParams\":";
+        appendScalarFieldsJson(out, run.streamParams);
+        if (!run.abortActionId.empty()) {
+            out += ",\"abortActionId\":";
+            out += jsonQuoted(run.abortActionId);
+            out += ",\"abortParams\":";
+            appendScalarFieldsJson(out, run.abortParams);
+        }
+        out += ",\"batch\":";
+        out += run.batch ? "true" : "false";
+        out.push_back('}');
+        return;
+    }
+    case ActionResultType::Data:
+        out += jsonTokenOrDefault(response.dataJson, "null");
+        return;
+    default:
+        appendScalarJson(out, response.resultValue);
+        return;
+    }
+}
+
 std::string capabilitiesToJson(const AdapterCapabilities &caps)
 {
     std::string out;
@@ -1748,10 +1848,6 @@ std::string capabilitiesToJson(const AdapterCapabilities &caps)
     out += actionListToJson(caps.factoryActions);
     appendFieldPrefix(out, first, "instanceActions");
     out += actionListToJson(caps.instanceActions);
-    if (!trim(caps.defaultsJson).empty()) {
-        appendFieldPrefix(out, first, "defaults");
-        out += jsonTokenOrDefault(caps.defaultsJson, "{}");
-    }
     out.push_back('}');
     return out;
 }
@@ -1864,6 +1960,48 @@ phicore::adapter::v1::JsonText formValuesToJson(const phicore::adapter::v1::Adap
         }
     }
     out.push_back('}');
+    return out;
+}
+
+phicore::adapter::v1::AdapterFormValues formValuesFromJson(std::string_view objectJson)
+{
+    using namespace phicore::adapter::v1;
+    AdapterFormValues out;
+    MemberMap members;
+    if (!parseObjectMembers(objectJson, &members, nullptr))
+        return out;
+    for (const auto &[key, token] : members.entries) {
+        const std::string_view value = trim(token);
+        if (value.empty())
+            continue;
+        if (value.front() == '[') {
+            std::vector<std::string_view> elements;
+            if (!parseArrayElements(value, &elements, nullptr))
+                continue;
+            ScalarList list;
+            for (const std::string_view element : elements) {
+                ScalarValue scalar;
+                if (parseScalarValueToken(element, &scalar))
+                    list.push_back(std::move(scalar));
+            }
+            out.push_back(AdapterFormValue{std::string(key), AdapterFormValueData(std::move(list))});
+        } else if (value.front() == '{') {
+            MemberMap choices;
+            if (!parseObjectMembers(value, &choices, nullptr))
+                continue;
+            AdapterConfigPerChoiceValues perChoice;
+            for (const auto &[choice, choiceToken] : choices.entries) {
+                ScalarValue scalar;
+                if (parseScalarValueToken(choiceToken, &scalar))
+                    perChoice.emplace_back(std::string(choice), std::move(scalar));
+            }
+            out.push_back(AdapterFormValue{std::string(key), AdapterFormValueData(std::move(perChoice))});
+        } else {
+            ScalarValue scalar;
+            if (parseScalarValueToken(value, &scalar))
+                out.push_back(AdapterFormValue{std::string(key), AdapterFormValueData(std::move(scalar))});
+        }
+    }
     return out;
 }
 
@@ -2512,7 +2650,6 @@ bool SidecarDispatcher::sendCmdResult(const CmdResponse &response, phicore::adap
 bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore::adapter::v1::Utf8String *error)
 {
     const std::int64_t tsMs = response.tsMs > 0 ? response.tsMs : nowMs();
-    const auto resultValueJson = trim(response.resultValueJson);
     std::string body;
     bool first = true;
     openEnvelopeWithCmdId(body, IpcCommand::ResultAction, response.id, first);
@@ -2527,10 +2664,7 @@ bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore
     appendFieldPrefix(body, first, "resultType");
     body += std::to_string(static_cast<int>(response.resultType));
     appendFieldPrefix(body, first, "resultValue");
-    if (!resultValueJson.empty())
-        body += jsonTokenOrDefault(std::string(resultValueJson), "null");
-    else
-        appendScalarJson(body, response.resultValue);
+    appendActionResultValueJson(body, response);
     if (!response.formValues.empty()) {
         appendFieldPrefix(body, first, "formValues");
         body += formValuesToJson(response.formValues);
@@ -2650,10 +2784,10 @@ bool SidecarDispatcher::sendLog(const phicore::adapter::v1::ExternalId &external
 }
 
 bool SidecarDispatcher::sendAdapterMetaUpdated(const phicore::adapter::v1::ExternalId &externalId,
-                                               const phicore::adapter::v1::JsonText &metaPatchJson,
+                                               const phicore::adapter::v1::AdapterFormValues &metaPatch,
                                                phicore::adapter::v1::Utf8String *error)
 {
-    const std::string patch = trim(metaPatchJson).empty() ? "{}" : metaPatchJson;
+    const std::string patch = formValuesToJson(metaPatch);
     std::string body;
     bool first = true;
     openEnvelope(body, IpcCommand::EventAdapterMetaUpdated, first);
@@ -3484,10 +3618,106 @@ bool AdapterInstance::sendError(LogCategory category,
     return m_dispatcher->sendError(
         m_externalId, m_pluginType, category, message, params, ctx, fieldsJson, tsMs, error);
 }
-bool AdapterInstance::sendAdapterMetaUpdated(const phicore::adapter::v1::JsonText &metaPatchJson,
+bool AdapterInstance::sendAdapterMetaUpdated(const phicore::adapter::v1::AdapterFormValues &patch,
                                              phicore::adapter::v1::Utf8String *error)
 {
-    return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated(m_externalId, metaPatchJson, error) : false;
+    return m_dispatcher ? m_dispatcher->sendAdapterMetaUpdated(m_externalId, patch, error) : false;
+}
+
+namespace {
+
+std::string stateFileName(std::string_view name)
+{
+    std::string out;
+    for (const char c : name) {
+        const bool safe = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'
+            || c == '_' || c == '.';
+        out += safe ? c : '_';
+    }
+    if (out.empty() || out == "." || out == "..")
+        out = "default";
+    return out;
+}
+
+bool makeDirectories(const std::string &path)
+{
+    std::string current;
+    std::size_t pos = 0;
+    while (pos <= path.size()) {
+        const std::size_t next = path.find('/', pos);
+        current = path.substr(0, next == std::string::npos ? path.size() : next);
+        if (!current.empty() && ::mkdir(current.c_str(), 0750) != 0 && errno != EEXIST)
+            return false;
+        if (next == std::string::npos)
+            break;
+        pos = next + 1;
+    }
+    return true;
+}
+
+} // namespace
+
+phicore::adapter::v1::Utf8String AdapterInstance::stateDirectory() const
+{
+    std::string root;
+    if (const char *env = std::getenv("PHI_ADAPTER_STATE_DIR"); env && *env) {
+        root = env;
+    } else {
+        // Core names the socket `<tenant data>/ipc/<name>.sock`; the tenant's
+        // adapter state is its sibling.
+        const char *socket = std::getenv("PHI_ADAPTER_SOCKET_PATH");
+        const std::string socketPath = socket ? socket : "";
+        const std::size_t ipc = socketPath.rfind("/ipc/");
+        root = (ipc != std::string::npos && ipc > 0) ? socketPath.substr(0, ipc) + "/adapters"
+                                                     : std::string("/var/lib/phi/@1/adapters");
+    }
+    return root + '/' + stateFileName(m_pluginType) + '/' + stateFileName(m_externalId);
+}
+
+std::optional<std::string> AdapterInstance::readStateFile(std::string_view name) const
+{
+    const std::string path = stateDirectory() + '/' + stateFileName(name);
+    std::FILE *file = std::fopen(path.c_str(), "rb");
+    if (!file)
+        return std::nullopt;
+    std::string content;
+    char buffer[4096];
+    std::size_t read = 0;
+    while ((read = std::fread(buffer, 1, sizeof(buffer), file)) > 0)
+        content.append(buffer, read);
+    std::fclose(file);
+    return content;
+}
+
+bool AdapterInstance::writeStateFile(std::string_view name,
+                                     std::string_view content,
+                                     phicore::adapter::v1::Utf8String *error) const
+{
+    const std::string dir = stateDirectory();
+    const auto fail = [error](const std::string &what) {
+        if (error)
+            *error = what + ": " + std::strerror(errno);
+        return false;
+    };
+    if (!makeDirectories(dir))
+        return fail(dir);
+    const std::string path = dir + '/' + stateFileName(name);
+    const std::string temporary = path + ".tmp";
+    std::FILE *file = std::fopen(temporary.c_str(), "wb");
+    if (!file)
+        return fail(temporary);
+    const bool written = std::fwrite(content.data(), 1, content.size(), file) == content.size();
+    const bool closed = std::fclose(file) == 0;
+    if (!written || !closed) {
+        ::unlink(temporary.c_str());
+        return fail(temporary);
+    }
+    ::chmod(temporary.c_str(), 0640);
+    if (::rename(temporary.c_str(), path.c_str()) != 0) {
+        ::unlink(temporary.c_str());
+        return fail(path);
+    }
+    return true;
 }
 bool AdapterInstance::sendChannelStateUpdated(const phicore::adapter::v1::ExternalId &deviceExternalId,
                                               const phicore::adapter::v1::ExternalId &channelExternalId,
