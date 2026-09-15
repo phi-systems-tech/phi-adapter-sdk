@@ -1056,7 +1056,6 @@ Current architecture note:
 | Member | Meaning |
 |---|---|
 | `placement` | `Card` (the adapter card), `Field` (a button of a form field that lists it in `actions`), `Device` (the device menu; params carry `deviceId` and `externalId`), `Hidden` (tools and tests) |
-| `kind`, `requiresAck` | how a client presents invoking it |
 | `hasForm`, `formLayout`, `loadFormOnOpen`, `submitLabel` | the dialog of an action with a form; `loadFormOnOpen` asks the adapter for values and choices before it opens |
 | `resultField` | the form field the action's result is written into |
 | `timeoutMs` | how long core waits for this action; 0 is the adapter's command timeout |

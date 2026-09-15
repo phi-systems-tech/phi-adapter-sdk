@@ -1716,10 +1716,6 @@ std::string actionToJson(const AdapterActionDescriptor &action)
     out += jsonQuoted(action.description);
     appendFieldPrefix(out, first, "placement");
     out += jsonQuoted(configEnumName("AdapterActionPlacement", static_cast<int>(action.placement)));
-    appendFieldPrefix(out, first, "kind");
-    out += jsonQuoted(configEnumName("AdapterActionKind", static_cast<int>(action.kind)));
-    appendFieldPrefix(out, first, "requiresAck");
-    out += (action.requiresAck ? "true" : "false");
     appendFieldPrefix(out, first, "hasForm");
     out += (action.hasForm ? "true" : "false");
     appendFieldPrefix(out, first, "danger");

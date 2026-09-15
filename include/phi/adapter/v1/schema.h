@@ -130,8 +130,6 @@ struct AdapterActionDescriptor {
     Utf8String label;
     Utf8String description;
     AdapterActionPlacement placement = AdapterActionPlacement::Card;
-    AdapterActionKind kind = AdapterActionKind::Command;
-    bool requiresAck = true;
     bool hasForm = false;
     bool danger = false;
     int cooldownMs = 0;

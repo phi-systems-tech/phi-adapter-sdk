@@ -165,8 +165,6 @@ sdk::AdapterDescriptor fixtureDescriptor()
     action.label = "Probe";
     action.description = "Connectivity probe";
     action.placement = v1::AdapterActionPlacement::Device;
-    action.kind = v1::AdapterActionKind::Query;
-    action.requiresAck = false;
     action.hasForm = false;
     action.danger = false;
     action.cooldownMs = 0;
@@ -175,7 +173,6 @@ sdk::AdapterDescriptor fixtureDescriptor()
     v1::AdapterActionDescriptor pair;
     pair.id = "pair";
     pair.label = "Pair";
-    pair.kind = v1::AdapterActionKind::OpenDialog;
     pair.hasForm = true;
     pair.formLayout.width = v1::AdapterConfigSize::Narrow;
     pair.loadFormOnOpen = true;

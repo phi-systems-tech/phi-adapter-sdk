@@ -308,13 +308,6 @@ inline constexpr std::array<EnumValueName, 4> kAdapterActionPlacementNames = {{
     { static_cast<int>(AdapterActionPlacement::Hidden), "Hidden" },
 }};
 
-inline constexpr std::array<EnumValueName, 4> kAdapterActionKindNames = {{
-    { static_cast<int>(AdapterActionKind::Command), "Command" },
-    { static_cast<int>(AdapterActionKind::OpenDialog), "OpenDialog" },
-    { static_cast<int>(AdapterActionKind::Query), "Query" },
-    { static_cast<int>(AdapterActionKind::Create), "Create" },
-}};
-
 inline constexpr std::array<EnumValueName, 2> kAdapterConfigVisibilityOpNames = {{
     { static_cast<int>(AdapterConfigVisibilityOp::Equals), "Equals" },
     { static_cast<int>(AdapterConfigVisibilityOp::Contains), "Contains" },
@@ -422,8 +415,6 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kAdapterConfigFieldTypeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterActionPlacement"))
         return valueToName(kAdapterActionPlacementNames, value, fallbackNumber);
-    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterActionKind"))
-        return valueToName(kAdapterActionKindNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigSize"))
         return valueToName(kAdapterConfigSizeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigLabelPosition"))
@@ -495,8 +486,6 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kAdapterConfigFieldTypeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterActionPlacement"))
         return parseNameToValue(kAdapterActionPlacementNames, name, outValue);
-    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterActionKind"))
-        return parseNameToValue(kAdapterActionKindNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigSize"))
         return parseNameToValue(kAdapterConfigSizeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigLabelPosition"))

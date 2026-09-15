@@ -445,14 +445,6 @@ enum class AdapterActionPlacement : std::uint8_t {
     Hidden = 3,
 };
 
-/// What invoking an action does, as a client should present it.
-enum class AdapterActionKind : std::uint8_t {
-    Command = 0,
-    OpenDialog = 1,
-    Query = 2,
-    Create = 3,
-};
-
 enum class AdapterConfigVisibilityOp : std::uint8_t {
     Equals = 0,
     Contains = 1,
