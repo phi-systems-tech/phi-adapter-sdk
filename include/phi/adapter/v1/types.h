@@ -188,6 +188,59 @@ enum class OperatingLevel : std::uint8_t {
     Auto = 5,
 };
 
+/// What a switched output does when power returns.
+enum class PowerOnBehavior : std::uint8_t {
+    Unknown = 0,
+    Off = 1,
+    On = 2,
+    /// The state it had before power went.
+    Previous = 3,
+    /// The opposite of that state.
+    Toggle = 4,
+};
+
+/**
+ * @brief Faults of an electrical circuit, as a mask: several can stand at once.
+ *
+ * Ordered by severity: the lowest set bit is the most serious fault, so a
+ * client that shows one shows that one without a table of its own.
+ */
+enum class ElectricalFaultFlag : std::uint32_t {
+    None = 0,
+    ShortCircuit = 1u << 0,
+    Leakage = 1u << 1,
+    Overcurrent = 1u << 2,
+    Overvoltage = 1u << 3,
+    Surge = 1u << 4,
+    Overtemperature = 1u << 5,
+    Overload = 1u << 6,
+    PhaseLoss = 1u << 7,
+    PhaseSequence = 1u << 8,
+    Unbalance = 1u << 9,
+    Undervoltage = 1u << 10,
+    Undercurrent = 1u << 11,
+    Underload = 1u << 12,
+    Outage = 1u << 13,
+    Other = 1u << 15,
+};
+
+/**
+ * @brief Faults a device reports about itself, as a mask.
+ *
+ * Ordered by severity like ElectricalFaultFlag: the lowest set bit first.
+ */
+enum class DeviceFaultFlag : std::uint32_t {
+    None = 0,
+    MotorFault = 1u << 0,
+    SensorFault = 1u << 1,
+    WaterShortage = 1u << 2,
+    BatteryCritical = 1u << 3,
+    LowTemperature = 1u << 4,
+    BatteryLow = 1u << 5,
+    BatteryDegraded = 1u << 6,
+    Other = 1u << 15,
+};
+
 enum class PresetMode : std::uint8_t {
     Unknown = 0,
     Eco = 1,
@@ -251,6 +304,12 @@ enum class ChannelKind : std::uint16_t {
     AmbientLightLevel = 68,
     // enum SensitivityLevel, canonical range [1..5], no unit
     MotionSensitivity = 69,
+    // enum PowerOnBehavior
+    PowerOnBehavior = 70,
+    // flags ElectricalFaultFlag
+    ElectricalFault = 71,
+    // flags DeviceFaultFlag
+    DeviceFault = 72,
     // pH [0.00..14.00]
     PhValue = 200,
     // mV
@@ -318,6 +377,14 @@ enum class ChannelDataType : std::uint8_t {
      * Colour predates this and keeps its own type and its own transport.
      */
     Json = 7,
+    /**
+     * @brief A mask of named flags, several of which can be set at once.
+     *
+     * The channel's kind names the flag family (ElectricalFault ->
+     * ElectricalFaultFlag); the value is the mask as an integer, 0 when no
+     * flag is set.
+     */
+    Flags = 8,
 };
 
 enum class ConnectivityStatus : std::uint8_t {

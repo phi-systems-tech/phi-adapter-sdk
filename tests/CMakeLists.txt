@@ -51,12 +51,18 @@ target_link_libraries(sdk_channel_value_tests PRIVATE phi::adapter-contract)
 add_executable(sdk_tlsconfig_tests tlsconfig_tests.cpp)
 target_link_libraries(sdk_tlsconfig_tests PRIVATE phi::adapter-contract)
 
+# Enum/flag name <-> value round trips: PowerOnBehavior, the two fault-flag
+# families, and the ChannelKind/ChannelDataType entries that name them.
+add_executable(sdk_enum_names_tests sdk_enum_names_tests.cpp)
+target_link_libraries(sdk_enum_names_tests PRIVATE phi::adapter-contract)
+
 # The config-schema JSON serializer: byte-exact wire output for schemas, form
 # values and field choices.
 add_executable(sdk_schema_json_tests sdk_schema_json_tests.cpp)
 target_link_libraries(sdk_schema_json_tests PRIVATE phi::adapter-sdk)
 
 add_test(NAME sdk_tlsconfig_tests COMMAND sdk_tlsconfig_tests)
+add_test(NAME sdk_enum_names_tests COMMAND sdk_enum_names_tests)
 add_test(NAME sdk_schema_json_tests COMMAND sdk_schema_json_tests)
 add_test(NAME sdk_channel_value_tests COMMAND sdk_channel_value_tests)
 add_test(NAME sdk_http_auth_tests COMMAND sdk_http_auth_tests)

@@ -198,6 +198,47 @@ inline constexpr std::array<EnumValueName, 6> kOperatingLevelNames = {{
     { static_cast<int>(OperatingLevel::Auto), "Auto" },
 }};
 
+inline constexpr std::array<EnumValueName, 5> kPowerOnBehaviorNames = {{
+    { static_cast<int>(PowerOnBehavior::Unknown), "Unknown" },
+    { static_cast<int>(PowerOnBehavior::Off), "Off" },
+    { static_cast<int>(PowerOnBehavior::On), "On" },
+    { static_cast<int>(PowerOnBehavior::Previous), "Previous" },
+    { static_cast<int>(PowerOnBehavior::Toggle), "Toggle" },
+}};
+
+// Flag tables in bit order, which is severity order: maskToNames() lists the
+// most serious fault first.
+inline constexpr std::array<EnumValueName, 16> kElectricalFaultFlagNames = {{
+    { static_cast<int>(ElectricalFaultFlag::None), "None" },
+    { static_cast<int>(ElectricalFaultFlag::ShortCircuit), "ShortCircuit" },
+    { static_cast<int>(ElectricalFaultFlag::Leakage), "Leakage" },
+    { static_cast<int>(ElectricalFaultFlag::Overcurrent), "Overcurrent" },
+    { static_cast<int>(ElectricalFaultFlag::Overvoltage), "Overvoltage" },
+    { static_cast<int>(ElectricalFaultFlag::Surge), "Surge" },
+    { static_cast<int>(ElectricalFaultFlag::Overtemperature), "Overtemperature" },
+    { static_cast<int>(ElectricalFaultFlag::Overload), "Overload" },
+    { static_cast<int>(ElectricalFaultFlag::PhaseLoss), "PhaseLoss" },
+    { static_cast<int>(ElectricalFaultFlag::PhaseSequence), "PhaseSequence" },
+    { static_cast<int>(ElectricalFaultFlag::Unbalance), "Unbalance" },
+    { static_cast<int>(ElectricalFaultFlag::Undervoltage), "Undervoltage" },
+    { static_cast<int>(ElectricalFaultFlag::Undercurrent), "Undercurrent" },
+    { static_cast<int>(ElectricalFaultFlag::Underload), "Underload" },
+    { static_cast<int>(ElectricalFaultFlag::Outage), "Outage" },
+    { static_cast<int>(ElectricalFaultFlag::Other), "Other" },
+}};
+
+inline constexpr std::array<EnumValueName, 9> kDeviceFaultFlagNames = {{
+    { static_cast<int>(DeviceFaultFlag::None), "None" },
+    { static_cast<int>(DeviceFaultFlag::MotorFault), "MotorFault" },
+    { static_cast<int>(DeviceFaultFlag::SensorFault), "SensorFault" },
+    { static_cast<int>(DeviceFaultFlag::WaterShortage), "WaterShortage" },
+    { static_cast<int>(DeviceFaultFlag::BatteryCritical), "BatteryCritical" },
+    { static_cast<int>(DeviceFaultFlag::LowTemperature), "LowTemperature" },
+    { static_cast<int>(DeviceFaultFlag::BatteryLow), "BatteryLow" },
+    { static_cast<int>(DeviceFaultFlag::BatteryDegraded), "BatteryDegraded" },
+    { static_cast<int>(DeviceFaultFlag::Other), "Other" },
+}};
+
 inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Unknown), "Unknown" },
     { static_cast<int>(PresetMode::Eco), "Eco" },
@@ -208,7 +249,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 42> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 45> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -240,6 +281,9 @@ inline constexpr std::array<EnumValueName, 42> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Tamper), "Tamper" },
     { static_cast<int>(ChannelKind::AmbientLightLevel), "AmbientLightLevel" },
     { static_cast<int>(ChannelKind::MotionSensitivity), "MotionSensitivity" },
+    { static_cast<int>(ChannelKind::PowerOnBehavior), "PowerOnBehavior" },
+    { static_cast<int>(ChannelKind::ElectricalFault), "ElectricalFault" },
+    { static_cast<int>(ChannelKind::DeviceFault), "DeviceFault" },
     { static_cast<int>(ChannelKind::PhValue), "PhValue" },
     { static_cast<int>(ChannelKind::OrpValue), "OrpValue" },
     { static_cast<int>(ChannelKind::SaltPpm), "SaltPpm" },
@@ -253,7 +297,7 @@ inline constexpr std::array<EnumValueName, 42> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::SceneTrigger), "SceneTrigger" },
 }};
 
-inline constexpr std::array<EnumValueName, 8> kChannelDataTypeNames = {{
+inline constexpr std::array<EnumValueName, 9> kChannelDataTypeNames = {{
     { static_cast<int>(ChannelDataType::Unknown), "Unknown" },
     { static_cast<int>(ChannelDataType::Bool), "Bool" },
     { static_cast<int>(ChannelDataType::Int), "Int" },
@@ -262,6 +306,7 @@ inline constexpr std::array<EnumValueName, 8> kChannelDataTypeNames = {{
     { static_cast<int>(ChannelDataType::Color), "Color" },
     { static_cast<int>(ChannelDataType::Enum), "Enum" },
     { static_cast<int>(ChannelDataType::Json), "Json" },
+    { static_cast<int>(ChannelDataType::Flags), "Flags" },
 }};
 
 inline constexpr std::array<EnumValueName, 4> kConnectivityStatusNames = {{
@@ -401,6 +446,12 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kRockerModeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "SensitivityLevel"))
         return valueToName(kSensitivityLevelNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PowerOnBehavior"))
+        return valueToName(kPowerOnBehaviorNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "ElectricalFaultFlag"))
+        return valueToName(kElectricalFaultFlagNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFaultFlag"))
+        return valueToName(kDeviceFaultFlagNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "OperatingLevel"))
         return valueToName(kOperatingLevelNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "PresetMode"))
@@ -442,6 +493,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
 {
     if (equalsIgnoreCaseAscii(enumTypeName, "ChannelFlag"))
         return maskToNames(kChannelFlagNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "ElectricalFaultFlag"))
+        return maskToNames(kElectricalFaultFlagNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFaultFlag"))
+        return maskToNames(kDeviceFaultFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFlag"))
         return maskToNames(kDeviceFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))
@@ -472,6 +527,12 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kRockerModeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "SensitivityLevel"))
         return parseNameToValue(kSensitivityLevelNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PowerOnBehavior"))
+        return parseNameToValue(kPowerOnBehaviorNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "ElectricalFaultFlag"))
+        return parseNameToValue(kElectricalFaultFlagNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFaultFlag"))
+        return parseNameToValue(kDeviceFaultFlagNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "OperatingLevel"))
         return parseNameToValue(kOperatingLevelNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "PresetMode"))
