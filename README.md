@@ -387,10 +387,13 @@ Logging API (v1 SDK contract):
 - `params` in macros is a `ScalarList` expression, e.g.
   `phi::ScalarList{"bridge-1", 3000}`.
 - SDK log forwarding is gated by adapter flags from config:
+  - `Info`, `Warn` and `Error` are always forwarded to core, independent of log
+    flag state: what an operator has to see does not hang on a switch
   - when `AdapterFlagEnableLogs` is absent, `log(...)` is suppressed for
-    `Trace`/`Debug`/`Info`/`Warn`
-  - `Error` is always forwarded to core, independent of log flag state
-  - when `AdapterFlagEnableLogs` is set, SDK applies `adapter.meta.logging` filter:
+    `Trace`/`Debug` - the poll cycles, retry decisions and protocol chatter that
+    the switch exists for
+  - when `AdapterFlagEnableLogs` is set, SDK applies `adapter.meta.logging`
+    filter to `Trace`/`Debug`:
     - `logging.minLevel`: one of `trace|debug|info|warn|error` (default: `debug`)
     - `logging.categories`: string array (default: `["all"]`)
     - supported public categories: `internal`, `lifecycle`, `discovery`, `network`, `protocol`,

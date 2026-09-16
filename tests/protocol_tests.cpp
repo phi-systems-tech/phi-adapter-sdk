@@ -623,6 +623,49 @@ void testInvalidFrameHeaderDisconnects()
     dispatcher.stop();
 }
 
+/// The switch on an adapter is for the chatter underneath, not for whether it
+/// may speak at all: Info and above go out whatever it says, Trace and Debug
+/// wait for it. Adapters wrote to stderr for years because of the other rule.
+void testWhatTheLogSwitchGates()
+{
+    using sdk::LogCategory;
+    using sdk::LogLevel;
+
+    // No effective config yet: everything goes, as before.
+    sdk::LogFilterCache none;
+    for (const LogLevel level : {LogLevel::Trace, LogLevel::Debug, LogLevel::Info, LogLevel::Warn,
+                                 LogLevel::Error})
+        CHECK(sdk::shouldForwardLog(none, level, LogCategory::Device));
+
+    // Configured, switch off: what an operator has to see still goes.
+    sdk::LogFilterCache off;
+    off.hasConfig = true;
+    off.forwardingEnabled = false;
+    CHECK(sdk::shouldForwardLog(off, LogLevel::Error, LogCategory::Device));
+    CHECK(sdk::shouldForwardLog(off, LogLevel::Warn, LogCategory::Device));
+    CHECK_MSG(sdk::shouldForwardLog(off, LogLevel::Info, LogCategory::Network),
+              "an adapter with the switch off could not say a session came up");
+    CHECK(!sdk::shouldForwardLog(off, LogLevel::Debug, LogCategory::Device));
+    CHECK(!sdk::shouldForwardLog(off, LogLevel::Trace, LogCategory::Device));
+
+    // Switch on, minLevel debug: the chatter passes, trace does not.
+    sdk::LogFilterCache on;
+    on.hasConfig = true;
+    on.forwardingEnabled = true;
+    on.minLevelPriority = 1; // Debug
+    CHECK(sdk::shouldForwardLog(on, LogLevel::Debug, LogCategory::Device));
+    CHECK(!sdk::shouldForwardLog(on, LogLevel::Trace, LogCategory::Device));
+
+    // Categories narrow the chatter only; Info is not a thing to narrow.
+    sdk::LogFilterCache narrowed = on;
+    narrowed.minLevelPriority = 0; // Trace
+    narrowed.allowAllCategories = false;
+    narrowed.categoryMask = static_cast<std::uint16_t>(1U << 3); // Network
+    CHECK(sdk::shouldForwardLog(narrowed, LogLevel::Trace, LogCategory::Network));
+    CHECK(!sdk::shouldForwardLog(narrowed, LogLevel::Trace, LogCategory::Device));
+    CHECK(sdk::shouldForwardLog(narrowed, LogLevel::Info, LogCategory::Device));
+}
+
 } // namespace
 
 int main()
@@ -633,6 +676,7 @@ int main()
     testEventEnvelopeShape();
     testOversizeFrameLimits();
     testLogLevelWireContract();
+    testWhatTheLogSwitchGates();
     testInvalidFrameHeaderDisconnects();
     testUnicodeEscapeDecoding();
     testFrameTypeCommandMismatchRejected();

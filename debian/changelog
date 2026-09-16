@@ -1,3 +1,15 @@
+phi-adapter-sdk (0.19.0-1) trixie; urgency=medium
+
+  * The adapter log switch gates the chatter, not the vocabulary: Info, Warn
+    and Error now reach core whatever AdapterFlag::EnableLogs says, while
+    Trace and Debug wait for it and for logging.minLevel/categories. It used
+    to gate everything below Error, which left an adapter with the switch off
+    nothing to say - and five adapters answered that by writing to stderr,
+    where core stamps every line Warn and no filter applies.
+  * PROTOCOLL.md: adapter code must not use stderr for adapter-domain logging.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 16 Sep 2026 12:40:00 +0200
+
 phi-adapter-sdk (0.18.0-1) trixie; urgency=medium
 
   * sdk::Reachability (phi/adapter/sdk/reachability.h): what an adapter does

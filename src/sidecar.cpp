@@ -1194,24 +1194,6 @@ LogFilterCache buildLogFilterCache(const phicore::adapter::v1::Adapter &adapter)
     return cache;
 }
 
-bool shouldForwardLog(const LogFilterCache &cache, LogLevel level, LogCategory category)
-{
-    if (level == LogLevel::Error)
-        return true;
-    if (!cache.hasConfig)
-        return true;
-    if (!cache.forwardingEnabled)
-        return false;
-    if (logLevelPriority(level) < cache.minLevelPriority)
-        return false;
-    if (cache.allowAllCategories)
-        return true;
-    const int idx = logCategoryIndex(category);
-    if (idx < 0)
-        return false;
-    return (cache.categoryMask & static_cast<std::uint16_t>(1U << idx)) != 0;
-}
-
 std::string jsonQuoted(std::string_view text)
 {
     std::string out;
@@ -1920,6 +1902,36 @@ ActionResponse invalidArgumentActionResponse(CmdId cmdId, const std::string &mes
 }
 
 } // namespace
+
+/// What an operator has to see does not hang on a switch: a device that went
+/// away, a configuration that will not work, a connection that came back. The
+/// switch is for what lies underneath - the poll cycles, the retry decisions,
+/// the protocol chatter - which is what "Logs" on an adapter turns on, and
+/// what `logging.minLevel` and `logging.categories` then narrow.
+///
+/// It used to gate everything below Error, which left an adapter whose switch
+/// was off no way to say anything at all. Adapters answered that by writing to
+/// stderr instead, where core stamps every line Warn and no filter applies -
+/// five of them kept their whole vocabulary there.
+bool shouldForwardLog(const LogFilterCache &cache, LogLevel level, LogCategory category)
+{
+    const bool chatter = level == LogLevel::Trace || level == LogLevel::Debug;
+    if (!chatter)
+        return true;
+    if (!cache.hasConfig)
+        return true;
+    if (!cache.forwardingEnabled)
+        return false;
+    if (logLevelPriority(level) < cache.minLevelPriority)
+        return false;
+    if (cache.allowAllCategories)
+        return true;
+    const int idx = logCategoryIndex(category);
+    if (idx < 0)
+        return false;
+    return (cache.categoryMask & static_cast<std::uint16_t>(1U << idx)) != 0;
+}
+
 
 phicore::adapter::v1::JsonText configSchemaToJson(const phicore::adapter::v1::AdapterConfigSchema &schema)
 {

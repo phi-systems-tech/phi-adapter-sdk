@@ -306,7 +306,7 @@ static_assert(static_cast<std::uint8_t>(LogCategory::Database) < 64,
  * @brief Internal: cached log-forwarding filter for one target.
  *
  * Rebuilt whenever the effective adapter config changes so the hot log path
- * never parses the meta JSON per call. Error-level logs always pass.
+ * never parses the meta JSON per call. Info, Warn and Error always pass.
  */
 struct LogFilterCache {
     /// Effective config received (without it, everything is forwarded).
@@ -319,6 +319,12 @@ struct LogFilterCache {
     /// Bit per LogCategory index when allowAllCategories is false.
     std::uint16_t categoryMask = 0;
 };
+
+/// Whether this log reaches core. Info and above always do - what an operator
+/// has to see does not hang on a switch - while Trace and Debug wait for
+/// `AdapterFlag::EnableLogs` and pass `logging.minLevel` / `logging.categories`.
+/// Declared here for the test that pins that rule.
+[[nodiscard]] bool shouldForwardLog(const LogFilterCache &cache, LogLevel level, LogCategory category);
 
 struct LogEntry {
     LogLevel level = LogLevel::Info;

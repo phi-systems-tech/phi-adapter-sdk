@@ -233,7 +233,20 @@ Required level usage:
   - unrecoverable external API/protocol failures
   - failed event/result submission from adapter code
 
+What the adapter's log switch gates (since 0.19.0):
+- `Info`, `Warn` and `Error` are forwarded to core whatever `AdapterFlag::EnableLogs`
+  says: what an operator has to see does not hang on a switch
+- `Trace` and `Debug` are forwarded only when the flag is set, and are then
+  narrowed by `logging.minLevel` and `logging.categories`
+- before 0.19.0 the flag gated everything below `Error`, which left an adapter
+  whose switch was off nothing to say; adapters answered that by writing to
+  `stderr`, where core stamps every line `Warn` and no filter applies
+
 Prohibitions:
+- adapter code MUST NOT use `stderr` for adapter-domain logging; `stderr` belongs to
+  host/runtime diagnostics and to what an adapter has to say before its dispatcher
+  exists. Core forwards every adapter `stderr` line at `Warn`, so a line written
+  there cannot be levelled, filtered, or turned off
 - high-frequency paths MUST NOT log above `Trace` by default
 - adapter logs MUST NOT include secrets, tokens, or passwords in `message`, `params`, or `fields`
 - `ctx` MUST NOT be used for module/source naming
