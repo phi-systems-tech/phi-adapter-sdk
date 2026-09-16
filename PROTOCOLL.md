@@ -241,6 +241,13 @@ What the adapter's log switch gates (since 0.19.0):
 - before 0.19.0 the flag gated everything below `Error`, which left an adapter
   whose switch was off nothing to say; adapters answered that by writing to
   `stderr`, where core stamps every line `Warn` and no filter applies
+- the same switch decides what of it reaches `journalctl`: core mirrors it onto
+  its stderr sink when it sends the adapter its config, so an adapter whose
+  switch is on is turned up to its `logging.minLevel` there too, and one whose
+  switch is off is back under core's `[log] stderrLevel`. The switch therefore
+  takes effect where the operator is looking, without restarting core. Core's
+  in-memory log (what the UI reads) is not filtered by any of this and keeps
+  every level it was sent
 
 Prohibitions:
 - adapter code MUST NOT use `stderr` for adapter-domain logging; `stderr` belongs to

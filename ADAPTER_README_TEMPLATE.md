@@ -71,6 +71,8 @@ Describe adapter scope and technical integration boundaries.
 - Levels: `Error` a failed send or a target gone for good, `Warn` degraded but running, `Info` a
   connection made or lost and summaries, `Debug` decisions, `Trace` poll cycles and chatter.
   See the SDK README, "What an adapter logs, and what it does not".
+- `Trace` and `Debug` travel only while this adapter's "Logs" switch is on; the same switch also
+  lets them past core's journal threshold, so they show up in `journalctl -u phi-core@1 -f`.
 
 ### Build
 

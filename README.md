@@ -372,7 +372,10 @@ What an adapter logs, and what it does not:
   or a target that is gone for good, `Warn` for something degraded but running, `Info` for a
   connection made or lost and for summaries, `Debug` for decisions (config, retry, dispatch),
   `Trace` for poll cycles and protocol chatter. Info and above always reach core; `Trace`/`Debug`
-  wait for the adapter's "Logs" switch, which is what that switch is for.
+  wait for the adapter's "Logs" switch, which is what that switch is for. The switch also opens
+  the journal for that adapter: while it is on, core lets its lines past `[log] stderrLevel` down
+  to the adapter's `logging.minLevel`, so `journalctl -u phi-core@1 -f` shows them without a
+  restart. Write for both readers - the UI's log view and a terminal.
 
 Logging API (v1 SDK contract):
 
