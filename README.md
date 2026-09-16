@@ -133,6 +133,56 @@ window closes; it has no clock of its own - it says when a window is due and
 the adapter arms one timer per button - so two adapters cannot drift apart on
 what a double click is, as they had.
 
+## A Device That Stops Answering (v1)
+
+For every adapter that asks a device anything:
+
+- A single missed attempt is a blip: waited out, not reported, not logged.
+- After a fixed number of misses in a row the thing counts as gone. That is
+  the moment to report `ConnectivityStatus::Disconnected` and to write one
+  line saying why.
+- While it stays gone, ask less often. A device that is switched off answers
+  no faster for being asked every five seconds, and a log full of the same
+  sentence is a log nobody reads.
+- Say nothing more until something changes: the reason, or the state. When it
+  answers again, say that once - a recovery nobody announced is the other half
+  of the same bug.
+
+The machine that implements this is `sdk::Reachability`
+(`phi/adapter/sdk/reachability.h`), one instance per thing that can go away on
+its own - a bridge, a receiver, a device behind a gateway - not one per
+adapter. It has no clock and no timer, in the manner of `sdk::ButtonPresses`:
+the adapter passes the time it already has, and arms the timer it already
+owns. What counts as an answer stays with the adapter, because only it knows
+whether that was a decoded frame, four eISCP replies, an HTTP status or a
+message on a topic.
+
+```cpp
+sdk::Reachability m_receiver{{.intervalMs = 5000,          // while it answers
+                              .strikes = 3,
+                              .retryDelaysMs = {10000, 20000, 30000, 60000}}};
+
+void pollDone(bool answered, const std::string &error)
+{
+    const auto verdict = answered ? m_receiver.answered(nowMs())
+                                  : m_receiver.missed(error, nowMs());
+    if (verdict.changed)
+        report(kConnectivityChannelId, verdict.state == sdk::Reachability::State::Up
+                                           ? v1::ConnectivityStatus::Connected
+                                           : v1::ConnectivityStatus::Disconnected);
+    if (verdict.say)
+        log(verdict.state == sdk::Reachability::State::Up ? sdk::LogLevel::Info : sdk::LogLevel::Warn,
+            sdk::LogCategory::Device, ...);
+    armPoll(verdict.waitMs);
+}
+```
+
+`sayAgainAfterMs` repeats the line after a while for an adapter that wants
+proof it is still trying; zero, the default, says it once. `setIntervalMs()`
+is the healthy interval changed - a new setting, or a second transport that
+took over and left this poll as a safety net. `forget()` starts over without
+a word, for a new session or a new configuration.
+
 ## Coalescing, Dedupe, ACK And Result (v1)
 
 - `cmd.channel.invoke` ACK is transport-level acceptance only (request accepted by core pipeline).

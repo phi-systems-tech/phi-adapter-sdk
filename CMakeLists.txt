@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.17.0
+    VERSION 0.18.0
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )
@@ -43,6 +43,7 @@ add_library(phi_adapter_sdk SHARED
     src/sidecar.cpp
     src/sidecar_main.cpp
     src/button_presses.cpp
+    src/reachability.cpp
     src/http_auth.cpp
     src/http_client.cpp
     src/http_fetch.cpp

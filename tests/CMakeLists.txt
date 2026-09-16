@@ -16,6 +16,10 @@ target_link_libraries(sdk_golden_wire_tests PRIVATE phi::adapter-sdk Threads::Th
 target_compile_definitions(sdk_golden_wire_tests
     PRIVATE PHI_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 
+# A device that goes quiet: the strikes, the growing wait, and the line.
+add_executable(sdk_reachability_tests reachability_tests.cpp)
+target_link_libraries(sdk_reachability_tests PRIVATE phi::adapter-sdk)
+
 # The Qt-free execution backend: one thread, one loop, a bounded stop.
 add_executable(sdk_loop_execution_backend_tests loop_execution_backend_tests.cpp)
 target_link_libraries(sdk_loop_execution_backend_tests PRIVATE phi::adapter-sdk Threads::Threads)
@@ -69,6 +73,7 @@ add_test(NAME sdk_http_auth_tests COMMAND sdk_http_auth_tests)
 add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
 add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
 add_test(NAME sdk_button_presses_tests COMMAND sdk_button_presses_tests)
+add_test(NAME sdk_reachability_tests COMMAND sdk_reachability_tests)
 add_test(NAME sdk_http_fetch_tests COMMAND sdk_http_fetch_tests)
 add_test(NAME sdk_loop_execution_backend_tests COMMAND sdk_loop_execution_backend_tests)
 add_test(NAME sdk_runtime_tests COMMAND sdk_runtime_tests)

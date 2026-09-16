@@ -1,3 +1,15 @@
+phi-adapter-sdk (0.18.0-1) trixie; urgency=medium
+
+  * sdk::Reachability (phi/adapter/sdk/reachability.h): what an adapter does
+    when a device stops answering, in one place. Counts the misses in a row,
+    hands back the wait before the next attempt, and says when the state
+    turned and when a line is worth writing. No clock and no timer of its
+    own, in the manner of sdk::ButtonPresses: the adapter passes the time it
+    has and arms the timer it owns, and keeps the decision what counts as an
+    answer. One per thing that can go away, not one per adapter.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Wed, 16 Sep 2026 12:05:00 +0200
+
 phi-adapter-sdk (0.17.0-1) trixie; urgency=medium
 
   * ChannelDataType::Flags: a mask of named flags, several set at once.
