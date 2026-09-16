@@ -59,6 +59,19 @@ Describe adapter scope and technical integration boundaries.
 - Document action-result form patch behavior (`formValues`, `fieldChoices`, `reloadLayout`)
 - Minimal example
 
+### Logging
+
+- Say what the adapter's own far end did: the bridge, the broker, the receiver, the devices found.
+  Name which link a "link up" line means.
+- Say nothing the host already says: the process starting, an instance being created, a
+  `config.changed` arriving. What the adapter *made* of that configuration is worth a line; the
+  delivery is not.
+- Never `std::cerr` from adapter code - core forwards it at `Warn`, unfiltered and unlevelled.
+  Use `log(...)` and `sendError(...)`.
+- Levels: `Error` a failed send or a target gone for good, `Warn` degraded but running, `Info` a
+  connection made or lost and summaries, `Debug` decisions, `Trace` poll cycles and chatter.
+  See the SDK README, "What an adapter logs, and what it does not".
+
 ### Build
 
 ```bash

@@ -349,6 +349,31 @@ Instance methods (v1 SDK contract):
 - outbound events: `send*` helpers from SDK base class
 - command/action completion is explicit via `sendResult(...)` helpers
 
+What an adapter logs, and what it does not:
+
+- **Never `std::cerr`.** Core forwards every adapter stderr line at `Warn`, with no level, no
+  category and no filter - a line written there cannot be turned off or told apart from a real
+  warning. `stderr` belongs to the SDK runtime, whose job is to report a send path that is itself
+  broken. Adapter code has `log(...)` and `sendError(...)`, and nothing else.
+- **The host's events are the host's to log.** Core spawns the sidecar, creates the instances and
+  dispatches the configuration, and it logs all three. An adapter that says the same thing again
+  writes a duplicate, which the contract forbids (PROTOCOLL.md, "Ownership"). Concretely, do not
+  log:
+  - that the process is starting ("starting phi_adapter_x_ipc ...")
+  - that an instance is being created or destroyed
+  - that a `config.changed` arrived, or what its adapterId and externalId were
+- **The adapter's own far end is the adapter's to log**: the bridge, the broker, the receiver, the
+  LAN session, the devices it found. A "link up" line should say *which* link - the one to core is
+  the host's business, and a bare "link up" reads like that one.
+- **What a config.changed becomes** is worth a line, what it contained is not: log the bridge that
+  will be used, the devices that were selected, the hosts that are tracked - the adapter's decision,
+  not the host's delivery.
+- **Levels** follow PROTOCOLL.md, "Required level usage". The short form: `Error` for a failed send
+  or a target that is gone for good, `Warn` for something degraded but running, `Info` for a
+  connection made or lost and for summaries, `Debug` for decisions (config, retry, dispatch),
+  `Trace` for poll cycles and protocol chatter. Info and above always reach core; `Trace`/`Debug`
+  wait for the adapter's "Logs" switch, which is what that switch is for.
+
 Logging API (v1 SDK contract):
 
 - `log(...)` is a public method on factory and instance classes for adapter implementers.
