@@ -2341,6 +2341,23 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return sendCmdResult(response, nullptr);
     }
 
+    if (command == IpcCommand::CmdEntityNameUpdate) {
+        EntityNameUpdateRequest request;
+        request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+        request.kind = static_cast<phicore::adapter::v1::NamedEntityKind>(
+            parseIntOrDefault(member(payloadMap, "kind"), 0));
+        request.entityExternalId = decodeStringOrDefault(member(payloadMap, "entityExternalId"));
+        request.name = decodeStringOrDefault(member(payloadMap, "name"));
+
+        if (m_handlers.onEntityNameUpdate) {
+            m_handlers.onEntityNameUpdate(request);
+            return true;
+        }
+        CmdResponse response = defaultCmdResponse(cmdId, "Entity name update handler not registered");
+        return sendCmdResult(response, nullptr);
+    }
+
     if (command == IpcCommand::CmdDeviceEffectInvoke) {
         DeviceEffectInvokeRequest request;
         request.cmdId = cmdId;
@@ -3576,6 +3593,13 @@ void AdapterInstance::onDeviceNameUpdate(const DeviceNameUpdateRequest &request)
     if (!err.empty())
         onProtocolError("Failed to send default device name update result: " + err);
 }
+void AdapterInstance::onEntityNameUpdate(const EntityNameUpdateRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId, "Entity name update handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default entity name update result: " + err);
+}
 void AdapterInstance::onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
@@ -3937,6 +3961,7 @@ void AdapterInstance::hostOnConfigChanged(const ConfigChangedRequest &request)
 void AdapterInstance::hostOnChannelInvoke(const ChannelInvokeRequest &request) { onChannelInvoke(request); }
 void AdapterInstance::hostOnAdapterActionInvoke(const AdapterActionInvokeRequest &request) { onAdapterActionInvoke(request); }
 void AdapterInstance::hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request) { onDeviceNameUpdate(request); }
+void AdapterInstance::hostOnEntityNameUpdate(const EntityNameUpdateRequest &request) { onEntityNameUpdate(request); }
 void AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request) { onDeviceEffectInvoke(request); }
 void AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { onSceneInvoke(request); }
 void AdapterInstance::hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request) { onAdaptersStreamStart(request); }
@@ -4738,6 +4763,28 @@ void SidecarHost::wireHandlers()
                               &dispatchError)) {
             response.status = CmdStatus::InvalidArgument;
             response.error = "Failed to dispatch device.name.update: " + dispatchError;
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onEntityNameUpdate = [this](const EntityNameUpdateRequest &request) {
+        CmdResponse response;
+        response.id = request.cmdId;
+        response.tsMs = nowMs();
+        if (request.externalId.empty()) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdEntityNameUpdate";
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnEntityNameUpdate(request);
+                              },
+                              &dispatchError)) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Failed to dispatch entity.name.update: " + dispatchError;
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };

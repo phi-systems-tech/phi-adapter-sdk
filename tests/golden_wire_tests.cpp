@@ -234,6 +234,7 @@ struct InboundCapture {
     std::optional<sdk::ChannelInvokeRequest> channelInvoke;
     std::optional<sdk::AdapterActionInvokeRequest> actionInvoke;
     std::optional<sdk::DeviceNameUpdateRequest> nameUpdate;
+    std::optional<sdk::EntityNameUpdateRequest> entityNameUpdate;
     std::optional<sdk::DeviceEffectInvokeRequest> effectInvoke;
     std::optional<sdk::SceneInvokeRequest> sceneInvoke;
     std::optional<sdk::AdaptersStreamStartRequest> streamStart;
@@ -243,7 +244,8 @@ struct InboundCapture {
     bool any() const
     {
         return bootstrap || configChanged || instanceRemoved || channelInvoke || actionInvoke
-            || nameUpdate || effectInvoke || sceneInvoke || streamStart || streamStop;
+            || nameUpdate || entityNameUpdate || effectInvoke || sceneInvoke || streamStart
+            || streamStop;
     }
 };
 
@@ -510,6 +512,14 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
              CHECK(c.nameUpdate->deviceExternalId == "dev-9");
              CHECK(c.nameUpdate->name == "Kitchen Light");
          }},
+        {"cmd_entity_name_update", 18, [](const InboundCapture &c) {
+             REQUIRE(c.entityNameUpdate.has_value());
+             CHECK(c.entityNameUpdate->cmdId == 18);
+             CHECK(c.entityNameUpdate->externalId == "inst-1");
+             CHECK(c.entityNameUpdate->kind == v1::NamedEntityKind::Room);
+             CHECK(c.entityNameUpdate->entityExternalId == "room-4");
+             CHECK(c.entityNameUpdate->name == "Wohnzimmer");
+         }},
         {"cmd_device_effect_invoke", 14, [](const InboundCapture &c) {
              REQUIRE(c.effectInvoke.has_value());
              CHECK(c.effectInvoke->cmdId == 14);
@@ -579,6 +589,7 @@ int main()
     handlers.onChannelInvoke = [&capture](const sdk::ChannelInvokeRequest &r) { capture.channelInvoke = r; };
     handlers.onAdapterActionInvoke = [&capture](const sdk::AdapterActionInvokeRequest &r) { capture.actionInvoke = r; };
     handlers.onDeviceNameUpdate = [&capture](const sdk::DeviceNameUpdateRequest &r) { capture.nameUpdate = r; };
+    handlers.onEntityNameUpdate = [&capture](const sdk::EntityNameUpdateRequest &r) { capture.entityNameUpdate = r; };
     handlers.onDeviceEffectInvoke = [&capture](const sdk::DeviceEffectInvokeRequest &r) { capture.effectInvoke = r; };
     handlers.onSceneInvoke = [&capture](const sdk::SceneInvokeRequest &r) { capture.sceneInvoke = r; };
     handlers.onAdaptersStreamStart = [&capture](const sdk::AdaptersStreamStartRequest &r) { capture.streamStart = r; };

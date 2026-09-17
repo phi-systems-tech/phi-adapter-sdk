@@ -451,6 +451,16 @@ enum class SceneFlag : std::uint32_t {
     SupportsDeactivate = 0x00000004,
 };
 
+/// What an adapter can carry a new name to. A name may only be changed where
+/// the change lands on the thing itself, so that every client of the vendor -
+/// phi, the maker's app, another hub - reads the same one. An adapter that
+/// cannot put a name on a room says so here, and core refuses the rename
+/// before applying it rather than storing a name only phi knows.
+///
+/// A flag is the adapter's answer for its whole domain. A single room, group
+/// or scene that is an exception - a vendor construct nobody may rename -
+/// says so for itself with `fixedName` in its meta, the way a device behind a
+/// bridge already does.
 enum class AdapterFlag : std::uint32_t {
     None = 0x00000000,
     UseTls = 0x00000001,
@@ -459,7 +469,19 @@ enum class AdapterFlag : std::uint32_t {
     RequiresPolling = 0x00000008,
     SupportsDiscovery = 0x00000010,
     SupportsProbe = 0x00000020,
-    SupportsRename = 0x00000040,
+    SupportsDeviceRename = 0x00000040,
+    SupportsRoomRename = 0x00000080,
+    SupportsGroupRename = 0x00000100,
+    SupportsSceneRename = 0x00000200,
+};
+
+/// The things `CmdEntityNameUpdate` can address. Devices are not among them:
+/// they have carried their own command since before this one existed, and
+/// their payload names the device rather than a kind.
+enum class NamedEntityKind : std::uint8_t {
+    Room = 1,
+    Group = 2,
+    Scene = 3,
 };
 
 enum class AdapterConfigFieldType : std::uint8_t {

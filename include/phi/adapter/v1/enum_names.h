@@ -384,7 +384,7 @@ inline constexpr std::array<EnumValueName, 4> kSceneFlagNames = {{
     { static_cast<int>(SceneFlag::SupportsDeactivate), "SupportsDeactivate" },
 }};
 
-inline constexpr std::array<EnumValueName, 8> kAdapterFlagNames = {{
+inline constexpr std::array<EnumValueName, 11> kAdapterFlagNames = {{
     { static_cast<int>(AdapterFlag::None), "None" },
     { static_cast<int>(AdapterFlag::UseTls), "UseTls" },
     { static_cast<int>(AdapterFlag::CloudServices), "CloudServices" },
@@ -392,7 +392,16 @@ inline constexpr std::array<EnumValueName, 8> kAdapterFlagNames = {{
     { static_cast<int>(AdapterFlag::RequiresPolling), "RequiresPolling" },
     { static_cast<int>(AdapterFlag::SupportsDiscovery), "SupportsDiscovery" },
     { static_cast<int>(AdapterFlag::SupportsProbe), "SupportsProbe" },
-    { static_cast<int>(AdapterFlag::SupportsRename), "SupportsRename" },
+    { static_cast<int>(AdapterFlag::SupportsDeviceRename), "SupportsDeviceRename" },
+    { static_cast<int>(AdapterFlag::SupportsRoomRename), "SupportsRoomRename" },
+    { static_cast<int>(AdapterFlag::SupportsGroupRename), "SupportsGroupRename" },
+    { static_cast<int>(AdapterFlag::SupportsSceneRename), "SupportsSceneRename" },
+}};
+
+inline constexpr std::array<EnumValueName, 3> kNamedEntityKindNames = {{
+    { static_cast<int>(NamedEntityKind::Room), "Room" },
+    { static_cast<int>(NamedEntityKind::Group), "Group" },
+    { static_cast<int>(NamedEntityKind::Scene), "Scene" },
 }};
 
 inline constexpr std::array<EnumValueName, 7> kAdapterConfigFieldFlagNames = {{

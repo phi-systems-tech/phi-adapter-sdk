@@ -148,6 +148,28 @@ struct DeviceNameUpdateRequest {
 };
 
 /**
+ * @brief Typed payload for renaming a room, a group or a scene.
+ *
+ * Core only sends this where the adapter declared it can carry the name -
+ * AdapterFlag::SupportsRoomRename and its two siblings - and where the entity
+ * itself did not say `fixedName`. An adapter that answers anything but
+ * CmdStatus::Success leaves the name as it was: core stores the new one only
+ * once this is confirmed, so phi never holds a name the vendor never got.
+ */
+struct EntityNameUpdateRequest {
+    /// Command id assigned by phi-core.
+    phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
+    /// Which of the three is being renamed.
+    phicore::adapter::v1::NamedEntityKind kind = phicore::adapter::v1::NamedEntityKind::Room;
+    /// Adapter-domain id of the room, group or scene.
+    phicore::adapter::v1::ExternalId entityExternalId;
+    /// New user-facing name.
+    phicore::adapter::v1::Utf8String name;
+};
+
+/**
  * @brief Typed payload for `cmd.device.effect.invoke`.
  */
 struct DeviceEffectInvokeRequest {
@@ -375,6 +397,7 @@ struct SidecarHandlers {
     std::function<void(const AdapterActionInvokeRequest &)> onAdapterActionInvoke;
     /// Called on `cmd.device.name.update`.
     std::function<void(const DeviceNameUpdateRequest &)> onDeviceNameUpdate;
+    std::function<void(const EntityNameUpdateRequest &)> onEntityNameUpdate;
     /// Called on `cmd.device.effect.invoke`.
     std::function<void(const DeviceEffectInvokeRequest &)> onDeviceEffectInvoke;
     /// Called on `cmd.scene.invoke`.
@@ -937,6 +960,7 @@ protected:
     virtual void onChannelInvoke(const ChannelInvokeRequest &request);
     virtual void onAdapterActionInvoke(const AdapterActionInvokeRequest &request);
     virtual void onDeviceNameUpdate(const DeviceNameUpdateRequest &request);
+    virtual void onEntityNameUpdate(const EntityNameUpdateRequest &request);
     virtual void onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
     virtual void onSceneInvoke(const SceneInvokeRequest &request);
     virtual void onAdaptersStreamStart(const AdaptersStreamStartRequest &request);
@@ -1051,6 +1075,7 @@ private:
     void hostOnChannelInvoke(const ChannelInvokeRequest &request);
     void hostOnAdapterActionInvoke(const AdapterActionInvokeRequest &request);
     void hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request);
+    void hostOnEntityNameUpdate(const EntityNameUpdateRequest &request);
     void hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
     void hostOnSceneInvoke(const SceneInvokeRequest &request);
     void hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request);

@@ -21,6 +21,10 @@ enum class IpcCommand : std::uint16_t {
     CmdSceneInvoke = 0x0205,
     CmdAdaptersStreamStart = 0x0206,
     CmdAdaptersStreamStop = 0x0207,
+    /// Rename a room, a group or a scene. One command for the three because
+    /// the payload is the same for all of them - which of them it is rides in
+    /// `kind`. Devices keep CmdDeviceNameUpdate above.
+    CmdEntityNameUpdate = 0x0208,
 
     // Response/Event (adapter -> core)
     ResponseFactoryDescriptor = 0x1001,

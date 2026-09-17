@@ -1,3 +1,24 @@
+phi-adapter-sdk (0.20.0-1) trixie; urgency=medium
+
+  * A name may only be changed where the change lands on the thing itself,
+    so that phi, the maker's app and any other hub read the same one. Until
+    now only devices could carry a rename downward (CmdDeviceNameUpdate);
+    rooms, groups and scenes had no way at all, so a name changed in phi
+    would have been silently overwritten by the next sync. CmdEntityNameUpdate
+    (0x0208) carries one for all three - the payload is the same for each, so
+    which of them it is rides in `kind` (NamedEntityKind) - and
+    AdapterInstance::onEntityNameUpdate is the hook that answers it. The base
+    class answers "not implemented", as it does for every other command.
+  * AdapterFlag::SupportsRename is gone, replaced by SupportsDeviceRename,
+    SupportsRoomRename, SupportsGroupRename and SupportsSceneRename: one bit
+    could not say that an adapter renames its devices but not its rooms, and
+    core now refuses a rename it knows cannot land instead of storing a name
+    only phi would know. An adapter that is an exception for one entity says
+    so on the entity, with `fixedName` in its meta, the way a device behind a
+    bridge already did.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 17 Sep 2026 21:05:00 +0200
+
 phi-adapter-sdk (0.19.0-1) trixie; urgency=medium
 
   * The adapter log switch gates the chatter, not the vocabulary: Info, Warn
