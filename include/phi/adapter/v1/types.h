@@ -451,21 +451,26 @@ enum class SceneFlag : std::uint32_t {
     SupportsDeactivate = 0x00000004,
 };
 
-/// What an adapter can carry a new name to. A name may only be changed where
+/// What a plugin declares about itself: compiled into it, identical for every
+/// instance of it, and re-announced in its descriptor on every start. A later
+/// package may say something different, and that is the point - so this is
+/// never copied onto an instance and kept. It is read from the descriptor.
+///
+/// The rename capabilities carry one rule: a name may only be changed where
 /// the change lands on the thing itself, so that every client of the vendor -
 /// phi, the maker's app, another hub - reads the same one. An adapter that
 /// cannot put a name on a room says so here, and core refuses the rename
-/// before applying it rather than storing a name only phi knows.
+/// before applying it rather than storing a name only phi knows. A single
+/// room, group or scene that is an exception - a vendor construct nobody may
+/// rename - says so for itself with `fixedName` in its meta, the way a device
+/// behind a bridge already does.
 ///
-/// A flag is the adapter's answer for its whole domain. A single room, group
-/// or scene that is an exception - a vendor construct nobody may rename -
-/// says so for itself with `fixedName` in its meta, the way a device behind a
-/// bridge already does.
-enum class AdapterFlag : std::uint32_t {
+/// The bit values have gaps where AdapterOption's two used to sit. They are
+/// left there on purpose: the numbers are on the wire and in logs, and moving
+/// them would buy nothing but tidiness.
+enum class AdapterCapability : std::uint32_t {
     None = 0x00000000,
-    UseTls = 0x00000001,
     CloudServices = 0x00000002,
-    EnableLogs = 0x00000004,
     RequiresPolling = 0x00000008,
     SupportsDiscovery = 0x00000010,
     SupportsProbe = 0x00000020,
@@ -473,6 +478,20 @@ enum class AdapterFlag : std::uint32_t {
     SupportsRoomRename = 0x00000080,
     SupportsGroupRename = 0x00000100,
     SupportsSceneRename = 0x00000200,
+};
+
+/// What a household answers for one instance of a plugin. No plugin ever
+/// states these, and they are the only flags an adapter row stores.
+///
+/// Kept apart from AdapterCapability by type rather than by a mask someone has
+/// to remember: the two lived in one enum, an instance's row held a copy of
+/// both, nothing refreshed the capability half, and the first build that grew
+/// a capability refused every room, group and scene rename on boxes whose
+/// adapters predated it.
+enum class AdapterOption : std::uint32_t {
+    None = 0x00000000,
+    UseTls = 0x00000001,
+    EnableLogs = 0x00000004,
 };
 
 /// The things `CmdEntityNameUpdate` can address. Devices are not among them:
@@ -604,7 +623,9 @@ struct EnableBitMaskOperators<DeviceFlag> : std::true_type {};
 template <>
 struct EnableBitMaskOperators<SceneFlag> : std::true_type {};
 template <>
-struct EnableBitMaskOperators<AdapterFlag> : std::true_type {};
+struct EnableBitMaskOperators<AdapterCapability> : std::true_type {};
+template <>
+struct EnableBitMaskOperators<AdapterOption> : std::true_type {};
 template <>
 struct EnableBitMaskOperators<AdapterConfigFieldFlag> : std::true_type {};
 template <>
@@ -613,7 +634,8 @@ struct EnableBitMaskOperators<AdapterRequirement> : std::true_type {};
 using ChannelFlags = ChannelFlag;
 using DeviceFlags = DeviceFlag;
 using SceneFlags = SceneFlag;
-using AdapterFlags = AdapterFlag;
+using AdapterCapabilityFlags = AdapterCapability;
+using AdapterOptions = AdapterOption;
 using AdapterConfigFieldFlags = AdapterConfigFieldFlag;
 using AdapterRequirements = AdapterRequirement;
 

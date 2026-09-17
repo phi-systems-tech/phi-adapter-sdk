@@ -21,7 +21,10 @@ struct Adapter {
     Utf8String pluginType;
     ExternalId externalId;
     JsonText metaJson;
-    AdapterFlags flags = AdapterFlag::None;
+    /// The household's answers for this instance. A plugin's own capabilities
+    /// are not here and never were an instance's to carry - they are in the
+    /// descriptor it announces (AdapterCapabilities below).
+    AdapterOptions options = AdapterOption::None;
 };
 
 using AdapterList = std::vector<Adapter>;
@@ -152,7 +155,7 @@ using AdapterActionDescriptorList = std::vector<AdapterActionDescriptor>;
 struct AdapterCapabilities {
     AdapterRequirements required = AdapterRequirement::None;
     AdapterRequirements optional = AdapterRequirement::None;
-    AdapterFlags flags = AdapterFlag::None;
+    AdapterCapabilityFlags flags = AdapterCapability::None;
     AdapterActionDescriptorList factoryActions;
     AdapterActionDescriptorList instanceActions;
 };

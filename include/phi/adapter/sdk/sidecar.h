@@ -151,7 +151,7 @@ struct DeviceNameUpdateRequest {
  * @brief Typed payload for renaming a room, a group or a scene.
  *
  * Core only sends this where the adapter declared it can carry the name -
- * AdapterFlag::SupportsRoomRename and its two siblings - and where the entity
+ * AdapterCapability::SupportsRoomRename and its two siblings - and where the entity
  * itself did not say `fixedName`. An adapter that answers anything but
  * CmdStatus::Success leaves the name as it was: core stores the new one only
  * once this is confirmed, so phi never holds a name the vendor never got.
@@ -333,7 +333,7 @@ static_assert(static_cast<std::uint8_t>(LogCategory::Database) < 64,
 struct LogFilterCache {
     /// Effective config received (without it, everything is forwarded).
     bool hasConfig = false;
-    /// AdapterFlag::EnableLogs on the effective config.
+    /// AdapterOption::EnableLogs on the effective config.
     bool forwardingEnabled = false;
     /// Minimum forwarded level as priority (Trace=0 ... Error=4).
     int minLevelPriority = 1;
@@ -344,7 +344,7 @@ struct LogFilterCache {
 
 /// Whether this log reaches core. Info and above always do - what an operator
 /// has to see does not hang on a switch - while Trace and Debug wait for
-/// `AdapterFlag::EnableLogs` and pass `logging.minLevel` / `logging.categories`.
+/// `AdapterOption::EnableLogs` and pass `logging.minLevel` / `logging.categories`.
 /// Declared here for the test that pins that rule.
 [[nodiscard]] bool shouldForwardLog(const LogFilterCache &cache, LogLevel level, LogCategory category);
 

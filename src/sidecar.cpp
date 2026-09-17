@@ -1179,7 +1179,7 @@ LogFilterCache buildLogFilterCache(const phicore::adapter::v1::Adapter &adapter)
     LogFilterCache cache;
     cache.hasConfig = true;
     cache.forwardingEnabled =
-        phicore::adapter::v1::hasFlag(adapter.flags, phicore::adapter::v1::AdapterFlag::EnableLogs);
+        phicore::adapter::v1::hasFlag(adapter.options, phicore::adapter::v1::AdapterOption::EnableLogs);
 
     LogFilterConfig filter;
     if (!parseLogFilterConfig(adapter.metaJson, &filter))
@@ -2227,8 +2227,8 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         adapter.pluginType = decodeStringOrDefault(member(adapterMap, "pluginType"));
         adapter.externalId = decodeStringOrDefault(member(adapterMap, "externalId"));
         adapter.metaJson = std::string(member(adapterMap, "meta"));
-        adapter.flags = static_cast<phicore::adapter::v1::AdapterFlag>(
-            parseIntOrDefault(member(adapterMap, "flags"), 0));
+        adapter.options = static_cast<phicore::adapter::v1::AdapterOption>(
+            parseIntOrDefault(member(adapterMap, "options"), 0));
         return adapter;
     };
 

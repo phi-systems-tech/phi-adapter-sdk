@@ -159,7 +159,7 @@ sdk::AdapterDescriptor fixtureDescriptor()
     descriptor.maxInstances = 2;
     descriptor.capabilities.required = v1::AdapterRequirement::Host;
     descriptor.capabilities.optional = v1::AdapterRequirement::Port;
-    descriptor.capabilities.flags = v1::AdapterFlag::SupportsDiscovery;
+    descriptor.capabilities.flags = v1::AdapterCapability::SupportsDiscovery;
     v1::AdapterActionDescriptor action;
     action.id = "probe";
     action.label = "Probe";
@@ -480,7 +480,7 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
              CHECK(c.configChanged->adapter.password == "secret");
              CHECK(c.configChanged->adapter.token == "tok");
              CHECK(phitest::contains(c.configChanged->adapter.metaJson, "\"logging\""));
-             CHECK(v1::hasFlag(c.configChanged->adapter.flags, v1::AdapterFlag::UseTls));
+             CHECK(v1::hasFlag(c.configChanged->adapter.options, v1::AdapterOption::UseTls));
          }},
         {"sync_adapter_instance_removed", 9, [](const InboundCapture &c) {
              REQUIRE(c.instanceRemoved.has_value());

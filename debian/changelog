@@ -1,3 +1,25 @@
+phi-adapter-sdk (0.21.0-1) trixie; urgency=medium
+
+  * AdapterFlag is split in two, because it was two things with one owner
+    each. AdapterCapability is what a plugin declares about itself -
+    compiled in, identical for every instance, re-announced on every start:
+    CloudServices, RequiresPolling, SupportsDiscovery, SupportsProbe and the
+    four rename capabilities. AdapterOption is what a household answers for
+    one instance and no plugin ever states: UseTls and EnableLogs. The bit
+    values are unchanged in both, gaps and all, because the numbers are on
+    the wire and moving them would buy nothing but tidiness.
+  * They are kept apart by type now rather than by a mask someone has to
+    remember. An instance used to hold a copy of both; nothing refreshed the
+    capability half, and the first build that grew a capability refused
+    every room, group and scene rename on boxes whose adapters predated it.
+    A capability can no longer be assigned to an instance's field at all.
+  * v1::Adapter::flags is therefore v1::Adapter::options, and the adapter
+    object core sends down carries `options` where it carried `flags`.
+    AdapterCapabilities::flags keeps its name - `caps.flags` reads
+    unambiguously - and changes type.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Thu, 17 Sep 2026 22:15:00 +0200
+
 phi-adapter-sdk (0.20.0-1) trixie; urgency=medium
 
   * A name may only be changed where the change lands on the thing itself,

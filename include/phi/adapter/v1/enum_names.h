@@ -384,18 +384,22 @@ inline constexpr std::array<EnumValueName, 4> kSceneFlagNames = {{
     { static_cast<int>(SceneFlag::SupportsDeactivate), "SupportsDeactivate" },
 }};
 
-inline constexpr std::array<EnumValueName, 11> kAdapterFlagNames = {{
-    { static_cast<int>(AdapterFlag::None), "None" },
-    { static_cast<int>(AdapterFlag::UseTls), "UseTls" },
-    { static_cast<int>(AdapterFlag::CloudServices), "CloudServices" },
-    { static_cast<int>(AdapterFlag::EnableLogs), "EnableLogs" },
-    { static_cast<int>(AdapterFlag::RequiresPolling), "RequiresPolling" },
-    { static_cast<int>(AdapterFlag::SupportsDiscovery), "SupportsDiscovery" },
-    { static_cast<int>(AdapterFlag::SupportsProbe), "SupportsProbe" },
-    { static_cast<int>(AdapterFlag::SupportsDeviceRename), "SupportsDeviceRename" },
-    { static_cast<int>(AdapterFlag::SupportsRoomRename), "SupportsRoomRename" },
-    { static_cast<int>(AdapterFlag::SupportsGroupRename), "SupportsGroupRename" },
-    { static_cast<int>(AdapterFlag::SupportsSceneRename), "SupportsSceneRename" },
+inline constexpr std::array<EnumValueName, 9> kAdapterCapabilityNames = {{
+    { static_cast<int>(AdapterCapability::None), "None" },
+    { static_cast<int>(AdapterCapability::CloudServices), "CloudServices" },
+    { static_cast<int>(AdapterCapability::RequiresPolling), "RequiresPolling" },
+    { static_cast<int>(AdapterCapability::SupportsDiscovery), "SupportsDiscovery" },
+    { static_cast<int>(AdapterCapability::SupportsProbe), "SupportsProbe" },
+    { static_cast<int>(AdapterCapability::SupportsDeviceRename), "SupportsDeviceRename" },
+    { static_cast<int>(AdapterCapability::SupportsRoomRename), "SupportsRoomRename" },
+    { static_cast<int>(AdapterCapability::SupportsGroupRename), "SupportsGroupRename" },
+    { static_cast<int>(AdapterCapability::SupportsSceneRename), "SupportsSceneRename" },
+}};
+
+inline constexpr std::array<EnumValueName, 3> kAdapterOptionNames = {{
+    { static_cast<int>(AdapterOption::None), "None" },
+    { static_cast<int>(AdapterOption::UseTls), "UseTls" },
+    { static_cast<int>(AdapterOption::EnableLogs), "EnableLogs" },
 }};
 
 inline constexpr std::array<EnumValueName, 3> kNamedEntityKindNames = {{
@@ -487,8 +491,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kAdapterConfigFieldFlagNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterRequirement"))
         return valueToName(kAdapterRequirementNames, value, fallbackNumber);
-    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterFlag"))
-        return valueToName(kAdapterFlagNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterCapability"))
+        return valueToName(kAdapterCapabilityNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterOption"))
+        return valueToName(kAdapterOptionNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFlag"))
         return valueToName(kDeviceFlagNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))
@@ -510,8 +516,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return maskToNames(kDeviceFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))
         return maskToNames(kSceneFlagNames, mask);
-    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterFlag"))
-        return maskToNames(kAdapterFlagNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterCapability"))
+        return maskToNames(kAdapterCapabilityNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterOption"))
+        return maskToNames(kAdapterOptionNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigFieldFlag"))
         return maskToNames(kAdapterConfigFieldFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterRequirement"))
@@ -568,8 +576,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kAdapterConfigFieldFlagNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterRequirement"))
         return parseNameToValue(kAdapterRequirementNames, name, outValue);
-    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterFlag"))
-        return parseNameToValue(kAdapterFlagNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterCapability"))
+        return parseNameToValue(kAdapterCapabilityNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "AdapterOption"))
+        return parseNameToValue(kAdapterOptionNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFlag"))
         return parseNameToValue(kDeviceFlagNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))
