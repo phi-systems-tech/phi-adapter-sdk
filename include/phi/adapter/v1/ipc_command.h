@@ -25,6 +25,8 @@ enum class IpcCommand : std::uint16_t {
     /// the payload is the same for all of them - which of them it is rides in
     /// `kind`. Devices keep CmdDeviceNameUpdate above.
     CmdEntityNameUpdate = 0x0208,
+    /// Invoke an imperative playback operation on a media-player device.
+    CmdMediaPlayerInvoke = 0x0209,
 
     // Response/Event (adapter -> core)
     ResponseFactoryDescriptor = 0x1001,

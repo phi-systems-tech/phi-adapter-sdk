@@ -27,6 +27,7 @@ struct Device {
     Utf8String firmware;
     Utf8String model;
     JsonText metaJson;
+    MediaPlayerFeatures mediaPlayerFeatures = MediaPlayerFeature::None;
     DeviceEffectDescriptorList effects;
 };
 

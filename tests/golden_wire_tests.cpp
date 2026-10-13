@@ -236,6 +236,7 @@ struct InboundCapture {
     std::optional<sdk::DeviceNameUpdateRequest> nameUpdate;
     std::optional<sdk::EntityNameUpdateRequest> entityNameUpdate;
     std::optional<sdk::DeviceEffectInvokeRequest> effectInvoke;
+    std::optional<sdk::MediaPlayerInvokeRequest> mediaPlayerInvoke;
     std::optional<sdk::SceneInvokeRequest> sceneInvoke;
     std::optional<sdk::AdaptersStreamStartRequest> streamStart;
     std::optional<sdk::AdaptersStreamStopRequest> streamStop;
@@ -244,7 +245,7 @@ struct InboundCapture {
     bool any() const
     {
         return bootstrap || configChanged || instanceRemoved || channelInvoke || actionInvoke
-            || nameUpdate || entityNameUpdate || effectInvoke || sceneInvoke || streamStart
+            || nameUpdate || entityNameUpdate || effectInvoke || mediaPlayerInvoke || sceneInvoke || streamStart
             || streamStop;
     }
 };
@@ -527,6 +528,19 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
              CHECK(c.effectInvoke->effect == v1::DeviceEffect::ColorLoop);
              CHECK(c.effectInvoke->effectId == "vendor-loop");
          }},
+        {"cmd_media_player_invoke", 19, [](const InboundCapture &c) {
+             REQUIRE(c.mediaPlayerInvoke.has_value());
+             CHECK(c.mediaPlayerInvoke->cmdId == 19);
+             CHECK(c.mediaPlayerInvoke->externalId == "inst-1");
+             CHECK(c.mediaPlayerInvoke->deviceExternalId == "player-2");
+             CHECK(c.mediaPlayerInvoke->action == v1::MediaPlayerAction::PlayMedia);
+             CHECK(c.mediaPlayerInvoke->mediaId == "plex://server/library/metadata/42");
+             CHECK(c.mediaPlayerInvoke->mediaType == "movie");
+             CHECK(c.mediaPlayerInvoke->mimeType == "video/mp4");
+             CHECK(c.mediaPlayerInvoke->positionMs == 12000);
+             CHECK(c.mediaPlayerInvoke->enqueue == v1::MediaPlayerEnqueue::Replace);
+             CHECK(phitest::contains(c.mediaPlayerInvoke->metadataJson, "Example Movie"));
+         }},
         {"cmd_scene_invoke", 15, [](const InboundCapture &c) {
              REQUIRE(c.sceneInvoke.has_value());
              CHECK(c.sceneInvoke->cmdId == 15);
@@ -591,6 +605,7 @@ int main()
     handlers.onDeviceNameUpdate = [&capture](const sdk::DeviceNameUpdateRequest &r) { capture.nameUpdate = r; };
     handlers.onEntityNameUpdate = [&capture](const sdk::EntityNameUpdateRequest &r) { capture.entityNameUpdate = r; };
     handlers.onDeviceEffectInvoke = [&capture](const sdk::DeviceEffectInvokeRequest &r) { capture.effectInvoke = r; };
+    handlers.onMediaPlayerInvoke = [&capture](const sdk::MediaPlayerInvokeRequest &r) { capture.mediaPlayerInvoke = r; };
     handlers.onSceneInvoke = [&capture](const sdk::SceneInvokeRequest &r) { capture.sceneInvoke = r; };
     handlers.onAdaptersStreamStart = [&capture](const sdk::AdaptersStreamStartRequest &r) { capture.streamStart = r; };
     handlers.onAdaptersStreamStop = [&capture](const sdk::AdaptersStreamStopRequest &r) { capture.streamStop = r; };

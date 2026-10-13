@@ -159,6 +159,38 @@ inline constexpr std::array<EnumValueName, 13> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Valve), "Valve" },
 }};
 
+inline constexpr std::array<EnumValueName, 9> kMediaPlayerActionNames = {{
+    { static_cast<int>(MediaPlayerAction::Unknown), "Unknown" },
+    { static_cast<int>(MediaPlayerAction::Play), "Play" },
+    { static_cast<int>(MediaPlayerAction::Pause), "Pause" },
+    { static_cast<int>(MediaPlayerAction::Stop), "Stop" },
+    { static_cast<int>(MediaPlayerAction::Next), "Next" },
+    { static_cast<int>(MediaPlayerAction::Previous), "Previous" },
+    { static_cast<int>(MediaPlayerAction::SeekTo), "SeekTo" },
+    { static_cast<int>(MediaPlayerAction::SeekBy), "SeekBy" },
+    { static_cast<int>(MediaPlayerAction::PlayMedia), "PlayMedia" },
+}};
+
+inline constexpr std::array<EnumValueName, 4> kMediaPlayerEnqueueNames = {{
+    { static_cast<int>(MediaPlayerEnqueue::Replace), "Replace" },
+    { static_cast<int>(MediaPlayerEnqueue::Play), "Play" },
+    { static_cast<int>(MediaPlayerEnqueue::Next), "Next" },
+    { static_cast<int>(MediaPlayerEnqueue::Add), "Add" },
+}};
+
+inline constexpr std::array<EnumValueName, 10> kMediaPlayerFeatureNames = {{
+    { static_cast<int>(MediaPlayerFeature::None), "None" },
+    { static_cast<int>(MediaPlayerFeature::Play), "Play" },
+    { static_cast<int>(MediaPlayerFeature::Pause), "Pause" },
+    { static_cast<int>(MediaPlayerFeature::Stop), "Stop" },
+    { static_cast<int>(MediaPlayerFeature::Next), "Next" },
+    { static_cast<int>(MediaPlayerFeature::Previous), "Previous" },
+    { static_cast<int>(MediaPlayerFeature::SeekTo), "SeekTo" },
+    { static_cast<int>(MediaPlayerFeature::SeekBy), "SeekBy" },
+    { static_cast<int>(MediaPlayerFeature::PlayMedia), "PlayMedia" },
+    { static_cast<int>(MediaPlayerFeature::Enqueue), "Enqueue" },
+}};
+
 inline constexpr std::array<EnumValueName, 10> kButtonEventCodeNames = {{
     { static_cast<int>(ButtonEventCode::None), "None" },
     { static_cast<int>(ButtonEventCode::InitialPress), "InitialPress" },
@@ -453,6 +485,12 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kActionResultTypeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceClass"))
         return valueToName(kDeviceClassNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerAction"))
+        return valueToName(kMediaPlayerActionNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerEnqueue"))
+        return valueToName(kMediaPlayerEnqueueNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerFeature"))
+        return valueToName(kMediaPlayerFeatureNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "ButtonEventCode"))
         return valueToName(kButtonEventCodeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "RockerMode"))
@@ -514,6 +552,8 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return maskToNames(kDeviceFaultFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFlag"))
         return maskToNames(kDeviceFlagNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerFeature"))
+        return maskToNames(kMediaPlayerFeatureNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))
         return maskToNames(kSceneFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterCapability"))
@@ -538,6 +578,12 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kActionResultTypeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceClass"))
         return parseNameToValue(kDeviceClassNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerAction"))
+        return parseNameToValue(kMediaPlayerActionNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerEnqueue"))
+        return parseNameToValue(kMediaPlayerEnqueueNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerFeature"))
+        return parseNameToValue(kMediaPlayerFeatureNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "ButtonEventCode"))
         return parseNameToValue(kButtonEventCodeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "RockerMode"))

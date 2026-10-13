@@ -623,6 +623,62 @@ void testInvalidFrameHeaderDisconnects()
     dispatcher.stop();
 }
 
+void testMediaPlayerInvokeRejectsInvalidEnumsAndMetadata()
+{
+    const std::string path = phitest::uniqueSocketPath("media-invalid");
+    sdk::SidecarDispatcher dispatcher(path);
+    TestClient client;
+    bool connected = false;
+    bool invoked = false;
+
+    sdk::SidecarHandlers handlers;
+    handlers.onConnected = [&connected]() { connected = true; };
+    handlers.onMediaPlayerInvoke = [&invoked](const sdk::MediaPlayerInvokeRequest &) {
+        invoked = true;
+    };
+    dispatcher.setHandlers(std::move(handlers));
+    v1::Utf8String err;
+    REQUIRE(dispatcher.start(&err));
+    REQUIRE(client.connectTo(path));
+    const auto deadline = Clock::now() + std::chrono::seconds(3);
+    while (!connected && Clock::now() < deadline)
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(connected);
+
+    auto rejected = [&](std::uint64_t cmdId, const std::string &payload,
+                        const std::string &expectedError) {
+        REQUIRE(client.sendFrame(v1::MessageType::Request, cmdId, payload));
+        dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
+        v1::FrameHeader header{};
+        std::string response;
+        REQUIRE(client.readFrame(2000, &header, &response));
+        CHECK(header.correlationId == cmdId);
+        CHECK(contains(response, "\"status\":4"));
+        CHECK_MSG(contains(response, expectedError), "response=%s", response.c_str());
+        CHECK(!invoked);
+    };
+
+    rejected(51,
+             "{\"command\":" + cmd(v1::IpcCommand::CmdMediaPlayerInvoke)
+                 + ",\"cmdId\":51,\"payload\":{\"externalId\":\"inst-1\","
+                   "\"deviceExternalId\":\"player-1\",\"action\":99}}",
+             "Invalid media player action");
+    rejected(52,
+             "{\"command\":" + cmd(v1::IpcCommand::CmdMediaPlayerInvoke)
+                 + ",\"cmdId\":52,\"payload\":{\"externalId\":\"inst-1\","
+                   "\"deviceExternalId\":\"player-1\",\"action\":1,"
+                   "\"enqueue\":99}}",
+             "Invalid media player enqueue mode");
+    rejected(53,
+             "{\"command\":" + cmd(v1::IpcCommand::CmdMediaPlayerInvoke)
+                 + ",\"cmdId\":53,\"payload\":{\"externalId\":\"inst-1\","
+                   "\"deviceExternalId\":\"player-1\",\"action\":1,"
+                   "\"metadata\":[]}}",
+             "Media player metadata must be an object");
+
+    dispatcher.stop();
+}
+
 /// The switch on an adapter is for the chatter underneath, not for whether it
 /// may speak at all: Info and above go out whatever it says, Trace and Debug
 /// wait for it. Adapters wrote to stderr for years because of the other rule.
@@ -678,6 +734,7 @@ int main()
     testLogLevelWireContract();
     testWhatTheLogSwitchGates();
     testInvalidFrameHeaderDisconnects();
+    testMediaPlayerInvokeRejectsInvalidEnumsAndMetadata();
     testUnicodeEscapeDecoding();
     testFrameTypeCommandMismatchRejected();
     testClientReplacementFiresHooks();

@@ -87,12 +87,17 @@ Hard rules:
 | `CmdSceneInvoke` | `0x0205` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `sceneExternalId:string`, `action:string` | `groupExternalId:string` |
 | `CmdAdaptersStreamStart` | `0x0206` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `streamId:string`, `kind:string` | `params:object` |
 | `CmdAdaptersStreamStop` | `0x0207` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `streamId:string` | none |
+| `CmdEntityNameUpdate` | `0x0208` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `kind:int`, `entityExternalId:string`, `name:string` | none |
+| `CmdMediaPlayerInvoke` | `0x0209` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `action:int` | `mediaId:string`, `mediaType:string`, `mimeType:string`, `positionMs:int64`, `enqueue:int`, `metadata:object` |
 
 Notes:
 - `cmdId` is an envelope field (see Framing); `Sync*` requests carry it only as
   the frame `correlationId`.
 - `SyncAdapterBootstrap` and `SyncAdapterConfigChanged` are normalized by the SDK into typed
   `BootstrapRequest` / `ConfigChangedRequest`.
+- `CmdMediaPlayerInvoke.mediaId` is opaque to core. `PlayMedia` requires it;
+  adapters decide whether it is a URL or a provider-native reference. Credentials
+  belong to adapter configuration, never `metadata`.
 - `staticConfig` is raw JSON text.
 - `CmdAdaptersStreamStart` / `CmdAdaptersStreamStop` are internal adapter-sidecar IPC only.
   External transport clients use `cmd.stream.start` / `cmd.stream.stop` against phi-core.

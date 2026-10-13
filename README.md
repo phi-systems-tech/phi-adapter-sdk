@@ -344,7 +344,7 @@ Instance methods (v1 SDK contract):
 - lifecycle: `start()`, `stop()`, `restart()`
 - runtime: `onConfigChanged(...)`
 - command handlers are queued/asynchronous: `onChannelInvoke(...)`, `onAdapterActionInvoke(...)`,
-  `onDeviceNameUpdate(...)`, `onDeviceEffectInvoke(...)`, `onSceneInvoke(...)`,
+  `onDeviceNameUpdate(...)`, `onDeviceEffectInvoke(...)`, `onMediaPlayerInvoke(...)`, `onSceneInvoke(...)`,
   `onAdaptersStreamStart(...)`, `onAdaptersStreamStop(...)`
 - outbound events: `send*` helpers from SDK base class
 - command/action completion is explicit via `sendResult(...)` helpers
@@ -798,6 +798,8 @@ Core -> Adapter (`Sync*` / `Cmd*`):
 - `CmdSceneInvoke` (`0x0205`)
 - `CmdAdaptersStreamStart` (`0x0206`)
 - `CmdAdaptersStreamStop` (`0x0207`)
+- `CmdEntityNameUpdate` (`0x0208`)
+- `CmdMediaPlayerInvoke` (`0x0209`)
 
 Adapter -> Core (`Response*` / `Event*`):
 

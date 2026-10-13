@@ -136,6 +136,29 @@ void testFlagNamesForOrderAndEmptiness()
     PHI_CHECK(deviceNames == expectedDevice);
 }
 
+void testMediaPlayerVocabulary()
+{
+    PHI_CHECK(enumNameFor("MediaPlayerAction",
+                          static_cast<int>(MediaPlayerAction::PlayMedia)) == "PlayMedia");
+    PHI_CHECK(enumNameFor("MediaPlayerEnqueue",
+                          static_cast<int>(MediaPlayerEnqueue::Next)) == "Next");
+    int parsed = -1;
+    PHI_CHECK(parseEnumValueByName("MediaPlayerAction", "seekby", &parsed));
+    PHI_CHECK(parsed == static_cast<int>(MediaPlayerAction::SeekBy));
+
+    const MediaPlayerFeatures features = MediaPlayerFeature::Play
+        | MediaPlayerFeature::Pause | MediaPlayerFeature::PlayMedia
+        | MediaPlayerFeature::Enqueue;
+    PHI_CHECK(hasFlag(features, MediaPlayerFeature::PlayMedia));
+    const std::vector<std::string> names =
+        flagNamesFor("MediaPlayerFeature", static_cast<int>(features));
+    const std::vector<std::string> expected = { "Play", "Pause", "PlayMedia", "Enqueue" };
+    PHI_CHECK(names == expected);
+
+    PHI_CHECK(static_cast<int>(MediaPlayerAction::PlayMedia) == 8);
+    PHI_CHECK(static_cast<int>(MediaPlayerFeature::Enqueue) == 0x100);
+}
+
 void testUnknownEnumTypeNameFallsBackGracefully()
 {
     // enumNameFor falls back to the number for a type name it does not know;
@@ -155,6 +178,7 @@ int main()
     testDeviceFaultFlagRoundTrips();
     testChannelKindAndDataTypeEntries();
     testFlagNamesForOrderAndEmptiness();
+    testMediaPlayerVocabulary();
     testUnknownEnumTypeNameFallsBackGracefully();
     return phi::testing::report("sdk_enum_names_tests");
 }

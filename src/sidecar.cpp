@@ -45,6 +45,8 @@ using phicore::adapter::v1::DeviceEffect;
 using phicore::adapter::v1::Group;
 using phicore::adapter::v1::IpcCommand;
 using phicore::adapter::v1::MessageType;
+using phicore::adapter::v1::MediaPlayerAction;
+using phicore::adapter::v1::MediaPlayerEnqueue;
 using phicore::adapter::v1::Room;
 using phicore::adapter::v1::ScalarList;
 using phicore::adapter::v1::ScalarValue;
@@ -1368,6 +1370,8 @@ std::string deviceToJson(const Device &device)
     out += jsonQuoted(device.model);
     appendFieldPrefix(out, first, "meta");
     appendMetaJson(out, device.metaJson);
+    appendFieldPrefix(out, first, "mediaPlayerFeatures");
+    out += std::to_string(static_cast<int>(device.mediaPlayerFeatures));
     appendFieldPrefix(out, first, "effects");
     out.push_back('[');
     bool firstEffect = true;
@@ -2374,6 +2378,50 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
             return true;
         }
         CmdResponse response = defaultCmdResponse(cmdId, "Device effect handler not registered");
+        return sendCmdResult(response, nullptr);
+    }
+
+    if (command == IpcCommand::CmdMediaPlayerInvoke) {
+        MediaPlayerInvokeRequest request;
+        request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+        request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
+        const std::int64_t actionValue = parseIntOrDefault(member(payloadMap, "action"), 0);
+        if (actionValue < static_cast<std::int64_t>(MediaPlayerAction::Play)
+            || actionValue > static_cast<std::int64_t>(MediaPlayerAction::PlayMedia)) {
+            return sendCmdResult(
+                invalidArgumentCmdResponse(cmdId, "Invalid media player action"), nullptr);
+        }
+        request.action = static_cast<MediaPlayerAction>(actionValue);
+        request.mediaId = decodeStringOrDefault(member(payloadMap, "mediaId"));
+        request.mediaType = decodeStringOrDefault(member(payloadMap, "mediaType"));
+        request.mimeType = decodeStringOrDefault(member(payloadMap, "mimeType"));
+        request.positionMs = parseIntOrDefault(member(payloadMap, "positionMs"), 0);
+        const std::int64_t enqueueValue = parseIntOrDefault(member(payloadMap, "enqueue"), 0);
+        if (enqueueValue < static_cast<std::int64_t>(MediaPlayerEnqueue::Replace)
+            || enqueueValue > static_cast<std::int64_t>(MediaPlayerEnqueue::Add)) {
+            return sendCmdResult(
+                invalidArgumentCmdResponse(cmdId, "Invalid media player enqueue mode"), nullptr);
+        }
+        request.enqueue = static_cast<MediaPlayerEnqueue>(enqueueValue);
+        const std::string_view metadataToken = member(payloadMap, "metadata");
+        if (trim(metadataToken).empty()) {
+            request.metadataJson = "{}";
+        } else {
+            MemberMap metadataMap;
+            if (!parseObjectMembers(metadataToken, &metadataMap, nullptr)) {
+                return sendCmdResult(
+                    invalidArgumentCmdResponse(cmdId, "Media player metadata must be an object"),
+                    nullptr);
+            }
+            request.metadataJson = std::string(metadataToken);
+        }
+
+        if (m_handlers.onMediaPlayerInvoke) {
+            m_handlers.onMediaPlayerInvoke(request);
+            return true;
+        }
+        CmdResponse response = defaultCmdResponse(cmdId, "Media player handler not registered");
         return sendCmdResult(response, nullptr);
     }
 
@@ -3607,6 +3655,13 @@ void AdapterInstance::onDeviceEffectInvoke(const DeviceEffectInvokeRequest &requ
     if (!err.empty())
         onProtocolError("Failed to send default device effect result: " + err);
 }
+void AdapterInstance::onMediaPlayerInvoke(const MediaPlayerInvokeRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId, "Media player handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default media player result: " + err);
+}
 void AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
@@ -3963,6 +4018,7 @@ void AdapterInstance::hostOnAdapterActionInvoke(const AdapterActionInvokeRequest
 void AdapterInstance::hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request) { onDeviceNameUpdate(request); }
 void AdapterInstance::hostOnEntityNameUpdate(const EntityNameUpdateRequest &request) { onEntityNameUpdate(request); }
 void AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request) { onDeviceEffectInvoke(request); }
+void AdapterInstance::hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &request) { onMediaPlayerInvoke(request); }
 void AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { onSceneInvoke(request); }
 void AdapterInstance::hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request) { onAdaptersStreamStart(request); }
 void AdapterInstance::hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request) { onAdaptersStreamStop(request); }
@@ -4807,6 +4863,28 @@ void SidecarHost::wireHandlers()
                               &dispatchError)) {
             response.status = CmdStatus::InvalidArgument;
             response.error = "Failed to dispatch device.effect.invoke: " + dispatchError;
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onMediaPlayerInvoke = [this](const MediaPlayerInvokeRequest &request) {
+        CmdResponse response;
+        response.id = request.cmdId;
+        response.tsMs = nowMs();
+        if (request.externalId.empty()) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdMediaPlayerInvoke";
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnMediaPlayerInvoke(request);
+                              },
+                              &dispatchError)) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Failed to dispatch mediaPlayer.invoke: " + dispatchError;
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };

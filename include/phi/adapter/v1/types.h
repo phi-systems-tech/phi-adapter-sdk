@@ -149,6 +149,49 @@ enum class DeviceEffect : std::uint16_t {
     CustomVendor,
 };
 
+/// A transport command sent to a media-player device.
+///
+/// Volume, mute and input selection remain channels because they have durable,
+/// reportable state. These commands are imperative playback operations and do
+/// not pretend to be channel values.
+enum class MediaPlayerAction : std::uint8_t {
+    Unknown = 0,
+    Play = 1,
+    Pause = 2,
+    Stop = 3,
+    Next = 4,
+    Previous = 5,
+    SeekTo = 6,
+    SeekBy = 7,
+    PlayMedia = 8,
+};
+
+/// What PlayMedia does with the player's current queue.
+enum class MediaPlayerEnqueue : std::uint8_t {
+    /// Clear the current queue and play the item now.
+    Replace = 0,
+    /// Play the item now without clearing the remaining queue.
+    Play = 1,
+    /// Insert the item immediately after the current item.
+    Next = 2,
+    /// Append the item to the end of the queue.
+    Add = 3,
+};
+
+/// Playback operations a media-player device accepts.
+enum class MediaPlayerFeature : std::uint32_t {
+    None = 0x00000000,
+    Play = 0x00000001,
+    Pause = 0x00000002,
+    Stop = 0x00000004,
+    Next = 0x00000008,
+    Previous = 0x00000010,
+    SeekTo = 0x00000020,
+    SeekBy = 0x00000040,
+    PlayMedia = 0x00000080,
+    Enqueue = 0x00000100,
+};
+
 enum class ButtonEventCode : std::uint8_t {
     None = 0,
     InitialPress = 1,
@@ -621,6 +664,8 @@ struct EnableBitMaskOperators<ChannelFlag> : std::true_type {};
 template <>
 struct EnableBitMaskOperators<DeviceFlag> : std::true_type {};
 template <>
+struct EnableBitMaskOperators<MediaPlayerFeature> : std::true_type {};
+template <>
 struct EnableBitMaskOperators<SceneFlag> : std::true_type {};
 template <>
 struct EnableBitMaskOperators<AdapterCapability> : std::true_type {};
@@ -633,6 +678,7 @@ struct EnableBitMaskOperators<AdapterRequirement> : std::true_type {};
 
 using ChannelFlags = ChannelFlag;
 using DeviceFlags = DeviceFlag;
+using MediaPlayerFeatures = MediaPlayerFeature;
 using SceneFlags = SceneFlag;
 using AdapterCapabilityFlags = AdapterCapability;
 using AdapterOptions = AdapterOption;

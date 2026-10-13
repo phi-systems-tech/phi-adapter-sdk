@@ -188,6 +188,37 @@ struct DeviceEffectInvokeRequest {
 };
 
 /**
+ * @brief Typed payload for `cmd.mediaPlayer.invoke`.
+ *
+ * Only `PlayMedia` consumes the media fields and enqueue mode. `SeekTo` and
+ * `SeekBy` consume `positionMs`; for `PlayMedia` it is the initial offset.
+ * `mediaId` is deliberately opaque: it may be an HTTP URL, a Plex rating key,
+ * or any other reference understood by the owning adapter.
+ */
+struct MediaPlayerInvokeRequest {
+    /// Command id assigned by phi-core.
+    phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
+    /// Adapter-domain device id.
+    phicore::adapter::v1::ExternalId deviceExternalId;
+    phicore::adapter::v1::MediaPlayerAction action =
+        phicore::adapter::v1::MediaPlayerAction::Unknown;
+    /// Adapter-native id or directly playable URL for PlayMedia.
+    phicore::adapter::v1::Utf8String mediaId;
+    /// Semantic content type, for example `music`, `movie`, or `episode`.
+    phicore::adapter::v1::Utf8String mediaType;
+    /// Optional MIME type when mediaId resolves to byte-stream media.
+    phicore::adapter::v1::Utf8String mimeType;
+    /// Absolute/relative seek or PlayMedia start offset, depending on action.
+    std::int64_t positionMs = 0;
+    phicore::adapter::v1::MediaPlayerEnqueue enqueue =
+        phicore::adapter::v1::MediaPlayerEnqueue::Replace;
+    /// Optional display/provider metadata; credentials must not be placed here.
+    phicore::adapter::v1::JsonText metadataJson;
+};
+
+/**
  * @brief Typed payload for `cmd.scene.invoke`.
  */
 struct SceneInvokeRequest {
@@ -400,6 +431,8 @@ struct SidecarHandlers {
     std::function<void(const EntityNameUpdateRequest &)> onEntityNameUpdate;
     /// Called on `cmd.device.effect.invoke`.
     std::function<void(const DeviceEffectInvokeRequest &)> onDeviceEffectInvoke;
+    /// Called on `cmd.mediaPlayer.invoke`.
+    std::function<void(const MediaPlayerInvokeRequest &)> onMediaPlayerInvoke;
     /// Called on `cmd.scene.invoke`.
     std::function<void(const SceneInvokeRequest &)> onSceneInvoke;
     /// Called on adapter-sidecar stream start IPC.
@@ -962,6 +995,7 @@ protected:
     virtual void onDeviceNameUpdate(const DeviceNameUpdateRequest &request);
     virtual void onEntityNameUpdate(const EntityNameUpdateRequest &request);
     virtual void onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
+    virtual void onMediaPlayerInvoke(const MediaPlayerInvokeRequest &request);
     virtual void onSceneInvoke(const SceneInvokeRequest &request);
     virtual void onAdaptersStreamStart(const AdaptersStreamStartRequest &request);
     virtual void onAdaptersStreamStop(const AdaptersStreamStopRequest &request);
@@ -1077,6 +1111,7 @@ private:
     void hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &request);
     void hostOnEntityNameUpdate(const EntityNameUpdateRequest &request);
     void hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
+    void hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &request);
     void hostOnSceneInvoke(const SceneInvokeRequest &request);
     void hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request);
     void hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request);
