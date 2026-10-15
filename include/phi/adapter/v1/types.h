@@ -477,6 +477,11 @@ enum class ChannelFlag : std::uint32_t {
     Inactive = 0x00000010,
     NoTrigger = 0x00000020,
     Suppress = 0x00000040,
+    /// Reported and shown, but not kept over time: a value whose history says
+    /// nothing (an uptime that only counts up, a counter of bytes) and would
+    /// still be the largest thing in the database. The user can override it per
+    /// channel in either direction.
+    NoHistory = 0x00000080,
 };
 
 enum class DeviceFlag : std::uint32_t {

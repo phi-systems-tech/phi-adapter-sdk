@@ -390,7 +390,7 @@ inline constexpr std::array<EnumValueName, 2> kAdapterConfigVisibilityOpNames = 
     { static_cast<int>(AdapterConfigVisibilityOp::Contains), "Contains" },
 }};
 
-inline constexpr std::array<EnumValueName, 8> kChannelFlagNames = {{
+inline constexpr std::array<EnumValueName, 9> kChannelFlagNames = {{
     { static_cast<int>(ChannelFlag::None), "None" },
     { static_cast<int>(ChannelFlag::Readable), "Readable" },
     { static_cast<int>(ChannelFlag::Writable), "Writable" },
@@ -399,6 +399,7 @@ inline constexpr std::array<EnumValueName, 8> kChannelFlagNames = {{
     { static_cast<int>(ChannelFlag::Inactive), "Inactive" },
     { static_cast<int>(ChannelFlag::NoTrigger), "NoTrigger" },
     { static_cast<int>(ChannelFlag::Suppress), "Suppress" },
+    { static_cast<int>(ChannelFlag::NoHistory), "NoHistory" },
 }};
 
 inline constexpr std::array<EnumValueName, 5> kDeviceFlagNames = {{
