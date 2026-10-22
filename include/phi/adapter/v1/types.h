@@ -137,6 +137,52 @@ enum class DeviceClass : std::uint8_t {
     Valve = 12,
 };
 
+/// What a room is, as far as a household speaks of it. The name stays the
+/// household's own ("Büro Marius", "Grillbereich"); the class is what lets a
+/// language pack say the room in every language shipped - Wohnzimmer, living
+/// room, salón - without anyone typing an alias, and what gives it an icon.
+///
+/// The list follows what the hubs already know: Hue's room archetypes map
+/// onto it one to one or onto the nearest, Matter's location tags likewise.
+/// `Floor` is for the whole-storey "rooms" hubs let people make (upstairs,
+/// downstairs, top floor) and `House` for the one that holds everything.
+/// `Other` is a class somebody chose, where `Unknown` is one nobody did.
+enum class RoomClass : std::uint8_t {
+    Unknown = 0,
+    LivingRoom = 1,
+    Kitchen = 2,
+    DiningRoom = 3,
+    Bedroom = 4,
+    ChildrensRoom = 5,
+    GuestRoom = 6,
+    Bathroom = 7,
+    Toilet = 8,
+    Hallway = 9,
+    Entrance = 10,
+    Staircase = 11,
+    Office = 12,
+    Recreation = 13,
+    HomeCinema = 14,
+    Closet = 15,
+    Storage = 16,
+    Laundry = 17,
+    Workshop = 18,
+    Garage = 19,
+    Carport = 20,
+    Driveway = 21,
+    Garden = 22,
+    Terrace = 23,
+    Balcony = 24,
+    Barbecue = 25,
+    Pool = 26,
+    Basement = 27,
+    Attic = 28,
+    Floor = 29,
+    House = 30,
+    Sauna = 31,
+    Other = 100,
+};
+
 enum class DeviceEffect : std::uint16_t {
     None = 0,
     Candle,

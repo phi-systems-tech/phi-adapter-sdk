@@ -115,6 +115,7 @@ v1::Room fixtureRoom()
     room.externalId = "room-1";
     room.name = "Living Room";
     room.zone = "Ground";
+    room.roomClass = v1::RoomClass::LivingRoom;
     room.deviceExternalIds = {"dev-9", "dev-10"};
     room.metaJson = "{}";
     return room;

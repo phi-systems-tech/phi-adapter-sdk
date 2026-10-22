@@ -1460,6 +1460,8 @@ std::string roomToJson(const Room &room)
     out += jsonQuoted(room.name);
     appendFieldPrefix(out, first, "zone");
     out += jsonQuoted(room.zone);
+    appendFieldPrefix(out, first, "roomClass");
+    out += std::to_string(static_cast<int>(room.roomClass));
     appendFieldPrefix(out, first, "deviceExternalIds");
     appendArrayOfStrings(out, room.deviceExternalIds);
     appendFieldPrefix(out, first, "meta");

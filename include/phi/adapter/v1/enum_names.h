@@ -159,6 +159,42 @@ inline constexpr std::array<EnumValueName, 13> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Valve), "Valve" },
 }};
 
+inline constexpr std::array<EnumValueName, 33> kRoomClassNames = {{
+    { static_cast<int>(RoomClass::Unknown), "Unknown" },
+    { static_cast<int>(RoomClass::LivingRoom), "LivingRoom" },
+    { static_cast<int>(RoomClass::Kitchen), "Kitchen" },
+    { static_cast<int>(RoomClass::DiningRoom), "DiningRoom" },
+    { static_cast<int>(RoomClass::Bedroom), "Bedroom" },
+    { static_cast<int>(RoomClass::ChildrensRoom), "ChildrensRoom" },
+    { static_cast<int>(RoomClass::GuestRoom), "GuestRoom" },
+    { static_cast<int>(RoomClass::Bathroom), "Bathroom" },
+    { static_cast<int>(RoomClass::Toilet), "Toilet" },
+    { static_cast<int>(RoomClass::Hallway), "Hallway" },
+    { static_cast<int>(RoomClass::Entrance), "Entrance" },
+    { static_cast<int>(RoomClass::Staircase), "Staircase" },
+    { static_cast<int>(RoomClass::Office), "Office" },
+    { static_cast<int>(RoomClass::Recreation), "Recreation" },
+    { static_cast<int>(RoomClass::HomeCinema), "HomeCinema" },
+    { static_cast<int>(RoomClass::Closet), "Closet" },
+    { static_cast<int>(RoomClass::Storage), "Storage" },
+    { static_cast<int>(RoomClass::Laundry), "Laundry" },
+    { static_cast<int>(RoomClass::Workshop), "Workshop" },
+    { static_cast<int>(RoomClass::Garage), "Garage" },
+    { static_cast<int>(RoomClass::Carport), "Carport" },
+    { static_cast<int>(RoomClass::Driveway), "Driveway" },
+    { static_cast<int>(RoomClass::Garden), "Garden" },
+    { static_cast<int>(RoomClass::Terrace), "Terrace" },
+    { static_cast<int>(RoomClass::Balcony), "Balcony" },
+    { static_cast<int>(RoomClass::Barbecue), "Barbecue" },
+    { static_cast<int>(RoomClass::Pool), "Pool" },
+    { static_cast<int>(RoomClass::Basement), "Basement" },
+    { static_cast<int>(RoomClass::Attic), "Attic" },
+    { static_cast<int>(RoomClass::Floor), "Floor" },
+    { static_cast<int>(RoomClass::House), "House" },
+    { static_cast<int>(RoomClass::Sauna), "Sauna" },
+    { static_cast<int>(RoomClass::Other), "Other" },
+}};
+
 inline constexpr std::array<EnumValueName, 9> kMediaPlayerActionNames = {{
     { static_cast<int>(MediaPlayerAction::Unknown), "Unknown" },
     { static_cast<int>(MediaPlayerAction::Play), "Play" },
@@ -486,6 +522,8 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kActionResultTypeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceClass"))
         return valueToName(kDeviceClassNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "RoomClass"))
+        return valueToName(kRoomClassNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerAction"))
         return valueToName(kMediaPlayerActionNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerEnqueue"))
@@ -579,6 +617,8 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kActionResultTypeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceClass"))
         return parseNameToValue(kDeviceClassNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "RoomClass"))
+        return parseNameToValue(kRoomClassNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerAction"))
         return parseNameToValue(kMediaPlayerActionNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerEnqueue"))
