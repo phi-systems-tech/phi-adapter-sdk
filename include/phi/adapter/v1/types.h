@@ -514,7 +514,7 @@ enum class ChannelKind : std::uint16_t {
     PtzPreset = 425,
     // enum NightVisionMode, writable
     NightVision = 426,
-    // Bool, writable: the camera neither records nor streams while on
+    // Bool, writable: the device neither records nor streams while on - a camera, a voice satellite's microphone
     PrivacyMode = 427,
     // Bool, writable
     Siren = 428,
