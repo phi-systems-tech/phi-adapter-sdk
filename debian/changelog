@@ -1,3 +1,24 @@
+phi-adapter-sdk (0.25.0-1) trixie; urgency=medium
+
+  * Voice and cameras in one version, so a camera adapter needs no SDK
+    release of its own. Channel kinds Chime (400, enum ChimePattern),
+    VoiceLevel (401), Announcement (402, a sentence the device speaks),
+    VideoStream (420, enum VideoStreamState - the fact, never the picture),
+    Snapshot (421), DoorbellRing (422, an event like ButtonEvent),
+    ObjectDetected (423, flags ObjectClassFlag), PtzMove (424, enum
+    PtzCommand), PtzPreset (425), NightVision (426, enum NightVisionMode),
+    PrivacyMode (427), Siren (428). Device classes Camera (13) and
+    Doorbell (14). MediaPlayerFeature::Announce. v1::Device carries
+    `cameraFeatures` (CameraFeature flags, wire field "cameraFeatures") -
+    the struct grows, every adapter is rebuilt.
+  * CmdStreamSourceRequest (0x020A): core asks an instance where a camera's
+    picture comes from (live or snapshot, main or sub stream); the adapter
+    answers with an ActionResponse of type Data {url, username, password,
+    codec}. AdapterInstance::onStreamSourceRequest answers NotImplemented
+    by default.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sat, 24 Oct 2026 17:00:00 +0200
+
 phi-adapter-sdk (0.24.0-1) trixie; urgency=medium
 
   * RoomClass: what a room is, beside the name the household gave it. A

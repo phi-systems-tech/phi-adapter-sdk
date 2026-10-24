@@ -89,6 +89,7 @@ Hard rules:
 | `CmdAdaptersStreamStop` | `0x0207` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `streamId:string` | none |
 | `CmdEntityNameUpdate` | `0x0208` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `kind:int`, `entityExternalId:string`, `name:string` | none |
 | `CmdMediaPlayerInvoke` | `0x0209` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `action:int` | `mediaId:string`, `mediaType:string`, `mimeType:string`, `positionMs:int64`, `enqueue:int`, `metadata:object` |
+| `CmdStreamSourceRequest` | `0x020A` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `kind:string` (`live`/`snapshot`) | `profile:string` (`main` default, `sub`); answered with `ResultAction`, `resultType` Data, `dataJson` `{url, username?, password?, codec?}` - core passes it to the media transport and never stores or shows it |
 
 Notes:
 - `cmdId` is an envelope field (see Framing); `Sync*` requests carry it only as

@@ -188,6 +188,32 @@ struct DeviceEffectInvokeRequest {
 };
 
 /**
+ * @brief Where a camera's picture comes from, asked by core for `camera.live`.
+ *
+ * The source - an RTSP URL, the credentials, a vendor protocol - is known to
+ * the adapter alone and never becomes a channel value: an RTSP URL usually
+ * carries the camera's password. Core asks for it when a client opens a live
+ * view, hands it to the media transport and neither stores nor shows it.
+ *
+ * The adapter answers with an ActionResponse of type `Data` whose `dataJson`
+ * is `{"url": ..., "username": ..., "password": ..., "codec": ...}` (url
+ * required, the rest when the source needs them; codec as the camera names
+ * it, e.g. "h264"), or a failure status when it cannot.
+ */
+struct StreamSourceRequest {
+    /// Command id assigned by phi-core.
+    phicore::adapter::v1::CmdId cmdId = 0;
+    /// Target adapter instance external id (`externalId`).
+    phicore::adapter::v1::ExternalId externalId;
+    /// Adapter-domain device id of the camera.
+    phicore::adapter::v1::ExternalId deviceExternalId;
+    /// `live` (a stream) or `snapshot` (one still frame).
+    phicore::adapter::v1::Utf8String kind;
+    /// `main` (full resolution) or `sub` (the camera's smaller stream).
+    phicore::adapter::v1::Utf8String profile;
+};
+
+/**
  * @brief Typed payload for `cmd.mediaPlayer.invoke`.
  *
  * Only `PlayMedia` consumes the media fields and enqueue mode. `SeekTo` and
@@ -433,6 +459,8 @@ struct SidecarHandlers {
     std::function<void(const DeviceEffectInvokeRequest &)> onDeviceEffectInvoke;
     /// Called on `cmd.mediaPlayer.invoke`.
     std::function<void(const MediaPlayerInvokeRequest &)> onMediaPlayerInvoke;
+    /// Called when core asks where a camera's picture comes from.
+    std::function<void(const StreamSourceRequest &)> onStreamSourceRequest;
     /// Called on `cmd.scene.invoke`.
     std::function<void(const SceneInvokeRequest &)> onSceneInvoke;
     /// Called on adapter-sidecar stream start IPC.
@@ -996,6 +1024,9 @@ protected:
     virtual void onEntityNameUpdate(const EntityNameUpdateRequest &request);
     virtual void onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
     virtual void onMediaPlayerInvoke(const MediaPlayerInvokeRequest &request);
+    /// Answer with sendResult(ActionResponse) of type Data; see StreamSourceRequest.
+    /// The default answers NotImplemented: the instance has no camera.
+    virtual void onStreamSourceRequest(const StreamSourceRequest &request);
     virtual void onSceneInvoke(const SceneInvokeRequest &request);
     virtual void onAdaptersStreamStart(const AdaptersStreamStartRequest &request);
     virtual void onAdaptersStreamStop(const AdaptersStreamStopRequest &request);
@@ -1112,6 +1143,7 @@ private:
     void hostOnEntityNameUpdate(const EntityNameUpdateRequest &request);
     void hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request);
     void hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &request);
+    void hostOnStreamSourceRequest(const StreamSourceRequest &request);
     void hostOnSceneInvoke(const SceneInvokeRequest &request);
     void hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request);
     void hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request);

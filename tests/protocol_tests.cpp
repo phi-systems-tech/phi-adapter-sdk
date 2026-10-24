@@ -675,6 +675,18 @@ void testMediaPlayerInvokeRejectsInvalidEnumsAndMetadata()
                    "\"deviceExternalId\":\"player-1\",\"action\":1,"
                    "\"metadata\":[]}}",
              "Media player metadata must be an object");
+    // A stream source is live or a snapshot, from the main or the sub stream;
+    // anything else is refused before an adapter sees it.
+    rejected(54,
+             "{\"command\":" + cmd(v1::IpcCommand::CmdStreamSourceRequest)
+                 + ",\"cmdId\":54,\"payload\":{\"externalId\":\"inst-1\","
+                   "\"deviceExternalId\":\"cam-1\",\"kind\":\"recording\"}}",
+             "Stream source kind must be live or snapshot");
+    rejected(55,
+             "{\"command\":" + cmd(v1::IpcCommand::CmdStreamSourceRequest)
+                 + ",\"cmdId\":55,\"payload\":{\"externalId\":\"inst-1\","
+                   "\"deviceExternalId\":\"cam-1\",\"kind\":\"live\",\"profile\":\"tiny\"}}",
+             "profile main or sub");
 
     dispatcher.stop();
 }

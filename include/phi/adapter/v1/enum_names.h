@@ -143,7 +143,7 @@ inline constexpr std::array<EnumValueName, 9> kActionResultTypeNames = {{
     { static_cast<int>(ActionResultType::Data), "Data" },
 }};
 
-inline constexpr std::array<EnumValueName, 13> kDeviceClassNames = {{
+inline constexpr std::array<EnumValueName, 15> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Unknown), "Unknown" },
     { static_cast<int>(DeviceClass::Light), "Light" },
     { static_cast<int>(DeviceClass::Switch), "Switch" },
@@ -157,6 +157,8 @@ inline constexpr std::array<EnumValueName, 13> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Heater), "Heater" },
     { static_cast<int>(DeviceClass::Gate), "Gate" },
     { static_cast<int>(DeviceClass::Valve), "Valve" },
+    { static_cast<int>(DeviceClass::Camera), "Camera" },
+    { static_cast<int>(DeviceClass::Doorbell), "Doorbell" },
 }};
 
 inline constexpr std::array<EnumValueName, 33> kRoomClassNames = {{
@@ -214,7 +216,7 @@ inline constexpr std::array<EnumValueName, 4> kMediaPlayerEnqueueNames = {{
     { static_cast<int>(MediaPlayerEnqueue::Add), "Add" },
 }};
 
-inline constexpr std::array<EnumValueName, 10> kMediaPlayerFeatureNames = {{
+inline constexpr std::array<EnumValueName, 11> kMediaPlayerFeatureNames = {{
     { static_cast<int>(MediaPlayerFeature::None), "None" },
     { static_cast<int>(MediaPlayerFeature::Play), "Play" },
     { static_cast<int>(MediaPlayerFeature::Pause), "Pause" },
@@ -225,6 +227,63 @@ inline constexpr std::array<EnumValueName, 10> kMediaPlayerFeatureNames = {{
     { static_cast<int>(MediaPlayerFeature::SeekBy), "SeekBy" },
     { static_cast<int>(MediaPlayerFeature::PlayMedia), "PlayMedia" },
     { static_cast<int>(MediaPlayerFeature::Enqueue), "Enqueue" },
+    { static_cast<int>(MediaPlayerFeature::Announce), "Announce" },
+}};
+
+inline constexpr std::array<EnumValueName, 12> kCameraFeatureNames = {{
+    { static_cast<int>(CameraFeature::None), "None" },
+    { static_cast<int>(CameraFeature::Video), "Video" },
+    { static_cast<int>(CameraFeature::Snapshot), "Snapshot" },
+    { static_cast<int>(CameraFeature::PanTilt), "PanTilt" },
+    { static_cast<int>(CameraFeature::Zoom), "Zoom" },
+    { static_cast<int>(CameraFeature::Presets), "Presets" },
+    { static_cast<int>(CameraFeature::NightVision), "NightVision" },
+    { static_cast<int>(CameraFeature::Spotlight), "Spotlight" },
+    { static_cast<int>(CameraFeature::Siren), "Siren" },
+    { static_cast<int>(CameraFeature::Privacy), "Privacy" },
+    { static_cast<int>(CameraFeature::TwoWayAudio), "TwoWayAudio" },
+    { static_cast<int>(CameraFeature::ObjectDetection), "ObjectDetection" },
+}};
+
+inline constexpr std::array<EnumValueName, 5> kChimePatternNames = {{
+    { static_cast<int>(ChimePattern::Unknown), "Unknown" },
+    { static_cast<int>(ChimePattern::Understood), "Understood" },
+    { static_cast<int>(ChimePattern::Unsure), "Unsure" },
+    { static_cast<int>(ChimePattern::NotUnderstood), "NotUnderstood" },
+    { static_cast<int>(ChimePattern::Attention), "Attention" },
+}};
+
+inline constexpr std::array<EnumValueName, 4> kVideoStreamStateNames = {{
+    { static_cast<int>(VideoStreamState::Unknown), "Unknown" },
+    { static_cast<int>(VideoStreamState::Unavailable), "Unavailable" },
+    { static_cast<int>(VideoStreamState::Idle), "Idle" },
+    { static_cast<int>(VideoStreamState::Live), "Live" },
+}};
+
+inline constexpr std::array<EnumValueName, 4> kNightVisionModeNames = {{
+    { static_cast<int>(NightVisionMode::Unknown), "Unknown" },
+    { static_cast<int>(NightVisionMode::Auto), "Auto" },
+    { static_cast<int>(NightVisionMode::On), "On" },
+    { static_cast<int>(NightVisionMode::Off), "Off" },
+}};
+
+inline constexpr std::array<EnumValueName, 7> kPtzCommandNames = {{
+    { static_cast<int>(PtzCommand::Stop), "Stop" },
+    { static_cast<int>(PtzCommand::Left), "Left" },
+    { static_cast<int>(PtzCommand::Right), "Right" },
+    { static_cast<int>(PtzCommand::Up), "Up" },
+    { static_cast<int>(PtzCommand::Down), "Down" },
+    { static_cast<int>(PtzCommand::ZoomIn), "ZoomIn" },
+    { static_cast<int>(PtzCommand::ZoomOut), "ZoomOut" },
+}};
+
+inline constexpr std::array<EnumValueName, 6> kObjectClassFlagNames = {{
+    { static_cast<int>(ObjectClassFlag::None), "None" },
+    { static_cast<int>(ObjectClassFlag::Person), "Person" },
+    { static_cast<int>(ObjectClassFlag::Vehicle), "Vehicle" },
+    { static_cast<int>(ObjectClassFlag::Animal), "Animal" },
+    { static_cast<int>(ObjectClassFlag::Package), "Package" },
+    { static_cast<int>(ObjectClassFlag::Face), "Face" },
 }};
 
 inline constexpr std::array<EnumValueName, 10> kButtonEventCodeNames = {{
@@ -317,7 +376,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 45> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 57> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -363,6 +422,18 @@ inline constexpr std::array<EnumValueName, 45> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::FilterPressure), "FilterPressure" },
     { static_cast<int>(ChannelKind::WaterFlow), "WaterFlow" },
     { static_cast<int>(ChannelKind::SceneTrigger), "SceneTrigger" },
+    { static_cast<int>(ChannelKind::Chime), "Chime" },
+    { static_cast<int>(ChannelKind::VoiceLevel), "VoiceLevel" },
+    { static_cast<int>(ChannelKind::Announcement), "Announcement" },
+    { static_cast<int>(ChannelKind::VideoStream), "VideoStream" },
+    { static_cast<int>(ChannelKind::Snapshot), "Snapshot" },
+    { static_cast<int>(ChannelKind::DoorbellRing), "DoorbellRing" },
+    { static_cast<int>(ChannelKind::ObjectDetected), "ObjectDetected" },
+    { static_cast<int>(ChannelKind::PtzMove), "PtzMove" },
+    { static_cast<int>(ChannelKind::PtzPreset), "PtzPreset" },
+    { static_cast<int>(ChannelKind::NightVision), "NightVision" },
+    { static_cast<int>(ChannelKind::PrivacyMode), "PrivacyMode" },
+    { static_cast<int>(ChannelKind::Siren), "Siren" },
 }};
 
 inline constexpr std::array<EnumValueName, 9> kChannelDataTypeNames = {{
@@ -530,6 +601,18 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kMediaPlayerEnqueueNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerFeature"))
         return valueToName(kMediaPlayerFeatureNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "CameraFeature"))
+        return valueToName(kCameraFeatureNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "ChimePattern"))
+        return valueToName(kChimePatternNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "VideoStreamState"))
+        return valueToName(kVideoStreamStateNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "NightVisionMode"))
+        return valueToName(kNightVisionModeNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PtzCommand"))
+        return valueToName(kPtzCommandNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "ObjectClassFlag"))
+        return valueToName(kObjectClassFlagNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "ButtonEventCode"))
         return valueToName(kButtonEventCodeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "RockerMode"))
@@ -593,6 +676,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return maskToNames(kDeviceFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerFeature"))
         return maskToNames(kMediaPlayerFeatureNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "CameraFeature"))
+        return maskToNames(kCameraFeatureNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "ObjectClassFlag"))
+        return maskToNames(kObjectClassFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))
         return maskToNames(kSceneFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterCapability"))
@@ -625,6 +712,18 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kMediaPlayerEnqueueNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "MediaPlayerFeature"))
         return parseNameToValue(kMediaPlayerFeatureNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "CameraFeature"))
+        return parseNameToValue(kCameraFeatureNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "ChimePattern"))
+        return parseNameToValue(kChimePatternNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "VideoStreamState"))
+        return parseNameToValue(kVideoStreamStateNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "NightVisionMode"))
+        return parseNameToValue(kNightVisionModeNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PtzCommand"))
+        return parseNameToValue(kPtzCommandNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "ObjectClassFlag"))
+        return parseNameToValue(kObjectClassFlagNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "ButtonEventCode"))
         return parseNameToValue(kButtonEventCodeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "RockerMode"))

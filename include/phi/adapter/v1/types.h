@@ -135,6 +135,10 @@ enum class DeviceClass : std::uint8_t {
     Heater = 10,
     Gate = 11,
     Valve = 12,
+    /// A camera: what it can do is the device's cameraFeatures.
+    Camera = 13,
+    /// A doorbell, with or without a camera of its own (cameraFeatures says).
+    Doorbell = 14,
 };
 
 /// What a room is, as far as a household speaks of it. The name stays the
@@ -236,6 +240,74 @@ enum class MediaPlayerFeature : std::uint32_t {
     SeekBy = 0x00000040,
     PlayMedia = 0x00000080,
     Enqueue = 0x00000100,
+    /// Plays an announcement over whatever is playing and resumes it after
+    /// (a voice satellite answering, a doorbell chime on a speaker).
+    Announce = 0x00000200,
+};
+
+/// What a camera device can do, declared like mediaPlayerFeatures. The
+/// picture never travels as a channel value: the adapter knows the source,
+/// core hands it to the media transport (`streamSource`, `camera.live`).
+enum class CameraFeature : std::uint32_t {
+    None = 0x00000000,
+    Video = 0x00000001,
+    Snapshot = 0x00000002,
+    PanTilt = 0x00000004,
+    Zoom = 0x00000008,
+    Presets = 0x00000010,
+    NightVision = 0x00000020,
+    /// A white light on the camera; its channels are a light's on the device.
+    Spotlight = 0x00000040,
+    Siren = 0x00000080,
+    Privacy = 0x00000100,
+    TwoWayAudio = 0x00000200,
+    ObjectDetection = 0x00000400,
+};
+
+/// The sound a voice satellite answers with when it does not speak.
+enum class ChimePattern : std::uint8_t {
+    Unknown = 0,
+    Understood = 1,
+    Unsure = 2,
+    NotUnderstood = 3,
+    Attention = 4,
+};
+
+/// Whether a camera's picture can be had, as a channel: the fact, never the
+/// picture.
+enum class VideoStreamState : std::uint8_t {
+    Unknown = 0,
+    Unavailable = 1,
+    Idle = 2,
+    Live = 3,
+};
+
+enum class NightVisionMode : std::uint8_t {
+    Unknown = 0,
+    Auto = 1,
+    On = 2,
+    Off = 3,
+};
+
+/// A pan/tilt/zoom movement; momentary - the camera moves until Stop.
+enum class PtzCommand : std::uint8_t {
+    Stop = 0,
+    Left = 1,
+    Right = 2,
+    Up = 3,
+    Down = 4,
+    ZoomIn = 5,
+    ZoomOut = 6,
+};
+
+/// What a camera's detection saw, as a mask: several at once.
+enum class ObjectClassFlag : std::uint32_t {
+    None = 0,
+    Person = 1u << 0,
+    Vehicle = 1u << 1,
+    Animal = 1u << 2,
+    Package = 1u << 3,
+    Face = 1u << 4,
 };
 
 enum class ButtonEventCode : std::uint8_t {
@@ -420,6 +492,32 @@ enum class ChannelKind : std::uint16_t {
     // L/min
     WaterFlow = 209,
     SceneTrigger = 300,
+    // --- voice satellites
+    // enum ChimePattern, writable: the satellite plays it
+    Chime = 400,
+    // [0..100] percent, read-only: voice against noise as the microphone front end measures it
+    VoiceLevel = 401,
+    // String, writable: a sentence the device speaks; the value is the last one spoken
+    Announcement = 402,
+    // --- cameras and doorbells
+    // enum VideoStreamState
+    VideoStream = 420,
+    // epoch milliseconds of the last frame the camera made available
+    Snapshot = 421,
+    // enum ButtonEventCode, an event like ButtonEvent: somebody rang
+    DoorbellRing = 422,
+    // flags ObjectClassFlag, an event: what the detection saw
+    ObjectDetected = 423,
+    // enum PtzCommand, writable, momentary
+    PtzMove = 424,
+    // Int, writable: a preset position; the presets are the channel's choices
+    PtzPreset = 425,
+    // enum NightVisionMode, writable
+    NightVision = 426,
+    // Bool, writable: the camera neither records nor streams while on
+    PrivacyMode = 427,
+    // Bool, writable
+    Siren = 428,
 };
 
 /**
@@ -717,6 +815,10 @@ struct EnableBitMaskOperators<DeviceFlag> : std::true_type {};
 template <>
 struct EnableBitMaskOperators<MediaPlayerFeature> : std::true_type {};
 template <>
+struct EnableBitMaskOperators<CameraFeature> : std::true_type {};
+template <>
+struct EnableBitMaskOperators<ObjectClassFlag> : std::true_type {};
+template <>
 struct EnableBitMaskOperators<SceneFlag> : std::true_type {};
 template <>
 struct EnableBitMaskOperators<AdapterCapability> : std::true_type {};
@@ -730,6 +832,7 @@ struct EnableBitMaskOperators<AdapterRequirement> : std::true_type {};
 using ChannelFlags = ChannelFlag;
 using DeviceFlags = DeviceFlag;
 using MediaPlayerFeatures = MediaPlayerFeature;
+using CameraFeatures = CameraFeature;
 using SceneFlags = SceneFlag;
 using AdapterCapabilityFlags = AdapterCapability;
 using AdapterOptions = AdapterOption;

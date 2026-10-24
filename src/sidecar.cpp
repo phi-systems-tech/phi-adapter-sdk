@@ -1372,6 +1372,8 @@ std::string deviceToJson(const Device &device)
     appendMetaJson(out, device.metaJson);
     appendFieldPrefix(out, first, "mediaPlayerFeatures");
     out += std::to_string(static_cast<int>(device.mediaPlayerFeatures));
+    appendFieldPrefix(out, first, "cameraFeatures");
+    out += std::to_string(static_cast<int>(device.cameraFeatures));
     appendFieldPrefix(out, first, "effects");
     out.push_back('[');
     bool firstEffect = true;
@@ -2425,6 +2427,29 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         }
         CmdResponse response = defaultCmdResponse(cmdId, "Media player handler not registered");
         return sendCmdResult(response, nullptr);
+    }
+
+    if (command == IpcCommand::CmdStreamSourceRequest) {
+        StreamSourceRequest request;
+        request.cmdId = cmdId;
+        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+        request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
+        request.kind = decodeStringOrDefault(member(payloadMap, "kind"));
+        request.profile = decodeStringOrDefault(member(payloadMap, "profile"));
+        if (request.profile.empty())
+            request.profile = "main";
+        if ((request.kind != "live" && request.kind != "snapshot")
+            || (request.profile != "main" && request.profile != "sub")) {
+            ActionResponse response = defaultActionResponse(cmdId, "Stream source kind must be live or snapshot, profile main or sub");
+            response.status = CmdStatus::InvalidArgument;
+            return sendActionResult(response, nullptr);
+        }
+        if (m_handlers.onStreamSourceRequest) {
+            m_handlers.onStreamSourceRequest(request);
+            return true;
+        }
+        ActionResponse response = defaultActionResponse(cmdId, "Stream source handler not registered");
+        return sendActionResult(response, nullptr);
     }
 
     if (command == IpcCommand::CmdSceneInvoke) {
@@ -3664,6 +3689,13 @@ void AdapterInstance::onMediaPlayerInvoke(const MediaPlayerInvokeRequest &reques
     if (!err.empty())
         onProtocolError("Failed to send default media player result: " + err);
 }
+void AdapterInstance::onStreamSourceRequest(const StreamSourceRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultActionResponse(request.cmdId, "Stream source handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default stream source result: " + err);
+}
 void AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
@@ -4021,6 +4053,7 @@ void AdapterInstance::hostOnDeviceNameUpdate(const DeviceNameUpdateRequest &requ
 void AdapterInstance::hostOnEntityNameUpdate(const EntityNameUpdateRequest &request) { onEntityNameUpdate(request); }
 void AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &request) { onDeviceEffectInvoke(request); }
 void AdapterInstance::hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &request) { onMediaPlayerInvoke(request); }
+void AdapterInstance::hostOnStreamSourceRequest(const StreamSourceRequest &request) { onStreamSourceRequest(request); }
 void AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { onSceneInvoke(request); }
 void AdapterInstance::hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request) { onAdaptersStreamStart(request); }
 void AdapterInstance::hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request) { onAdaptersStreamStop(request); }
@@ -4888,6 +4921,29 @@ void SidecarHost::wireHandlers()
             response.status = CmdStatus::InvalidArgument;
             response.error = "Failed to dispatch mediaPlayer.invoke: " + dispatchError;
             m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onStreamSourceRequest = [this](const StreamSourceRequest &request) {
+        ActionResponse response;
+        response.id = request.cmdId;
+        response.resultType = ActionResultType::None;
+        response.tsMs = nowMs();
+        if (request.externalId.empty()) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "externalId is required for CmdStreamSourceRequest";
+            m_dispatcher.sendActionResult(response, nullptr);
+            return;
+        }
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId,
+                              [instance = findInstance(request.externalId), request]() {
+                                  if (instance)
+                                      instance->hostOnStreamSourceRequest(request);
+                              },
+                              &dispatchError)) {
+            response.status = CmdStatus::InvalidArgument;
+            response.error = "Failed to dispatch stream source request: " + dispatchError;
+            m_dispatcher.sendActionResult(response, nullptr);
         }
     };
     handlers.onSceneInvoke = [this](const SceneInvokeRequest &request) {

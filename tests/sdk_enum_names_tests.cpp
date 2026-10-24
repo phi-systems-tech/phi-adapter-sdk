@@ -159,6 +159,44 @@ void testMediaPlayerVocabulary()
     PHI_CHECK(static_cast<int>(MediaPlayerFeature::Enqueue) == 0x100);
 }
 
+// The voice and camera additions of 0.25.0: every value has a name both ways,
+// the numbers are the wire's and must not move.
+void testVoiceAndCameraEntries()
+{
+    const std::vector<std::pair<ChannelKind, int>> kinds = {
+        { ChannelKind::Chime, 400 },        { ChannelKind::VoiceLevel, 401 },
+        { ChannelKind::Announcement, 402 }, { ChannelKind::VideoStream, 420 },
+        { ChannelKind::Snapshot, 421 },     { ChannelKind::DoorbellRing, 422 },
+        { ChannelKind::ObjectDetected, 423 }, { ChannelKind::PtzMove, 424 },
+        { ChannelKind::PtzPreset, 425 },    { ChannelKind::NightVision, 426 },
+        { ChannelKind::PrivacyMode, 427 },  { ChannelKind::Siren, 428 },
+    };
+    for (const auto &[kind, number] : kinds) {
+        PHI_CHECK(static_cast<int>(kind) == number);
+        const std::string name = enumNameFor("ChannelKind", number, false);
+        PHI_CHECK(!name.empty());
+        int parsed = -1;
+        PHI_CHECK(parseEnumValueByName("ChannelKind", name, &parsed));
+        PHI_CHECK(parsed == number);
+    }
+    PHI_CHECK(enumNameFor("DeviceClass", static_cast<int>(DeviceClass::Camera)) == "Camera");
+    PHI_CHECK(enumNameFor("DeviceClass", static_cast<int>(DeviceClass::Doorbell)) == "Doorbell");
+    PHI_CHECK(static_cast<int>(DeviceClass::Doorbell) == 14);
+    PHI_CHECK(enumNameFor("ChimePattern", static_cast<int>(ChimePattern::NotUnderstood)) == "NotUnderstood");
+    PHI_CHECK(enumNameFor("VideoStreamState", static_cast<int>(VideoStreamState::Live)) == "Live");
+    PHI_CHECK(enumNameFor("NightVisionMode", static_cast<int>(NightVisionMode::Auto)) == "Auto");
+    PHI_CHECK(enumNameFor("PtzCommand", static_cast<int>(PtzCommand::ZoomOut)) == "ZoomOut");
+    PHI_CHECK(static_cast<int>(MediaPlayerFeature::Announce) == 0x200);
+    PHI_CHECK(flagNamesFor("MediaPlayerFeature", 0x200) == std::vector<std::string>{ "Announce" });
+
+    const CameraFeatures camera = CameraFeature::Video | CameraFeature::PanTilt | CameraFeature::ObjectDetection;
+    PHI_CHECK((flagNamesFor("CameraFeature", static_cast<int>(camera))
+               == std::vector<std::string>{ "Video", "PanTilt", "ObjectDetection" }));
+    const ObjectClassFlag seen = ObjectClassFlag::Person | ObjectClassFlag::Package;
+    PHI_CHECK((flagNamesFor("ObjectClassFlag", static_cast<int>(seen))
+               == std::vector<std::string>{ "Person", "Package" }));
+}
+
 void testUnknownEnumTypeNameFallsBackGracefully()
 {
     // enumNameFor falls back to the number for a type name it does not know;
@@ -179,6 +217,7 @@ int main()
     testChannelKindAndDataTypeEntries();
     testFlagNamesForOrderAndEmptiness();
     testMediaPlayerVocabulary();
+    testVoiceAndCameraEntries();
     testUnknownEnumTypeNameFallsBackGracefully();
     return phi::testing::report("sdk_enum_names_tests");
 }

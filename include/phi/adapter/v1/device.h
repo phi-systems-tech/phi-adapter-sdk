@@ -28,6 +28,7 @@ struct Device {
     Utf8String model;
     JsonText metaJson;
     MediaPlayerFeatures mediaPlayerFeatures = MediaPlayerFeature::None;
+    CameraFeatures cameraFeatures = CameraFeature::None;
     DeviceEffectDescriptorList effects;
 };
 

@@ -800,6 +800,10 @@ Core -> Adapter (`Sync*` / `Cmd*`):
 - `CmdAdaptersStreamStop` (`0x0207`)
 - `CmdEntityNameUpdate` (`0x0208`)
 - `CmdMediaPlayerInvoke` (`0x0209`)
+- `CmdStreamSourceRequest` (`0x020A`) - where a camera's picture comes from, for
+  `camera.live`; override `onStreamSourceRequest` and answer with an
+  `ActionResponse` of type `Data`: `{"url", "username", "password", "codec"}`.
+  The source (an RTSP URL usually carries the password) is never a channel value.
 
 Adapter -> Core (`Response*` / `Event*`):
 

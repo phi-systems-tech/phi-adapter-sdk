@@ -27,6 +27,9 @@ enum class IpcCommand : std::uint16_t {
     CmdEntityNameUpdate = 0x0208,
     /// Invoke an imperative playback operation on a media-player device.
     CmdMediaPlayerInvoke = 0x0209,
+    /// Ask for where a camera's picture comes from (`camera.live`); answered
+    /// with an ActionResponse of type Data, see StreamSourceRequest.
+    CmdStreamSourceRequest = 0x020A,
 
     // Response/Event (adapter -> core)
     ResponseFactoryDescriptor = 0x1001,
