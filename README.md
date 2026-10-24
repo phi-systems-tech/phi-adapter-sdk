@@ -133,6 +133,28 @@ window closes; it has no clock of its own - it says when a window is due and
 the adapter arms one timer per button - so two adapters cannot drift apart on
 what a double click is, as they had.
 
+## A Device's Channels (v1)
+
+A device report (`sendDeviceUpdated(device, channels)`) carries the device's
+**full** channel set, every time - for as long as the device has those
+capabilities, not only while they can be used right now:
+
+- A channel that is momentarily unusable is reported with `ChannelFlag::Inactive`,
+  never left out: a Wi-Fi client's signal while it sleeps, a satellite's
+  player while it reconnects, a capability whose first read has not answered.
+- What a device can do is remembered across restarts by the adapter (its state
+  or the config), so the first report after a start is as complete as the last
+  one before it.
+- Only a capability the device truly lost drops a channel.
+
+Core keeps a channel a report leaves out, marked stale, with its id, value,
+history, the household's name for it and the automations that use it - a
+partial report does no damage, and the channel is itself again when it is
+reported. But a stale channel is shown greyed out and every automation that
+uses it is reported to the household: a report that misses channels is a bug
+in the adapter, not a way to say "unavailable". (2026-10-24: core deleted such
+channels and re-created them under new ids, breaking automations silently.)
+
 ## A Device That Stops Answering (v1)
 
 For every adapter that asks a device anything:

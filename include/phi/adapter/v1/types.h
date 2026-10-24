@@ -618,6 +618,10 @@ enum class ChannelFlag : std::uint32_t {
     Writable = 0x00000002,
     Reportable = 0x00000004,
     Retained = 0x00000008,
+    /// The channel exists but cannot be used right now (a Wi-Fi client's signal
+    /// while it sleeps, a feature the device reports as momentarily off). Report
+    /// the channel with this flag instead of leaving it out: a device report
+    /// always carries its full channel set (README, "A Device's Channels").
     Inactive = 0x00000010,
     NoTrigger = 0x00000020,
     Suppress = 0x00000040,
