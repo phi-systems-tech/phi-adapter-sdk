@@ -1,3 +1,15 @@
+phi-adapter-sdk (0.26.0-2) trixie; urgency=medium
+
+  * What the first ports asked for: Channel(externalId, name, kind, dataType,
+    flags), addFlags and addMediaPlayerFeatures/addCameraFeatures,
+    setLastValue(value) alone, CmdResponse::answer and ActionResponse::answer
+    for a runtime status, Call::setHeader and Fetch::setHeader that replace,
+    Result::takeBody, AdapterConfigField's constructor with the description.
+  * The ABI baseline of this shape in abi/; dh_makeshlibs -V instead of a
+    symbols file, so every adapter depends on the SDK it was built against.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 25 Oct 2026 11:45:49 +0100
+
 phi-adapter-sdk (0.26.0-1) trixie; urgency=medium
 
   * The binary boundary: every public data type is a class behind a d-pointer
