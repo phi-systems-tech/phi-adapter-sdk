@@ -260,12 +260,14 @@ PHI_V1_FIELD(AdapterConfigField, const Utf8String &, appendTo, setAppendTo)
 PHI_V1_FIELD(AdapterConfigField, bool, reloadsForm, setReloadsForm)
 PHI_V1_FIELD(AdapterConfigField, AdapterConfigFieldFlags, flags, setFlags)
 
-AdapterConfigField::AdapterConfigField(Utf8String key, AdapterConfigFieldType type, Utf8String label)
+AdapterConfigField::AdapterConfigField(Utf8String key, AdapterConfigFieldType type, Utf8String label,
+                                       Utf8String description)
     : d(std::make_unique<Private>())
 {
     d->key = std::move(key);
     d->type = type;
     d->label = std::move(label);
+    d->description = std::move(description);
 }
 
 AdapterConfigField &AdapterConfigField::addAction(Utf8String id, Utf8String label)

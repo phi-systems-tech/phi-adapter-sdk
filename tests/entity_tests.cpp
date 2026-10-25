@@ -215,7 +215,8 @@ void testFormAndAnswerTypesFollowTheSameRules()
     PHI_CHECK(schema.instance().fields().empty());
 
     // The short constructors, and list-initialisation through them.
-    v1::AdapterConfigField field("k", v1::AdapterConfigFieldType::Select, "L");
+    v1::AdapterConfigField field("k", v1::AdapterConfigFieldType::Select, "L", "D");
+    PHI_CHECK(field.description() == "D");
     field.setOptions({{"a", "A"}, {"b"}}).setActions({{"probe", "Probe"}}).setMinValue(1.5).setStep(std::nullopt);
     PHI_CHECK(field.options().size() == 2 && field.options()[1].value() == "b" && field.options()[1].label().empty());
     PHI_CHECK(field.actions().size() == 1 && field.actions()[0].id() == "probe");

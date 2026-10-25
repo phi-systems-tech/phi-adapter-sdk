@@ -280,7 +280,7 @@ class AdapterConfigField
 {
 public:
     AdapterConfigField();
-    AdapterConfigField(Utf8String key, AdapterConfigFieldType type, Utf8String label);
+    AdapterConfigField(Utf8String key, AdapterConfigFieldType type, Utf8String label, Utf8String description = {});
     AdapterConfigField(const AdapterConfigField &other);
     AdapterConfigField(AdapterConfigField &&other) noexcept;
     AdapterConfigField &operator=(const AdapterConfigField &other);

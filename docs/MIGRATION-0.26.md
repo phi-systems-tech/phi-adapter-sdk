@@ -46,7 +46,7 @@ every former field is a getter/setter pair of the same name.
 | Before | After |
 |---|---|
 | `config().adapter.externalId` | `config().adapter().externalId()` |
-| `v1::AdapterConfigField f; f.key = "k"; f.type = T; f.label = "L";` | `v1::AdapterConfigField f("k", T, "L");` |
+| `v1::AdapterConfigField f; f.key = "k"; f.type = T; f.label = "L"; f.description = "D";` | `v1::AdapterConfigField f("k", T, "L", "D");` (the description is optional) |
 | `f.layout.cells = 2; f.layout.newRow = true;` | `f.layout().setCells(2).setNewRow(true);` |
 | `f.visibility = {...}` / `f.visibility.fieldKey = "tls"` | `f.setVisibility({"tls", true})` / `f.visibility().setFieldKey("tls")` |
 | `f.options = {{"a","A"}};` `f.actions.push_back({"probe","Probe"});` | `f.setOptions({{"a","A"}});` `f.addAction("probe", "Probe");` |
