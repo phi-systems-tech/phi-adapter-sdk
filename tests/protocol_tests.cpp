@@ -62,13 +62,13 @@ void testBootstrapDecode()
         dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr);
     REQUIRE(seen.has_value());
 
-    CHECK(seen->adapterId == 42);
-    CHECK(seen->cmdId == 7);
-    CHECK(seen->correlationId == 7);
-    CHECK(seen->adapter.pluginType() == "demo");
-    CHECK(seen->adapter.externalId().empty());
-    CHECK_MSG(contains(seen->staticConfigJson, "_hue._tcp"),
-              "staticConfigJson=%s", seen->staticConfigJson.c_str());
+    CHECK(seen->adapterId() == 42);
+    CHECK(seen->cmdId() == 7);
+    CHECK(seen->correlationId() == 7);
+    CHECK(seen->adapter().pluginType() == "demo");
+    CHECK(seen->adapter().externalId().empty());
+    CHECK_MSG(contains(seen->staticConfigJson(), "_hue._tcp"),
+              "staticConfigJson=%s", seen->staticConfigJson().c_str());
 
     dispatcher.stop();
 }
@@ -105,12 +105,12 @@ void testChannelInvokeDecodeAndResult()
           "\"value\":42.5}}";
     REQUIRE(client.sendFrame(v1::MessageType::Request, 11, request));
     REQUIRE(poll([&seen]() { return seen.has_value(); }));
-    CHECK(seen->cmdId == 11);
-    CHECK(seen->externalId == "inst-1");
-    CHECK(seen->deviceExternalId == "dev-9");
-    CHECK(seen->channelExternalId == "ch-2");
-    CHECK(seen->hasScalarValue);
-    if (const double *d = std::get_if<double>(&seen->value))
+    CHECK(seen->cmdId() == 11);
+    CHECK(seen->externalId() == "inst-1");
+    CHECK(seen->deviceExternalId() == "dev-9");
+    CHECK(seen->channelExternalId() == "ch-2");
+    CHECK(seen->hasScalarValue());
+    if (const double *d = std::get_if<double>(&seen->value()))
         CHECK(*d > 42.4 && *d < 42.6);
     else
         CHECK_MSG(false, "value is not double");
@@ -122,8 +122,8 @@ void testChannelInvokeDecodeAndResult()
           "\"deviceExternalId\":\"dev-9\",\"channelExternalId\":\"ch-2\",\"value\":true}}";
     REQUIRE(client.sendFrame(v1::MessageType::Request, 12, request));
     REQUIRE(poll([&seen]() { return seen.has_value(); }));
-    CHECK(seen->hasScalarValue);
-    if (const bool *b = std::get_if<bool>(&seen->value))
+    CHECK(seen->hasScalarValue());
+    if (const bool *b = std::get_if<bool>(&seen->value()))
         CHECK(*b == true);
     else
         CHECK_MSG(false, "value is not bool");
@@ -135,8 +135,8 @@ void testChannelInvokeDecodeAndResult()
           "\"deviceExternalId\":\"dev-9\",\"channelExternalId\":\"ch-2\",\"value\":\"a\\\"b\"}}";
     REQUIRE(client.sendFrame(v1::MessageType::Request, 13, request));
     REQUIRE(poll([&seen]() { return seen.has_value(); }));
-    CHECK(seen->hasScalarValue);
-    if (const auto *s = std::get_if<v1::Utf8String>(&seen->value))
+    CHECK(seen->hasScalarValue());
+    if (const auto *s = std::get_if<v1::Utf8String>(&seen->value()))
         CHECK(*s == "a\"b");
     else
         CHECK_MSG(false, "value is not string");
@@ -149,8 +149,8 @@ void testChannelInvokeDecodeAndResult()
           "\"value\":{\"r\":1,\"g\":0,\"b\":0}}}";
     REQUIRE(client.sendFrame(v1::MessageType::Request, 14, request));
     REQUIRE(poll([&seen]() { return seen.has_value(); }));
-    CHECK(!seen->hasScalarValue);
-    CHECK_MSG(contains(seen->valueJson, "\"r\":1"), "valueJson=%s", seen->valueJson.c_str());
+    CHECK(!seen->hasScalarValue());
+    CHECK_MSG(contains(seen->valueJson(), "\"r\":1"), "valueJson=%s", seen->valueJson().c_str());
 
     // Result serialization back to the client.
     const v1::CmdResponse response = v1::CmdResponse::success(14, static_cast<std::int64_t>(1));
@@ -281,7 +281,7 @@ void testUnicodeEscapeDecoding()
     REQUIRE(client.sendFrame(v1::MessageType::Request, 31, request));
     REQUIRE(poll([&seen]() { return seen.has_value(); }));
     const std::string expectedBmp = std::string("B") + "\xc3\xbc" + "ro";
-    CHECK_MSG(seen->name == expectedBmp, "name=%s", seen->name.c_str());
+    CHECK_MSG(seen->name() == expectedBmp, "name=%s", seen->name().c_str());
 
     // Surrogate pair: U+1F600.
     seen.reset();
@@ -291,7 +291,7 @@ void testUnicodeEscapeDecoding()
     REQUIRE(client.sendFrame(v1::MessageType::Request, 32, request));
     REQUIRE(poll([&seen]() { return seen.has_value(); }));
     const std::string expectedEmoji = "\xf0\x9f\x98\x80";
-    CHECK_MSG(seen->name == expectedEmoji, "name bytes=%zu", seen->name.size());
+    CHECK_MSG(seen->name() == expectedEmoji, "name bytes=%zu", seen->name().size());
 
     dispatcher.stop();
 }
@@ -376,8 +376,8 @@ void testBatchedFramesAndEscapedKeys()
     sdk::SidecarHandlers handlers;
     handlers.onConnected = [&connected]() { connected = true; };
     handlers.onDeviceNameUpdate = [&](const sdk::DeviceNameUpdateRequest &r) {
-        seenOrder.push_back(r.cmdId);
-        seenDevices.push_back(r.deviceExternalId);
+        seenOrder.push_back(r.cmdId());
+        seenDevices.push_back(r.deviceExternalId());
     };
     dispatcher.setHandlers(std::move(handlers));
     v1::Utf8String err;

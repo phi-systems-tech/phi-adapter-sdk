@@ -406,105 +406,105 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
     const std::vector<InboundCase> cases = {
         {"sync_adapter_bootstrap", 7, [](const InboundCapture &c) {
              REQUIRE(c.bootstrap.has_value());
-             CHECK(c.bootstrap->adapterId == 0);
-             CHECK(c.bootstrap->cmdId == 7);
-             CHECK(c.bootstrap->adapter.pluginType() == "demo");
-             CHECK(c.bootstrap->adapter.externalId().empty());
-             CHECK(phitest::contains(c.bootstrap->staticConfigJson, "_hue._tcp"));
+             CHECK(c.bootstrap->adapterId() == 0);
+             CHECK(c.bootstrap->cmdId() == 7);
+             CHECK(c.bootstrap->adapter().pluginType() == "demo");
+             CHECK(c.bootstrap->adapter().externalId().empty());
+             CHECK(phitest::contains(c.bootstrap->staticConfigJson(), "_hue._tcp"));
          }},
         {"sync_adapter_config_changed", 8, [](const InboundCapture &c) {
              REQUIRE(c.configChanged.has_value());
-             CHECK(c.configChanged->adapterId == 42);
-             CHECK(c.configChanged->adapter.externalId() == "inst-1");
-             CHECK(c.configChanged->adapter.pluginType() == "demo");
-             CHECK(c.configChanged->adapter.name() == "Bridge");
-             CHECK(c.configChanged->adapter.host() == "bridge.local");
-             CHECK(c.configChanged->adapter.ip() == "192.168.1.10");
-             CHECK(c.configChanged->adapter.port() == 443);
-             CHECK(c.configChanged->adapter.user() == "user");
-             CHECK(c.configChanged->adapter.password() == "secret");
-             CHECK(c.configChanged->adapter.token() == "tok");
-             CHECK(phitest::contains(c.configChanged->adapter.metaJson(), "\"logging\""));
-             CHECK(v1::hasFlag(c.configChanged->adapter.options(), v1::AdapterOption::UseTls));
+             CHECK(c.configChanged->adapterId() == 42);
+             CHECK(c.configChanged->adapter().externalId() == "inst-1");
+             CHECK(c.configChanged->adapter().pluginType() == "demo");
+             CHECK(c.configChanged->adapter().name() == "Bridge");
+             CHECK(c.configChanged->adapter().host() == "bridge.local");
+             CHECK(c.configChanged->adapter().ip() == "192.168.1.10");
+             CHECK(c.configChanged->adapter().port() == 443);
+             CHECK(c.configChanged->adapter().user() == "user");
+             CHECK(c.configChanged->adapter().password() == "secret");
+             CHECK(c.configChanged->adapter().token() == "tok");
+             CHECK(phitest::contains(c.configChanged->adapter().metaJson(), "\"logging\""));
+             CHECK(v1::hasFlag(c.configChanged->adapter().options(), v1::AdapterOption::UseTls));
          }},
         {"sync_adapter_instance_removed", 9, [](const InboundCapture &c) {
              REQUIRE(c.instanceRemoved.has_value());
-             CHECK(c.instanceRemoved->adapterId == 42);
-             CHECK(c.instanceRemoved->pluginType == "demo");
-             CHECK(c.instanceRemoved->externalId == "inst-1");
+             CHECK(c.instanceRemoved->adapterId() == 42);
+             CHECK(c.instanceRemoved->pluginType() == "demo");
+             CHECK(c.instanceRemoved->externalId() == "inst-1");
          }},
         {"cmd_channel_invoke", 11, [](const InboundCapture &c) {
              REQUIRE(c.channelInvoke.has_value());
-             CHECK(c.channelInvoke->cmdId == 11);
-             CHECK(c.channelInvoke->externalId == "inst-1");
-             CHECK(c.channelInvoke->deviceExternalId == "dev-9");
-             CHECK(c.channelInvoke->channelExternalId == "ch-2");
-             CHECK(c.channelInvoke->hasScalarValue);
-             const auto *value = std::get_if<std::int64_t>(&c.channelInvoke->value);
+             CHECK(c.channelInvoke->cmdId() == 11);
+             CHECK(c.channelInvoke->externalId() == "inst-1");
+             CHECK(c.channelInvoke->deviceExternalId() == "dev-9");
+             CHECK(c.channelInvoke->channelExternalId() == "ch-2");
+             CHECK(c.channelInvoke->hasScalarValue());
+             const auto *value = std::get_if<std::int64_t>(&c.channelInvoke->value());
              CHECK(value && *value == 75);
          }},
         {"cmd_adapter_action_invoke", 12, [](const InboundCapture &c) {
              REQUIRE(c.actionInvoke.has_value());
-             CHECK(c.actionInvoke->cmdId == 12);
-             CHECK(c.actionInvoke->externalId.empty()); // factory scope
-             CHECK(c.actionInvoke->actionId == "probe");
-             CHECK(phitest::contains(c.actionInvoke->paramsJson, "\"host\""));
+             CHECK(c.actionInvoke->cmdId() == 12);
+             CHECK(c.actionInvoke->externalId().empty()); // factory scope
+             CHECK(c.actionInvoke->actionId() == "probe");
+             CHECK(phitest::contains(c.actionInvoke->paramsJson(), "\"host\""));
          }},
         {"cmd_device_name_update", 13, [](const InboundCapture &c) {
              REQUIRE(c.nameUpdate.has_value());
-             CHECK(c.nameUpdate->cmdId == 13);
-             CHECK(c.nameUpdate->externalId == "inst-1");
-             CHECK(c.nameUpdate->deviceExternalId == "dev-9");
-             CHECK(c.nameUpdate->name == "Kitchen Light");
+             CHECK(c.nameUpdate->cmdId() == 13);
+             CHECK(c.nameUpdate->externalId() == "inst-1");
+             CHECK(c.nameUpdate->deviceExternalId() == "dev-9");
+             CHECK(c.nameUpdate->name() == "Kitchen Light");
          }},
         {"cmd_entity_name_update", 18, [](const InboundCapture &c) {
              REQUIRE(c.entityNameUpdate.has_value());
-             CHECK(c.entityNameUpdate->cmdId == 18);
-             CHECK(c.entityNameUpdate->externalId == "inst-1");
-             CHECK(c.entityNameUpdate->kind == v1::NamedEntityKind::Room);
-             CHECK(c.entityNameUpdate->entityExternalId == "room-4");
-             CHECK(c.entityNameUpdate->name == "Wohnzimmer");
+             CHECK(c.entityNameUpdate->cmdId() == 18);
+             CHECK(c.entityNameUpdate->externalId() == "inst-1");
+             CHECK(c.entityNameUpdate->kind() == v1::NamedEntityKind::Room);
+             CHECK(c.entityNameUpdate->entityExternalId() == "room-4");
+             CHECK(c.entityNameUpdate->name() == "Wohnzimmer");
          }},
         {"cmd_device_effect_invoke", 14, [](const InboundCapture &c) {
              REQUIRE(c.effectInvoke.has_value());
-             CHECK(c.effectInvoke->cmdId == 14);
-             CHECK(c.effectInvoke->deviceExternalId == "dev-9");
-             CHECK(c.effectInvoke->effect == v1::DeviceEffect::ColorLoop);
-             CHECK(c.effectInvoke->effectId == "vendor-loop");
+             CHECK(c.effectInvoke->cmdId() == 14);
+             CHECK(c.effectInvoke->deviceExternalId() == "dev-9");
+             CHECK(c.effectInvoke->effect() == v1::DeviceEffect::ColorLoop);
+             CHECK(c.effectInvoke->effectId() == "vendor-loop");
          }},
         {"cmd_media_player_invoke", 19, [](const InboundCapture &c) {
              REQUIRE(c.mediaPlayerInvoke.has_value());
-             CHECK(c.mediaPlayerInvoke->cmdId == 19);
-             CHECK(c.mediaPlayerInvoke->externalId == "inst-1");
-             CHECK(c.mediaPlayerInvoke->deviceExternalId == "player-2");
-             CHECK(c.mediaPlayerInvoke->action == v1::MediaPlayerAction::PlayMedia);
-             CHECK(c.mediaPlayerInvoke->mediaId == "plex://server/library/metadata/42");
-             CHECK(c.mediaPlayerInvoke->mediaType == "movie");
-             CHECK(c.mediaPlayerInvoke->mimeType == "video/mp4");
-             CHECK(c.mediaPlayerInvoke->positionMs == 12000);
-             CHECK(c.mediaPlayerInvoke->enqueue == v1::MediaPlayerEnqueue::Replace);
-             CHECK(phitest::contains(c.mediaPlayerInvoke->metadataJson, "Example Movie"));
+             CHECK(c.mediaPlayerInvoke->cmdId() == 19);
+             CHECK(c.mediaPlayerInvoke->externalId() == "inst-1");
+             CHECK(c.mediaPlayerInvoke->deviceExternalId() == "player-2");
+             CHECK(c.mediaPlayerInvoke->action() == v1::MediaPlayerAction::PlayMedia);
+             CHECK(c.mediaPlayerInvoke->mediaId() == "plex://server/library/metadata/42");
+             CHECK(c.mediaPlayerInvoke->mediaType() == "movie");
+             CHECK(c.mediaPlayerInvoke->mimeType() == "video/mp4");
+             CHECK(c.mediaPlayerInvoke->positionMs() == 12000);
+             CHECK(c.mediaPlayerInvoke->enqueue() == v1::MediaPlayerEnqueue::Replace);
+             CHECK(phitest::contains(c.mediaPlayerInvoke->metadataJson(), "Example Movie"));
          }},
         {"cmd_scene_invoke", 15, [](const InboundCapture &c) {
              REQUIRE(c.sceneInvoke.has_value());
-             CHECK(c.sceneInvoke->cmdId == 15);
-             CHECK(c.sceneInvoke->sceneExternalId == "scene-1");
-             CHECK(c.sceneInvoke->groupExternalId == "grp-1");
-             CHECK(c.sceneInvoke->action == "activate");
+             CHECK(c.sceneInvoke->cmdId() == 15);
+             CHECK(c.sceneInvoke->sceneExternalId() == "scene-1");
+             CHECK(c.sceneInvoke->groupExternalId() == "grp-1");
+             CHECK(c.sceneInvoke->action() == "activate");
          }},
         {"cmd_adapters_stream_start", 16, [](const InboundCapture &c) {
              REQUIRE(c.streamStart.has_value());
-             CHECK(c.streamStart->cmdId == 16);
-             CHECK(c.streamStart->externalId == "inst-1");
-             CHECK(c.streamStart->streamId == "stream-5");
-             CHECK(c.streamStart->kind == "adapter.log");
-             CHECK(phitest::contains(c.streamStart->paramsJson, "\"tail\""));
+             CHECK(c.streamStart->cmdId() == 16);
+             CHECK(c.streamStart->externalId() == "inst-1");
+             CHECK(c.streamStart->streamId() == "stream-5");
+             CHECK(c.streamStart->kind() == "adapter.log");
+             CHECK(phitest::contains(c.streamStart->paramsJson(), "\"tail\""));
          }},
         {"cmd_adapters_stream_stop", 17, [](const InboundCapture &c) {
              REQUIRE(c.streamStop.has_value());
-             CHECK(c.streamStop->cmdId == 17);
-             CHECK(c.streamStop->externalId == "inst-1");
-             CHECK(c.streamStop->streamId == "stream-5");
+             CHECK(c.streamStop->cmdId() == 17);
+             CHECK(c.streamStop->externalId() == "inst-1");
+             CHECK(c.streamStop->streamId() == "stream-5");
          }},
     };
 

@@ -251,7 +251,7 @@ protected:
         probeRunning.store(false);
 
         const v1::ActionResponse response
-            = v1::ActionResponse::success(request.cmdId).setResult("probe-done", v1::ActionResultType::String);
+            = v1::ActionResponse::success(request.cmdId()).setResult("probe-done", v1::ActionResultType::String);
         v1::Utf8String error;
         sendResult(response, &error);
     }
@@ -442,7 +442,7 @@ public:
 protected:
     bool start() override
     {
-        metaAtStart = config().adapter.metaJson();
+        metaAtStart = config().adapter().metaJson();
         sawConfig.store(hasConfig());
         return true;
     }

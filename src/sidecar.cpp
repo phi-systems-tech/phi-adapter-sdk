@@ -2324,22 +2324,22 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (command == IpcCommand::SyncAdapterBootstrap) {
         if (m_handlers.onBootstrap) {
             BootstrapRequest request;
-            request.cmdId = cmdId;
-            request.correlationId = header.correlationId;
-            request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
-            request.staticConfigJson = std::string(member(payloadMap, "staticConfig"));
-            request.adapter.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
-            request.adapter.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
+            request.setCmdId(cmdId);
+            request.setCorrelationId(header.correlationId);
+            request.setAdapterId(static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0)));
+            request.setStaticConfigJson(std::string(member(payloadMap, "staticConfig")));
+            request.adapter().setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+            request.adapter().setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
 
             MemberMap adapterMap;
             const std::string_view adapterToken = member(payloadMap, "adapter");
             if (parseObjectMembers(adapterToken, &adapterMap, nullptr)) {
-                request.adapter = parseAdapterFromMap(adapterMap);
+                request.adapter() = parseAdapterFromMap(adapterMap);
             }
-            if (request.adapter.pluginType().empty())
-                request.adapter.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
-            if (request.adapter.externalId().empty())
-                request.adapter.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+            if (request.adapter().pluginType().empty())
+                request.adapter().setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
+            if (request.adapter().externalId().empty())
+                request.adapter().setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
             m_handlers.onBootstrap(request);
         }
         return true;
@@ -2348,20 +2348,20 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (command == IpcCommand::SyncAdapterConfigChanged) {
         if (m_handlers.onConfigChanged) {
             ConfigChangedRequest request;
-            request.cmdId = cmdId;
-            request.correlationId = header.correlationId;
-            request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
-            request.staticConfigJson = std::string(member(payloadMap, "staticConfig"));
-            request.adapter.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
-            request.adapter.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
+            request.setCmdId(cmdId);
+            request.setCorrelationId(header.correlationId);
+            request.setAdapterId(static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0)));
+            request.setStaticConfigJson(std::string(member(payloadMap, "staticConfig")));
+            request.adapter().setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+            request.adapter().setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
 
             MemberMap adapterMap;
             if (parseObjectMembers(member(payloadMap, "adapter"), &adapterMap, nullptr))
-                request.adapter = parseAdapterFromMap(adapterMap);
-            if (request.adapter.pluginType().empty())
-                request.adapter.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
-            if (request.adapter.externalId().empty())
-                request.adapter.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+                request.adapter() = parseAdapterFromMap(adapterMap);
+            if (request.adapter().pluginType().empty())
+                request.adapter().setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
+            if (request.adapter().externalId().empty())
+                request.adapter().setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
             m_handlers.onConfigChanged(request);
         }
         return true;
@@ -2370,11 +2370,11 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
     if (command == IpcCommand::SyncAdapterInstanceRemoved) {
         if (m_handlers.onInstanceRemoved) {
             InstanceRemovedRequest request;
-            request.cmdId = cmdId;
-            request.correlationId = header.correlationId;
-            request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
-            request.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
-            request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+            request.setCmdId(cmdId);
+            request.setCorrelationId(header.correlationId);
+            request.setAdapterId(static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0)));
+            request.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
+            request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
             m_handlers.onInstanceRemoved(request);
         }
         return true;
@@ -2382,13 +2382,14 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdChannelInvoke) {
         ChannelInvokeRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
-        request.channelExternalId = decodeStringOrDefault(member(payloadMap, "channelExternalId"));
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setDeviceExternalId(decodeStringOrDefault(member(payloadMap, "deviceExternalId")));
+        request.setChannelExternalId(decodeStringOrDefault(member(payloadMap, "channelExternalId")));
         const std::string_view valueToken = member(payloadMap, "value");
-        request.valueJson = std::string(valueToken);
-        request.hasScalarValue = parseScalarValueToken(valueToken, &request.value);
+        request.setValueJson(std::string(valueToken));
+        if (phicore::adapter::v1::ScalarValue value; parseScalarValueToken(valueToken, &value))
+            request.setValue(std::move(value));
 
         if (m_handlers.onChannelInvoke) {
             m_handlers.onChannelInvoke(request);
@@ -2400,12 +2401,12 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdAdapterActionInvoke) {
         AdapterActionInvokeRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.actionId = decodeStringOrDefault(member(payloadMap, "actionId"));
-        request.paramsJson = std::string(member(payloadMap, "params"));
-        if (trim(request.paramsJson).empty())
-            request.paramsJson = "{}";
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setActionId(decodeStringOrDefault(member(payloadMap, "actionId")));
+        request.setParamsJson(std::string(member(payloadMap, "params")));
+        if (trim(request.paramsJson()).empty())
+            request.setParamsJson("{}");
 
         if (m_handlers.onAdapterActionInvoke) {
             m_handlers.onAdapterActionInvoke(request);
@@ -2417,10 +2418,10 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdDeviceNameUpdate) {
         DeviceNameUpdateRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
-        request.name = decodeStringOrDefault(member(payloadMap, "name"));
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setDeviceExternalId(decodeStringOrDefault(member(payloadMap, "deviceExternalId")));
+        request.setName(decodeStringOrDefault(member(payloadMap, "name")));
 
         if (m_handlers.onDeviceNameUpdate) {
             m_handlers.onDeviceNameUpdate(request);
@@ -2432,12 +2433,12 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdEntityNameUpdate) {
         EntityNameUpdateRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.kind = static_cast<phicore::adapter::v1::NamedEntityKind>(
-            parseIntOrDefault(member(payloadMap, "kind"), 0));
-        request.entityExternalId = decodeStringOrDefault(member(payloadMap, "entityExternalId"));
-        request.name = decodeStringOrDefault(member(payloadMap, "name"));
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setKind(static_cast<phicore::adapter::v1::NamedEntityKind>(
+            parseIntOrDefault(member(payloadMap, "kind"), 0)));
+        request.setEntityExternalId(decodeStringOrDefault(member(payloadMap, "entityExternalId")));
+        request.setName(decodeStringOrDefault(member(payloadMap, "name")));
 
         if (m_handlers.onEntityNameUpdate) {
             m_handlers.onEntityNameUpdate(request);
@@ -2449,14 +2450,14 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdDeviceEffectInvoke) {
         DeviceEffectInvokeRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
-        request.effect = static_cast<DeviceEffect>(parseIntOrDefault(member(payloadMap, "effect"), 0));
-        request.effectId = decodeStringOrDefault(member(payloadMap, "effectId"));
-        request.paramsJson = std::string(member(payloadMap, "params"));
-        if (trim(request.paramsJson).empty())
-            request.paramsJson = "{}";
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setDeviceExternalId(decodeStringOrDefault(member(payloadMap, "deviceExternalId")));
+        request.setEffect(static_cast<DeviceEffect>(parseIntOrDefault(member(payloadMap, "effect"), 0)));
+        request.setEffectId(decodeStringOrDefault(member(payloadMap, "effectId")));
+        request.setParamsJson(std::string(member(payloadMap, "params")));
+        if (trim(request.paramsJson()).empty())
+            request.setParamsJson("{}");
 
         if (m_handlers.onDeviceEffectInvoke) {
             m_handlers.onDeviceEffectInvoke(request);
@@ -2468,30 +2469,30 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdMediaPlayerInvoke) {
         MediaPlayerInvokeRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setDeviceExternalId(decodeStringOrDefault(member(payloadMap, "deviceExternalId")));
         const std::int64_t actionValue = parseIntOrDefault(member(payloadMap, "action"), 0);
         if (actionValue < static_cast<std::int64_t>(MediaPlayerAction::Play)
             || actionValue > static_cast<std::int64_t>(MediaPlayerAction::PlayMedia)) {
             return sendCmdResult(
                 invalidArgumentCmdResponse(cmdId, "Invalid media player action"), nullptr);
         }
-        request.action = static_cast<MediaPlayerAction>(actionValue);
-        request.mediaId = decodeStringOrDefault(member(payloadMap, "mediaId"));
-        request.mediaType = decodeStringOrDefault(member(payloadMap, "mediaType"));
-        request.mimeType = decodeStringOrDefault(member(payloadMap, "mimeType"));
-        request.positionMs = parseIntOrDefault(member(payloadMap, "positionMs"), 0);
+        request.setAction(static_cast<MediaPlayerAction>(actionValue));
+        request.setMediaId(decodeStringOrDefault(member(payloadMap, "mediaId")));
+        request.setMediaType(decodeStringOrDefault(member(payloadMap, "mediaType")));
+        request.setMimeType(decodeStringOrDefault(member(payloadMap, "mimeType")));
+        request.setPositionMs(parseIntOrDefault(member(payloadMap, "positionMs"), 0));
         const std::int64_t enqueueValue = parseIntOrDefault(member(payloadMap, "enqueue"), 0);
         if (enqueueValue < static_cast<std::int64_t>(MediaPlayerEnqueue::Replace)
             || enqueueValue > static_cast<std::int64_t>(MediaPlayerEnqueue::Add)) {
             return sendCmdResult(
                 invalidArgumentCmdResponse(cmdId, "Invalid media player enqueue mode"), nullptr);
         }
-        request.enqueue = static_cast<MediaPlayerEnqueue>(enqueueValue);
+        request.setEnqueue(static_cast<MediaPlayerEnqueue>(enqueueValue));
         const std::string_view metadataToken = member(payloadMap, "metadata");
         if (trim(metadataToken).empty()) {
-            request.metadataJson = "{}";
+            request.setMetadataJson("{}");
         } else {
             MemberMap metadataMap;
             if (!parseObjectMembers(metadataToken, &metadataMap, nullptr)) {
@@ -2499,7 +2500,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
                     invalidArgumentCmdResponse(cmdId, "Media player metadata must be an object"),
                     nullptr);
             }
-            request.metadataJson = std::string(metadataToken);
+            request.setMetadataJson(std::string(metadataToken));
         }
 
         if (m_handlers.onMediaPlayerInvoke) {
@@ -2512,15 +2513,15 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdStreamSourceRequest) {
         StreamSourceRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.deviceExternalId = decodeStringOrDefault(member(payloadMap, "deviceExternalId"));
-        request.kind = decodeStringOrDefault(member(payloadMap, "kind"));
-        request.profile = decodeStringOrDefault(member(payloadMap, "profile"));
-        if (request.profile.empty())
-            request.profile = "main";
-        if ((request.kind != "live" && request.kind != "snapshot")
-            || (request.profile != "main" && request.profile != "sub")) {
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setDeviceExternalId(decodeStringOrDefault(member(payloadMap, "deviceExternalId")));
+        request.setKind(decodeStringOrDefault(member(payloadMap, "kind")));
+        request.setProfile(decodeStringOrDefault(member(payloadMap, "profile")));
+        if (request.profile().empty())
+            request.setProfile("main");
+        if ((request.kind() != "live" && request.kind() != "snapshot")
+            || (request.profile() != "main" && request.profile() != "sub")) {
             ActionResponse response = defaultActionResponse(cmdId, "Stream source kind must be live or snapshot, profile main or sub");
             response.setStatus(CmdStatus::InvalidArgument);
             return sendActionResult(response, nullptr);
@@ -2535,11 +2536,11 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdSceneInvoke) {
         SceneInvokeRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.sceneExternalId = decodeStringOrDefault(member(payloadMap, "sceneExternalId"));
-        request.groupExternalId = decodeStringOrDefault(member(payloadMap, "groupExternalId"));
-        request.action = decodeStringOrDefault(member(payloadMap, "action"));
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setSceneExternalId(decodeStringOrDefault(member(payloadMap, "sceneExternalId")));
+        request.setGroupExternalId(decodeStringOrDefault(member(payloadMap, "groupExternalId")));
+        request.setAction(decodeStringOrDefault(member(payloadMap, "action")));
 
         if (m_handlers.onSceneInvoke) {
             m_handlers.onSceneInvoke(request);
@@ -2551,13 +2552,13 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdAdaptersStreamStart) {
         AdaptersStreamStartRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.streamId = decodeStringOrDefault(member(payloadMap, "streamId"));
-        request.kind = decodeStringOrDefault(member(payloadMap, "kind"));
-        request.paramsJson = std::string(member(payloadMap, "params"));
-        if (trim(request.paramsJson).empty())
-            request.paramsJson = "{}";
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setStreamId(decodeStringOrDefault(member(payloadMap, "streamId")));
+        request.setKind(decodeStringOrDefault(member(payloadMap, "kind")));
+        request.setParamsJson(std::string(member(payloadMap, "params")));
+        if (trim(request.paramsJson()).empty())
+            request.setParamsJson("{}");
 
         if (m_handlers.onAdaptersStreamStart) {
             m_handlers.onAdaptersStreamStart(request);
@@ -2569,9 +2570,9 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (command == IpcCommand::CmdAdaptersStreamStop) {
         AdaptersStreamStopRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.streamId = decodeStringOrDefault(member(payloadMap, "streamId"));
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setStreamId(decodeStringOrDefault(member(payloadMap, "streamId")));
 
         if (m_handlers.onAdaptersStreamStop) {
             m_handlers.onAdaptersStreamStop(request);
@@ -2583,10 +2584,10 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     if (m_handlers.onUnknownRequest) {
         UnknownRequest request;
-        request.cmdId = cmdId;
-        request.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-        request.command = phicore::adapter::v1::toUint16(command);
-        request.payloadJson = std::string(payloadToken);
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setCommand(phicore::adapter::v1::toUint16(command));
+        request.setPayloadJson(std::string(payloadToken));
         m_handlers.onUnknownRequest(request);
     }
     if (cmdId != 0) {
@@ -3510,7 +3511,7 @@ void AdapterFactory::destroyInstance(std::unique_ptr<AdapterInstance> instance) 
 void AdapterFactory::onFactoryActionInvoke(const AdapterActionInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultActionResponse(request.cmdId, "Factory action handler not implemented"), &err);
+    sendResult(defaultActionResponse(request.cmdId(), "Factory action handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default factory action result: " + err);
 }
@@ -3591,7 +3592,7 @@ void AdapterFactory::cacheFactoryConfig(const ConfigChangedRequest &request)
 {
     m_factoryConfig = request;
     m_hasFactoryConfig = true;
-    m_logFilter = buildLogFilterCache(request.adapter);
+    m_logFilter = buildLogFilterCache(request.adapter());
 }
 bool AdapterFactory::stopRequested() const noexcept
 {
@@ -3736,70 +3737,70 @@ void AdapterInstance::onConfigChanged(const ConfigChangedRequest &request) { (vo
 void AdapterInstance::onChannelInvoke(const ChannelInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultCmdResponse(request.cmdId, "Channel invoke handler not implemented"), &err);
+    sendResult(defaultCmdResponse(request.cmdId(), "Channel invoke handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default channel invoke result: " + err);
 }
 void AdapterInstance::onAdapterActionInvoke(const AdapterActionInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultActionResponse(request.cmdId, "Adapter action handler not implemented"), &err);
+    sendResult(defaultActionResponse(request.cmdId(), "Adapter action handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default adapter action result: " + err);
 }
 void AdapterInstance::onDeviceNameUpdate(const DeviceNameUpdateRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultCmdResponse(request.cmdId, "Device name update handler not implemented"), &err);
+    sendResult(defaultCmdResponse(request.cmdId(), "Device name update handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default device name update result: " + err);
 }
 void AdapterInstance::onEntityNameUpdate(const EntityNameUpdateRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultCmdResponse(request.cmdId, "Entity name update handler not implemented"), &err);
+    sendResult(defaultCmdResponse(request.cmdId(), "Entity name update handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default entity name update result: " + err);
 }
 void AdapterInstance::onDeviceEffectInvoke(const DeviceEffectInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultCmdResponse(request.cmdId, "Device effect handler not implemented"), &err);
+    sendResult(defaultCmdResponse(request.cmdId(), "Device effect handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default device effect result: " + err);
 }
 void AdapterInstance::onMediaPlayerInvoke(const MediaPlayerInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultCmdResponse(request.cmdId, "Media player handler not implemented"), &err);
+    sendResult(defaultCmdResponse(request.cmdId(), "Media player handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default media player result: " + err);
 }
 void AdapterInstance::onStreamSourceRequest(const StreamSourceRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultActionResponse(request.cmdId, "Stream source handler not implemented"), &err);
+    sendResult(defaultActionResponse(request.cmdId(), "Stream source handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default stream source result: " + err);
 }
 void AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultCmdResponse(request.cmdId, "Scene invoke handler not implemented"), &err);
+    sendResult(defaultCmdResponse(request.cmdId(), "Scene invoke handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default scene invoke result: " + err);
 }
 void AdapterInstance::onAdaptersStreamStart(const AdaptersStreamStartRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultCmdResponse(request.cmdId, "Adapters stream start handler not implemented"), &err);
+    sendResult(defaultCmdResponse(request.cmdId(), "Adapters stream start handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default adapters stream.start result: " + err);
 }
 void AdapterInstance::onAdaptersStreamStop(const AdaptersStreamStopRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
-    sendResult(defaultCmdResponse(request.cmdId, "Adapters stream stop handler not implemented"), &err);
+    sendResult(defaultCmdResponse(request.cmdId(), "Adapters stream stop handler not implemented"), &err);
     if (!err.empty())
         onProtocolError("Failed to send default adapters stream.stop result: " + err);
 }
@@ -4101,7 +4102,7 @@ void AdapterInstance::cacheConfig(const ConfigChangedRequest &request)
 {
     m_config = request;
     m_hasConfig = true;
-    m_logFilter = buildLogFilterCache(request.adapter);
+    m_logFilter = buildLogFilterCache(request.adapter());
 }
 bool AdapterInstance::stopRequested() const noexcept
 {
@@ -4364,17 +4365,17 @@ const AdapterInstance *SidecarHost::findInstance(const phicore::adapter::v1::Ext
 
 AdapterInstance *SidecarHost::ensureInstance(const ConfigChangedRequest &request)
 {
-    if (!m_factory || request.adapter.externalId().empty())
+    if (!m_factory || request.adapter().externalId().empty())
         return nullptr;
-    if (!findRuntime(request.adapter.externalId())) {
+    if (!findRuntime(request.adapter().externalId())) {
         phicore::adapter::v1::Utf8String error;
         if (!createInstanceRuntime(request, &error)) {
             reportProtocolError("Failed to create instance runtime for externalId='"
-                            + request.adapter.externalId() + "': " + error);
+                            + request.adapter().externalId() + "': " + error);
             return nullptr;
         }
     }
-    return findInstance(request.adapter.externalId());
+    return findInstance(request.adapter().externalId());
 }
 
 bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phicore::adapter::v1::Utf8String *error)
@@ -4384,12 +4385,12 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
             *error = "Factory not available";
         return false;
     }
-    if (request.adapter.externalId().empty()) {
+    if (request.adapter().externalId().empty()) {
         if (error)
             *error = "externalId is required";
         return false;
     }
-    if (findRuntime(request.adapter.externalId()))
+    if (findRuntime(request.adapter().externalId()))
         return true;
 
     const AdapterDescriptor descriptor = m_factory->hostDescriptor();
@@ -4400,7 +4401,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
         return false;
     }
 
-    std::unique_ptr<AdapterInstance> createdInstance = m_factory->hostCreateInstance(request.adapter.externalId());
+    std::unique_ptr<AdapterInstance> createdInstance = m_factory->hostCreateInstance(request.adapter().externalId());
     if (!createdInstance) {
         if (error)
             *error = "Factory createInstance returned null";
@@ -4408,7 +4409,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
     }
 
     std::unique_ptr<InstanceExecutionBackend> execution
-        = m_factory->hostCreateInstanceExecutionBackend(request.adapter.externalId());
+        = m_factory->hostCreateInstanceExecutionBackend(request.adapter().externalId());
     if (!execution) {
         if (error)
             *error = "Factory createInstanceExecutionBackend returned null";
@@ -4432,7 +4433,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
         [this](const phicore::adapter::v1::ActionResponse &response) {
             queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
         });
-    createdInstance->bindContext(request.adapterId, request.adapter.pluginType(), request.adapter.externalId());
+    createdInstance->bindContext(request.adapterId(), request.adapter().pluginType(), request.adapter().externalId());
     // The configuration before the first start, not after it.
     //
     // An instance is created because a config.changed arrived, and that
@@ -4452,7 +4453,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
     createdInstance->cacheConfig(request);
 
     auto runtime = std::make_unique<InstanceRuntime>();
-    runtime->externalId = request.adapter.externalId();
+    runtime->externalId = request.adapter().externalId();
     runtime->instance = std::move(createdInstance);
     runtime->execution = std::move(execution);
 
@@ -4493,7 +4494,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
             if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
                 reportProtocolError("Execution backend stop failed after start timeout: " + stopError);
             if (error)
-                *error = "Timed out waiting for instance start completion for externalId='" + request.adapter.externalId() + "'";
+                *error = "Timed out waiting for instance start completion for externalId='" + request.adapter().externalId() + "'";
             m_factory->hostDestroyInstance(std::move(runtime->instance));
             return false;
         }
@@ -4503,12 +4504,12 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
         if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
             reportProtocolError("Execution backend stop failed after instance start failure: " + stopError);
         if (error)
-            *error = "Instance start() failed for externalId='" + request.adapter.externalId() + "'";
+            *error = "Instance start() failed for externalId='" + request.adapter().externalId() + "'";
         m_factory->hostDestroyInstance(std::move(runtime->instance));
         return false;
     }
 
-    auto [it, inserted] = m_instances.try_emplace(request.adapter.externalId(), nullptr);
+    auto [it, inserted] = m_instances.try_emplace(request.adapter().externalId(), nullptr);
     if (!inserted) {
         if (runtime && runtime->execution) {
             phicore::adapter::v1::Utf8String ignoreError;
@@ -4793,13 +4794,13 @@ void SidecarHost::wireHandlers()
     handlers.onBootstrap = [this](const BootstrapRequest &request) {
         if (!m_factory)
             return;
-        if (!request.adapter.externalId().empty()) {
+        if (!request.adapter().externalId().empty()) {
             reportProtocolError("Bootstrap must target factory scope (externalId must be empty)");
             return;
         }
         BootstrapRequest normalized = request;
-        if (normalized.adapter.pluginType().empty())
-            normalized.adapter.setPluginType(m_factory->hostPluginType());
+        if (normalized.adapter().pluginType().empty())
+            normalized.adapter().setPluginType(m_factory->hostPluginType());
         // Cached here, on the host thread, so host-thread hooks such as
         // createInstance never read it while the factory thread writes it.
         m_factory->cacheBootstrap(normalized);
@@ -4814,9 +4815,9 @@ void SidecarHost::wireHandlers()
 
             AdapterDescriptor descriptor = factory->hostDescriptor();
             if (descriptor.pluginType().empty())
-                descriptor.setPluginType(normalized.adapter.pluginType());
+                descriptor.setPluginType(normalized.adapter().pluginType());
             phicore::adapter::v1::Utf8String err;
-            if (!m_dispatcher.sendAdapterDescriptor({}, descriptor, normalized.correlationId, &err))
+            if (!m_dispatcher.sendAdapterDescriptor({}, descriptor, normalized.correlationId(), &err))
                 reportProtocolError("Failed to send bootstrap descriptor: " + err);
         };
         phicore::adapter::v1::Utf8String error;
@@ -4831,9 +4832,9 @@ void SidecarHost::wireHandlers()
         if (!m_factory)
             return;
         ConfigChangedRequest normalized = request;
-        if (normalized.adapter.pluginType().empty())
-            normalized.adapter.setPluginType(m_factory->hostPluginType());
-        if (normalized.adapter.externalId().empty()) {
+        if (normalized.adapter().pluginType().empty())
+            normalized.adapter().setPluginType(m_factory->hostPluginType());
+        if (normalized.adapter().externalId().empty()) {
             m_factory->cacheFactoryConfig(normalized);
             AdapterFactory *factory = m_factory;
             phicore::adapter::v1::Utf8String error;
@@ -4846,40 +4847,40 @@ void SidecarHost::wireHandlers()
         if (!ensureInstance(normalized))
             return;
         phicore::adapter::v1::Utf8String error;
-        if (!executeOnRuntime(normalized.adapter.externalId(),
-                              [instance = findInstance(normalized.adapter.externalId()), normalized]() {
+        if (!executeOnRuntime(normalized.adapter().externalId(),
+                              [instance = findInstance(normalized.adapter().externalId()), normalized]() {
                                   if (instance)
                                       instance->hostOnConfigChanged(normalized);
                               },
                               &error)) {
             reportProtocolError("Failed to dispatch config.changed for externalId='"
-                                           + normalized.adapter.externalId() + "': " + error);
+                                           + normalized.adapter().externalId() + "': " + error);
         }
     };
     handlers.onInstanceRemoved = [this](const InstanceRemovedRequest &request) {
         if (!m_factory)
             return;
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             reportProtocolError("InstanceRemoved must target instance scope (externalId required)");
             return;
         }
         // Runtime removal of a single instance: the whole budget is available
         // because nothing else is being torn down alongside it.
-        stopAndDestroyInstance(request.externalId, kShutdownBudget);
+        stopAndDestroyInstance(request.externalId(), kShutdownBudget);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         CmdResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdChannelInvoke");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnChannelInvoke(request);
                               },
@@ -4891,7 +4892,7 @@ void SidecarHost::wireHandlers()
     };
     handlers.onAdapterActionInvoke = [this](const AdapterActionInvokeRequest &request) {
         ActionResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setResultType(ActionResultType::None);
         response.setTsMs(nowMs());
         if (!m_factory) {
@@ -4900,7 +4901,7 @@ void SidecarHost::wireHandlers()
             m_dispatcher.sendActionResult(response, nullptr);
             return;
         }
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             AdapterFactory *factory = m_factory;
             phicore::adapter::v1::Utf8String dispatchError;
             if (!executeOnFactory([factory, request]() { factory->hostOnFactoryActionInvoke(request); },
@@ -4912,8 +4913,8 @@ void SidecarHost::wireHandlers()
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnAdapterActionInvoke(request);
                               },
@@ -4925,17 +4926,17 @@ void SidecarHost::wireHandlers()
     };
     handlers.onDeviceNameUpdate = [this](const DeviceNameUpdateRequest &request) {
         CmdResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdDeviceNameUpdate");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnDeviceNameUpdate(request);
                               },
@@ -4947,17 +4948,17 @@ void SidecarHost::wireHandlers()
     };
     handlers.onEntityNameUpdate = [this](const EntityNameUpdateRequest &request) {
         CmdResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdEntityNameUpdate");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnEntityNameUpdate(request);
                               },
@@ -4969,17 +4970,17 @@ void SidecarHost::wireHandlers()
     };
     handlers.onDeviceEffectInvoke = [this](const DeviceEffectInvokeRequest &request) {
         CmdResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdDeviceEffectInvoke");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnDeviceEffectInvoke(request);
                               },
@@ -4991,17 +4992,17 @@ void SidecarHost::wireHandlers()
     };
     handlers.onMediaPlayerInvoke = [this](const MediaPlayerInvokeRequest &request) {
         CmdResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdMediaPlayerInvoke");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnMediaPlayerInvoke(request);
                               },
@@ -5013,18 +5014,18 @@ void SidecarHost::wireHandlers()
     };
     handlers.onStreamSourceRequest = [this](const StreamSourceRequest &request) {
         ActionResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setResultType(ActionResultType::None);
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdStreamSourceRequest");
             m_dispatcher.sendActionResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnStreamSourceRequest(request);
                               },
@@ -5036,17 +5037,17 @@ void SidecarHost::wireHandlers()
     };
     handlers.onSceneInvoke = [this](const SceneInvokeRequest &request) {
         CmdResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdSceneInvoke");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnSceneInvoke(request);
                               },
@@ -5058,17 +5059,17 @@ void SidecarHost::wireHandlers()
     };
     handlers.onAdaptersStreamStart = [this](const AdaptersStreamStartRequest &request) {
         CmdResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdAdaptersStreamStart");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnAdaptersStreamStart(request);
                               },
@@ -5080,17 +5081,17 @@ void SidecarHost::wireHandlers()
     };
     handlers.onAdaptersStreamStop = [this](const AdaptersStreamStopRequest &request) {
         CmdResponse response;
-        response.setId(request.cmdId);
+        response.setId(request.cmdId());
         response.setTsMs(nowMs());
-        if (request.externalId.empty()) {
+        if (request.externalId().empty()) {
             response.setStatus(CmdStatus::InvalidArgument);
             response.setError("externalId is required for CmdAdaptersStreamStop");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnAdaptersStreamStop(request);
                               },
@@ -5103,19 +5104,19 @@ void SidecarHost::wireHandlers()
     handlers.onUnknownRequest = [this](const UnknownRequest &request) {
         if (!m_factory)
             return;
-        if (request.externalId.empty()) {
-            reportProtocolError("Unhandled IPC command: " + std::to_string(request.command));
+        if (request.externalId().empty()) {
+            reportProtocolError("Unhandled IPC command: " + std::to_string(request.command()));
             return;
         }
         phicore::adapter::v1::Utf8String dispatchError;
-        if (!executeOnRuntime(request.externalId,
-                              [instance = findInstance(request.externalId), request]() {
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
                                   if (instance)
                                       instance->hostOnUnknownRequest(request);
                               },
                               &dispatchError)) {
             reportProtocolError("Failed to dispatch unknown request for externalId='"
-                                           + request.externalId + "': " + dispatchError);
+                                           + request.externalId() + "': " + dispatchError);
         }
     };
     m_dispatcher.setHandlers(std::move(handlers));

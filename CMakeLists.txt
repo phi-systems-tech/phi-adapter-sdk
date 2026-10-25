@@ -50,6 +50,7 @@ target_include_directories(phi_adapter_contract
 add_library(phi_adapter_sdk SHARED
     src/entities.cpp
     src/schema.cpp
+    src/requests.cpp
     src/runtime.cpp
     src/sidecar.cpp
     src/sidecar_main.cpp

@@ -9,10 +9,12 @@
 #include "phi/adapter/v1/response.h"
 #include "phi/adapter/v1/room.h"
 #include "phi/adapter/v1/scene.h"
+#include "phi/adapter/sdk/requests.h"
 
 #include <utility>
 
 namespace v1 = phicore::adapter::v1;
+namespace sdk = phicore::adapter::sdk;
 
 namespace {
 
@@ -114,6 +116,24 @@ void testAMovedFromObjectIsEmptyAndAlive()
     PHI_CHECK(c.name() == "source" && b.name().empty()); // NOLINT(bugprone-use-after-move)
 }
 
+void testRequestsFollowTheSameRules()
+{
+    PHI_CHECK(sizeof(sdk::BootstrapRequest) == sizeof(void *) && sizeof(sdk::ChannelInvokeRequest) == sizeof(void *));
+    PHI_CHECK(sizeof(sdk::MediaPlayerInvokeRequest) == sizeof(void *) && sizeof(sdk::UnknownRequest) == sizeof(void *));
+
+    sdk::ChannelInvokeRequest request;
+    PHI_CHECK(!request.hasScalarValue() && request.cmdId() == 0);
+    request.setCmdId(5).setExternalId("inst").setValue(static_cast<std::int64_t>(3));
+    PHI_CHECK(request.hasScalarValue() && std::get<std::int64_t>(request.value()) == 3 && request.externalId() == "inst");
+
+    sdk::BootstrapRequest bootstrap;
+    bootstrap.adapter().setPluginType("demo").setExternalId("inst-1");
+    const sdk::BootstrapRequest copy = bootstrap;
+    bootstrap.adapter().setExternalId("inst-2");
+    PHI_CHECK(copy.adapter().externalId() == "inst-1" && bootstrap.adapter().externalId() == "inst-2");
+    PHI_CHECK(copy.adapter().pluginType() == "demo");
+}
+
 void testFormAndAnswerTypesFollowTheSameRules()
 {
     PHI_CHECK(sizeof(v1::Adapter) == sizeof(void *) && sizeof(v1::AdapterConfigField) == sizeof(void *));
@@ -166,6 +186,7 @@ void testFormAndAnswerTypesFollowTheSameRules()
 
 int main()
 {
+    testRequestsFollowTheSameRules();
     testFormAndAnswerTypesFollowTheSameRules();
     testOnePointerWide();
     testDefaultsReadAsEmpty();
