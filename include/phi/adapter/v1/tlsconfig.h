@@ -115,42 +115,31 @@ struct TlsSettings {
 [[nodiscard]] inline AdapterConfigFieldList tlsConfigFields(
     const Utf8String &parentActionId = {})
 {
-    AdapterConfigFieldVisibility onlyWhenOn;
-    onlyWhenOn.fieldKey = kTlsFieldKey;
-    onlyWhenOn.value = true;
-    onlyWhenOn.op = AdapterConfigVisibilityOp::Equals;
+    const AdapterConfigFieldVisibility onlyWhenOn(kTlsFieldKey, true, AdapterConfigVisibilityOp::Equals);
 
-    AdapterConfigField tls;
-    tls.key = kTlsFieldKey;
-    tls.type = AdapterConfigFieldType::Boolean;
-    tls.label = "TLS";
-    tls.description = "Encrypt the connection. Off unless the endpoint offers it - a plain"
-                      " endpoint has to keep working.";
-    tls.defaultValue = false;
-    tls.parentActionId = parentActionId;
+    AdapterConfigField tls(kTlsFieldKey, AdapterConfigFieldType::Boolean, "TLS");
+    tls.setDescription("Encrypt the connection. Off unless the endpoint offers it - a plain"
+                       " endpoint has to keep working.")
+        .setDefaultValue(false)
+        .setParentActionId(parentActionId);
 
-    AdapterConfigField caFile;
-    caFile.key = kTlsCaFileFieldKey;
-    caFile.type = AdapterConfigFieldType::String;
-    caFile.label = "CA certificate";
-    caFile.description = "Path to a certificate or bundle to trust in addition to the system"
-                         " store. Needed when the endpoint's certificate was not signed by a"
-                         " public authority, which is the usual case on a local network.";
-    caFile.defaultValue = Utf8String();
-    caFile.visibility = onlyWhenOn;
-    caFile.parentActionId = parentActionId;
+    AdapterConfigField caFile(kTlsCaFileFieldKey, AdapterConfigFieldType::String, "CA certificate");
+    caFile.setDescription("Path to a certificate or bundle to trust in addition to the system"
+                          " store. Needed when the endpoint's certificate was not signed by a"
+                          " public authority, which is the usual case on a local network.")
+        .setDefaultValue(Utf8String())
+        .setVisibility(onlyWhenOn)
+        .setParentActionId(parentActionId);
 
-    AdapterConfigField verifyHostname;
-    verifyHostname.key = kTlsVerifyHostnameFieldKey;
-    verifyHostname.type = AdapterConfigFieldType::Boolean;
-    verifyHostname.label = "Check the certificate's hostname";
-    verifyHostname.description = "Require the certificate to name the address that was dialled."
-                                 " Turn this off only when connecting by IP to a certificate"
-                                 " that names a host - the certificate is still checked against"
-                                 " the trusted authorities.";
-    verifyHostname.defaultValue = true;
-    verifyHostname.visibility = onlyWhenOn;
-    verifyHostname.parentActionId = parentActionId;
+    AdapterConfigField verifyHostname(kTlsVerifyHostnameFieldKey, AdapterConfigFieldType::Boolean,
+                                      "Check the certificate's hostname");
+    verifyHostname.setDescription("Require the certificate to name the address that was dialled."
+                                  " Turn this off only when connecting by IP to a certificate"
+                                  " that names a host - the certificate is still checked against"
+                                  " the trusted authorities.")
+        .setDefaultValue(true)
+        .setVisibility(onlyWhenOn)
+        .setParentActionId(parentActionId);
 
     return {tls, caFile, verifyHostname};
 }

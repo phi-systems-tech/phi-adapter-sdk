@@ -143,70 +143,45 @@ v1::Scene fixtureScene()
 sdk::AdapterDescriptor fixtureDescriptor()
 {
     sdk::AdapterDescriptor descriptor;
-    descriptor.pluginType = "demo";
-    descriptor.displayName = "Demo Adapter";
-    descriptor.description = "Contract fixture";
-    descriptor.apiVersion = "1.0";
-    descriptor.iconSvg = "<svg/>";
-    descriptor.timeoutMs = 10000;
-    descriptor.maxInstances = 2;
-    descriptor.capabilities.required = v1::AdapterRequirement::Host;
-    descriptor.capabilities.optional = v1::AdapterRequirement::Port;
-    descriptor.capabilities.flags = v1::AdapterCapability::SupportsDiscovery;
-    v1::AdapterActionDescriptor action;
-    action.id = "probe";
-    action.label = "Probe";
-    action.description = "Connectivity probe";
-    action.placement = v1::AdapterActionPlacement::Device;
-    action.hasForm = false;
-    action.danger = false;
-    action.cooldownMs = 0;
-    action.timeoutMs = 5000;
-    descriptor.capabilities.factoryActions.push_back(action);
-    v1::AdapterActionDescriptor pair;
-    pair.id = "pair";
-    pair.label = "Pair";
-    pair.hasForm = true;
-    pair.formLayout.width = v1::AdapterConfigSize::Narrow;
-    pair.loadFormOnOpen = true;
-    pair.submitLabel = "Pair now";
-    pair.resultField = "deviceId";
-    pair.confirm.title = "Pair device?";
-    pair.confirm.message = "This puts the bridge into pairing mode.";
-    pair.confirm.okLabel = "Pair";
-    pair.confirm.cancelLabel = "Cancel";
-    descriptor.capabilities.instanceActions.push_back(pair);
+    descriptor.setPluginType("demo")
+        .setDisplayName("Demo Adapter")
+        .setDescription("Contract fixture")
+        .setApiVersion("1.0")
+        .setIconSvg("<svg/>")
+        .setTimeoutMs(10000)
+        .setMaxInstances(2);
+    descriptor.capabilities()
+        .setRequired(v1::AdapterRequirement::Host)
+        .setOptional(v1::AdapterRequirement::Port)
+        .setFlags(v1::AdapterCapability::SupportsDiscovery)
+        .addFactoryAction(v1::AdapterActionDescriptor("probe", "Probe", "Connectivity probe")
+                              .setPlacement(v1::AdapterActionPlacement::Device)
+                              .setTimeoutMs(5000));
+    v1::AdapterActionDescriptor pair("pair", "Pair");
+    pair.setHasForm(true).setLoadFormOnOpen(true).setSubmitLabel("Pair now").setResultField("deviceId");
+    pair.formLayout().setWidth(v1::AdapterConfigSize::Narrow);
+    pair.setConfirm({"Pair device?", "This puts the bridge into pairing mode.", "Pair", "Cancel"});
+    descriptor.capabilities().addInstanceAction(pair);
 
     v1::AdapterConfigSchema schema;
-    schema.factory.title = "Bridge";
-    schema.factory.layout.columns = 2;
-    schema.factory.layout.labelWidth = v1::AdapterConfigSize::Narrow;
-    v1::AdapterConfigField host;
-    host.key = "host";
-    host.type = v1::AdapterConfigFieldType::Hostname;
-    host.label = "Host";
-    host.flags = v1::AdapterConfigFieldFlag::Required;
-    host.actions.push_back({"probe", "Probe"});
-    schema.factory.fields.push_back(host);
-    v1::AdapterConfigField port;
-    port.key = "port";
-    port.type = v1::AdapterConfigFieldType::Port;
-    port.label = "Port";
-    port.defaultValue = std::int64_t{443};
-    port.layout.controlWidth = v1::AdapterConfigSize::Narrow;
-    schema.factory.fields.push_back(port);
-    v1::AdapterConfigField device;
-    device.key = "deviceId";
-    device.type = v1::AdapterConfigFieldType::Select;
-    device.label = "Device";
-    device.choicesFrom = "devices";
-    device.parentActionId = "pair";
-    device.layout.cells = 2;
-    device.layout.newRow = true;
-    device.layout.labelPosition = v1::AdapterConfigLabelPosition::Top;
-    device.layout.actionPosition = v1::AdapterConfigActionPosition::Below;
-    schema.instance.fields.push_back(device);
-    descriptor.configSchema = schema;
+    schema.factory().setTitle("Bridge");
+    schema.factory().layout().setColumns(2).setLabelWidth(v1::AdapterConfigSize::Narrow);
+    v1::AdapterConfigField host("host", v1::AdapterConfigFieldType::Hostname, "Host");
+    host.setFlags(v1::AdapterConfigFieldFlag::Required).addAction("probe", "Probe");
+    schema.factory().addField(host);
+    v1::AdapterConfigField port("port", v1::AdapterConfigFieldType::Port, "Port");
+    port.setDefaultValue(std::int64_t{443});
+    port.layout().setControlWidth(v1::AdapterConfigSize::Narrow);
+    schema.factory().addField(port);
+    v1::AdapterConfigField device("deviceId", v1::AdapterConfigFieldType::Select, "Device");
+    device.setChoicesFrom("devices").setParentActionId("pair");
+    device.layout()
+        .setCells(2)
+        .setNewRow(true)
+        .setLabelPosition(v1::AdapterConfigLabelPosition::Top)
+        .setActionPosition(v1::AdapterConfigActionPosition::Below);
+    schema.instance().addField(device);
+    descriptor.setConfigSchema(schema);
     return descriptor;
 }
 
@@ -254,77 +229,53 @@ void runOutboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client, bo
     const std::string goldenDir = std::string(PHI_GOLDEN_DIR) + "/out/";
     const std::vector<OutboundCase> cases = {
         {"cmd_result", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
-             v1::CmdResponse r;
-             r.id = 11;
-             r.status = v1::CmdStatus::Success;
-             r.finalValue = static_cast<std::int64_t>(1);
-             r.tsMs = kFixedTsMs;
+             const v1::CmdResponse r = v1::CmdResponse::success(11, static_cast<std::int64_t>(1)).setTsMs(kFixedTsMs);
              return d.sendCmdResult(r, nullptr);
          }},
         {"cmd_result_error", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
-             v1::CmdResponse r;
-             r.id = 12;
-             r.status = v1::CmdStatus::InvalidArgument;
-             r.error = "Missing required key '%1'";
-             r.errorParams = {v1::Utf8String("iscpPort")};
-             r.errorContext = "adapter.cmd";
-             r.tsMs = kFixedTsMs;
+             const v1::CmdResponse r = v1::CmdResponse::failure(12, v1::CmdStatus::InvalidArgument,
+                                                                "Missing required key '%1'",
+                                                                {v1::Utf8String("iscpPort")}, "adapter.cmd")
+                                           .setTsMs(kFixedTsMs);
              return d.sendCmdResult(r, nullptr);
          }},
         {"action_result", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
-             v1::ActionResponse r;
-             r.id = 13;
-             r.status = v1::CmdStatus::Success;
-             r.resultType = v1::ActionResultType::Boolean;
-             r.resultValue = true;
-             r.formValues = {{"host", v1::ScalarValue{v1::Utf8String("bridge.local")}},
-                             {"devices", v1::ScalarList{v1::Utf8String("a"), v1::Utf8String("b")}},
-                             {"ip", v1::AdapterConfigPerChoiceValues{{"a", v1::Utf8String("10.0.0.2")}}}};
-             r.fieldChoices = {{"port", {{"80", "HTTP"}}}};
-             r.reloadLayout = true;
-             r.tsMs = kFixedTsMs;
+             v1::ActionResponse r = v1::ActionResponse::success(13);
+             r.setResult(true, v1::ActionResultType::Boolean)
+                 .addFormValue("host", v1::ScalarValue{v1::Utf8String("bridge.local")})
+                 .addFormValue("devices", v1::ScalarList{v1::Utf8String("a"), v1::Utf8String("b")})
+                 .addFormValue("ip", v1::AdapterConfigPerChoiceValues{{"a", v1::Utf8String("10.0.0.2")}})
+                 .addFieldChoices("port", {{"80", "HTTP"}})
+                 .setReloadLayout(true)
+                 .setTsMs(kFixedTsMs);
              return d.sendActionResult(r, nullptr);
          }},
         {"action_result_display", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
-             v1::ActionResponse r;
-             r.id = 14;
-             r.status = v1::CmdStatus::Success;
-             r.resultType = v1::ActionResultType::Display;
-             r.display.text = "Scan this on your phone";
-             r.display.code = "123456";
-             r.display.qr = "otpauth://pair/demo?code=123456";
-             r.tsMs = kFixedTsMs;
+             const v1::ActionResponse r
+                 = v1::ActionResponse::success(14)
+                       .setDisplay({"Scan this on your phone", "123456", "otpauth://pair/demo?code=123456"})
+                       .setTsMs(kFixedTsMs);
              return d.sendActionResult(r, nullptr);
          }},
         {"action_result_run", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
-             v1::ActionResponse r;
-             r.id = 15;
-             r.status = v1::CmdStatus::Success;
-             r.resultType = v1::ActionResultType::Run;
-             r.run.runId = "run-1";
-             r.run.streamKind = "adapter.log";
-             r.run.streamParams = {{"tail", static_cast<std::int64_t>(100)}};
-             r.run.abortActionId = "abort";
-             r.run.abortParams = {{"runId", v1::Utf8String("run-1")}};
-             r.run.batch = true;
-             r.tsMs = kFixedTsMs;
+             v1::AdapterRunHandle run;
+             run.setRunId("run-1")
+                 .setStreamKind("adapter.log")
+                 .setStreamParams({{"tail", static_cast<std::int64_t>(100)}})
+                 .setAbortActionId("abort")
+                 .setAbortParams({{"runId", v1::Utf8String("run-1")}})
+                 .setBatch(true);
+             const v1::ActionResponse r = v1::ActionResponse::success(15).setRun(run).setTsMs(kFixedTsMs);
              return d.sendActionResult(r, nullptr);
          }},
         {"action_result_data", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
-             v1::ActionResponse r;
-             r.id = 16;
-             r.status = v1::CmdStatus::Success;
-             r.resultType = v1::ActionResultType::Data;
-             r.dataJson = "{\"count\":3,\"items\":[\"a\",\"b\"]}";
-             r.tsMs = kFixedTsMs;
+             const v1::ActionResponse r
+                 = v1::ActionResponse::success(16).setData("{\"count\":3,\"items\":[\"a\",\"b\"]}").setTsMs(kFixedTsMs);
              return d.sendActionResult(r, nullptr);
          }},
         {"action_result_data_blank_is_null", v1::MessageType::Response, [](sdk::SidecarDispatcher &d) {
-             v1::ActionResponse r;
-             r.id = 17;
-             r.status = v1::CmdStatus::Success;
-             r.resultType = v1::ActionResultType::Data;
-             r.tsMs = kFixedTsMs;
+             const v1::ActionResponse r
+                 = v1::ActionResponse::success(17).setResultType(v1::ActionResultType::Data).setTsMs(kFixedTsMs);
              return d.sendActionResult(r, nullptr);
          }},
         {"connection_state_changed", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
@@ -457,24 +408,24 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
              REQUIRE(c.bootstrap.has_value());
              CHECK(c.bootstrap->adapterId == 0);
              CHECK(c.bootstrap->cmdId == 7);
-             CHECK(c.bootstrap->adapter.pluginType == "demo");
-             CHECK(c.bootstrap->adapter.externalId.empty());
+             CHECK(c.bootstrap->adapter.pluginType() == "demo");
+             CHECK(c.bootstrap->adapter.externalId().empty());
              CHECK(phitest::contains(c.bootstrap->staticConfigJson, "_hue._tcp"));
          }},
         {"sync_adapter_config_changed", 8, [](const InboundCapture &c) {
              REQUIRE(c.configChanged.has_value());
              CHECK(c.configChanged->adapterId == 42);
-             CHECK(c.configChanged->adapter.externalId == "inst-1");
-             CHECK(c.configChanged->adapter.pluginType == "demo");
-             CHECK(c.configChanged->adapter.name == "Bridge");
-             CHECK(c.configChanged->adapter.host == "bridge.local");
-             CHECK(c.configChanged->adapter.ip == "192.168.1.10");
-             CHECK(c.configChanged->adapter.port == 443);
-             CHECK(c.configChanged->adapter.user == "user");
-             CHECK(c.configChanged->adapter.password == "secret");
-             CHECK(c.configChanged->adapter.token == "tok");
-             CHECK(phitest::contains(c.configChanged->adapter.metaJson, "\"logging\""));
-             CHECK(v1::hasFlag(c.configChanged->adapter.options, v1::AdapterOption::UseTls));
+             CHECK(c.configChanged->adapter.externalId() == "inst-1");
+             CHECK(c.configChanged->adapter.pluginType() == "demo");
+             CHECK(c.configChanged->adapter.name() == "Bridge");
+             CHECK(c.configChanged->adapter.host() == "bridge.local");
+             CHECK(c.configChanged->adapter.ip() == "192.168.1.10");
+             CHECK(c.configChanged->adapter.port() == 443);
+             CHECK(c.configChanged->adapter.user() == "user");
+             CHECK(c.configChanged->adapter.password() == "secret");
+             CHECK(c.configChanged->adapter.token() == "tok");
+             CHECK(phitest::contains(c.configChanged->adapter.metaJson(), "\"logging\""));
+             CHECK(v1::hasFlag(c.configChanged->adapter.options(), v1::AdapterOption::UseTls));
          }},
         {"sync_adapter_instance_removed", 9, [](const InboundCapture &c) {
              REQUIRE(c.instanceRemoved.has_value());

@@ -250,11 +250,8 @@ protected:
         std::this_thread::sleep_for(kProbeDuration);
         probeRunning.store(false);
 
-        v1::ActionResponse response;
-        response.id = request.cmdId;
-        response.status = v1::CmdStatus::Success;
-        response.resultType = v1::ActionResultType::String;
-        response.resultValue = "probe-done";
+        const v1::ActionResponse response
+            = v1::ActionResponse::success(request.cmdId).setResult("probe-done", v1::ActionResultType::String);
         v1::Utf8String error;
         sendResult(response, &error);
     }
@@ -445,7 +442,7 @@ public:
 protected:
     bool start() override
     {
-        metaAtStart = config().adapter.metaJson;
+        metaAtStart = config().adapter.metaJson();
         sawConfig.store(hasConfig());
         return true;
     }

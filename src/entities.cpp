@@ -97,10 +97,7 @@ Channel &Channel::setRange(double minValue, double maxValue, double stepValue)
 
 Channel &Channel::addChoice(Utf8String value, Utf8String label)
 {
-    AdapterConfigOption option;
-    option.value = std::move(value);
-    option.label = std::move(label);
-    m().choices.push_back(std::move(option));
+    m().choices.emplace_back(std::move(value), std::move(label));
     return *this;
 }
 

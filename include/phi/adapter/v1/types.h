@@ -41,85 +41,8 @@ enum class ActionResultType : std::uint8_t {
     Data = 8,
 };
 
-struct CmdResponse {
-    CmdId id = 0;
-    CmdStatus status = CmdStatus::Success;
-    Utf8String error;
-    ScalarList errorParams;
-    Utf8String errorContext;
-    ScalarValue finalValue;
-    std::int64_t tsMs = 0;
-};
-
-struct AdapterConfigOption {
-    Utf8String value;
-    Utf8String label;
-};
-
-using AdapterConfigOptionList = std::vector<AdapterConfigOption>;
-
-/// A value per choice of another field: `{choice value, value}` pairs.
-using AdapterConfigPerChoiceValues = std::vector<std::pair<Utf8String, ScalarValue>>;
-
-/// What one form field holds: a scalar, a list (a multi-select), or one value
-/// per choice of the field it names in `perChoiceOf`.
-using AdapterFormValueData = std::variant<ScalarValue, ScalarList, AdapterConfigPerChoiceValues>;
-
-struct AdapterFormValue {
-    Utf8String key;
-    AdapterFormValueData data;
-};
-
-using AdapterFormValues = std::vector<AdapterFormValue>;
-
-/// The choices one select offers, sent with a form rather than declared.
-struct AdapterFieldChoices {
-    Utf8String key;
-    AdapterConfigOptionList choices;
-};
-
-using AdapterFieldChoicesList = std::vector<AdapterFieldChoices>;
-
-/// What a person is shown for an action's result.
-struct AdapterResultDisplay {
-    Utf8String text;
-    /// Something to copy or type elsewhere: a pairing code, a dataset.
-    Utf8String code;
-    /// A payload to show as a QR code.
-    Utf8String qr;
-};
-
-/// A long action that runs on and streams what it does.
-struct AdapterRunHandle {
-    Utf8String runId;
-    Utf8String streamKind;
-    ChannelValueFields streamParams;
-    /// The action that stops the run, with its params.
-    Utf8String abortActionId;
-    ChannelValueFields abortParams;
-    bool batch = false;
-};
-
-struct ActionResponse {
-    CmdId id = 0;
-    CmdStatus status = CmdStatus::Success;
-    Utf8String error;
-    ScalarList errorParams;
-    Utf8String errorContext;
-    ActionResultType resultType = ActionResultType::None;
-    /// The result for the scalar result types.
-    ScalarValue resultValue;
-    /// The result for `ActionResultType::Display`.
-    AdapterResultDisplay display;
-    /// The result for `ActionResultType::Run`.
-    AdapterRunHandle run;
-    /// The result for `ActionResultType::Data`: JSON a tool reads.
-    JsonText dataJson;
-    AdapterFormValues formValues;
-    AdapterFieldChoicesList fieldChoices;
-    bool reloadLayout = false;
-    std::int64_t tsMs = 0;
-};
+// CmdResponse, ActionResponse and what they carry are in response.h; the
+// config option, form value and field choice types in schema.h.
 
 enum class DeviceClass : std::uint8_t {
     Unknown = 0,

@@ -6,6 +6,7 @@
 #include "phi/adapter/v1/channel.h"
 #include "phi/adapter/v1/device.h"
 #include "phi/adapter/v1/group.h"
+#include "phi/adapter/v1/response.h"
 #include "phi/adapter/v1/room.h"
 #include "phi/adapter/v1/scene.h"
 
@@ -51,7 +52,7 @@ void testSettersChainAndRead()
     PHI_CHECK(channel.externalId() == "ch-1" && channel.name() == "Level");
     PHI_CHECK(channel.kind() == v1::ChannelKind::Brightness && channel.unit() == "%");
     PHI_CHECK(channel.minValue() == 0 && channel.maxValue() == 100 && channel.stepValue() == 5);
-    PHI_CHECK(channel.choices().size() == 2 && channel.choices()[1].value == "b" && channel.choices()[1].label == "B");
+    PHI_CHECK(channel.choices().size() == 2 && channel.choices()[1].value() == "b" && channel.choices()[1].label() == "B");
 
     v1::Room room;
     room.setName("Kitchen").addDeviceExternalId("d1").addDeviceExternalId("d2");
@@ -113,10 +114,59 @@ void testAMovedFromObjectIsEmptyAndAlive()
     PHI_CHECK(c.name() == "source" && b.name().empty()); // NOLINT(bugprone-use-after-move)
 }
 
+void testFormAndAnswerTypesFollowTheSameRules()
+{
+    PHI_CHECK(sizeof(v1::Adapter) == sizeof(void *) && sizeof(v1::AdapterConfigField) == sizeof(void *));
+    PHI_CHECK(sizeof(v1::AdapterConfigSchema) == sizeof(void *) && sizeof(v1::AdapterCapabilities) == sizeof(void *));
+    PHI_CHECK(sizeof(v1::ActionResponse) == sizeof(void *) && sizeof(v1::CmdResponse) == sizeof(void *));
+
+    // Nested parts are written in place through the mutable reader.
+    v1::AdapterConfigSchema schema;
+    schema.factory().setTitle("Bridge").layout().setColumns(2);
+    schema.factory().addField(v1::AdapterConfigField("host", v1::AdapterConfigFieldType::Hostname, "Host"));
+    schema.factory().fields()[0].layout().setCells(2);
+    PHI_CHECK(schema.factory().title() == "Bridge" && schema.factory().layout().columns() == 2);
+    PHI_CHECK(schema.factory().fields().size() == 1 && schema.factory().fields()[0].layout().cells() == 2);
+    PHI_CHECK(schema.instance().fields().empty());
+
+    // The short constructors, and list-initialisation through them.
+    v1::AdapterConfigField field("k", v1::AdapterConfigFieldType::Select, "L");
+    field.setOptions({{"a", "A"}, {"b"}}).setActions({{"probe", "Probe"}}).setMinValue(1.5).setStep(std::nullopt);
+    PHI_CHECK(field.options().size() == 2 && field.options()[1].value() == "b" && field.options()[1].label().empty());
+    PHI_CHECK(field.actions().size() == 1 && field.actions()[0].id() == "probe");
+    PHI_CHECK(field.minValue() && *field.minValue() == 1.5 && !field.step());
+
+    // The answers: makers and typed setters that keep resultType in step.
+    const v1::CmdResponse ok = v1::CmdResponse::success(7, static_cast<std::int64_t>(1));
+    PHI_CHECK(ok.id() == 7 && ok.status() == v1::CmdStatus::Success && std::get<std::int64_t>(ok.finalValue()) == 1);
+    const v1::CmdResponse bad = v1::CmdResponse::failure(8, v1::CmdStatus::InvalidArgument, "Missing '%1'", {"host"}, "cmd");
+    PHI_CHECK(bad.status() == v1::CmdStatus::InvalidArgument && bad.error() == "Missing '%1'");
+    PHI_CHECK(bad.errorParams().size() == 1 && bad.errorContext() == "cmd");
+
+    v1::ActionResponse answer = v1::ActionResponse::success(9);
+    PHI_CHECK(answer.resultType() == v1::ActionResultType::None);
+    answer.setData("{\"n\":1}");
+    PHI_CHECK(answer.resultType() == v1::ActionResultType::Data && answer.dataJson() == "{\"n\":1}");
+    answer.setDisplay({"Scan", "123"});
+    PHI_CHECK(answer.resultType() == v1::ActionResultType::Display && answer.display().code() == "123");
+    answer.setResult(true, v1::ActionResultType::Boolean).addFormValue("host", v1::ScalarValue{v1::Utf8String("x")});
+    PHI_CHECK(answer.resultType() == v1::ActionResultType::Boolean && answer.formValues().size() == 1);
+    PHI_CHECK(answer.formValues()[0].key() == "host");
+
+    // The record core sends down, read through getters after a move.
+    v1::Adapter record;
+    record.setExternalId("inst-1").setPort(443).setOptions(v1::AdapterOption::EnableLogs);
+    const v1::Adapter moved = std::move(record);
+    PHI_CHECK(moved.externalId() == "inst-1" && moved.port() == 443);
+    PHI_CHECK(v1::hasFlag(moved.options(), v1::AdapterOption::EnableLogs));
+    PHI_CHECK(record.externalId().empty() && record.port() == 0); // NOLINT(bugprone-use-after-move)
+}
+
 } // namespace
 
 int main()
 {
+    testFormAndAnswerTypesFollowTheSameRules();
     testOnePointerWide();
     testDefaultsReadAsEmpty();
     testSettersChainAndRead();

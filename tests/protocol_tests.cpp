@@ -65,8 +65,8 @@ void testBootstrapDecode()
     CHECK(seen->adapterId == 42);
     CHECK(seen->cmdId == 7);
     CHECK(seen->correlationId == 7);
-    CHECK(seen->adapter.pluginType == "demo");
-    CHECK(seen->adapter.externalId.empty());
+    CHECK(seen->adapter.pluginType() == "demo");
+    CHECK(seen->adapter.externalId().empty());
     CHECK_MSG(contains(seen->staticConfigJson, "_hue._tcp"),
               "staticConfigJson=%s", seen->staticConfigJson.c_str());
 
@@ -153,10 +153,7 @@ void testChannelInvokeDecodeAndResult()
     CHECK_MSG(contains(seen->valueJson, "\"r\":1"), "valueJson=%s", seen->valueJson.c_str());
 
     // Result serialization back to the client.
-    v1::CmdResponse response;
-    response.id = 14;
-    response.status = v1::CmdStatus::Success;
-    response.finalValue = static_cast<std::int64_t>(1);
+    const v1::CmdResponse response = v1::CmdResponse::success(14, static_cast<std::int64_t>(1));
     CHECK(dispatcher.sendCmdResult(response, nullptr));
     dispatcher.pollOnce(std::chrono::milliseconds(10), nullptr); // flush
 

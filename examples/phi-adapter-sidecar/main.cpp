@@ -68,20 +68,17 @@ protected:
     void onConfigChanged(const phi::ConfigChangedRequest &request) override
     {
         std::cerr << "config.changed adapterId=" << request.adapterId
-                  << " extId=" << request.adapter.externalId
-                  << " ip=" << request.adapter.ip
-                  << " port=" << request.adapter.port << std::endl;
+                  << " extId=" << request.adapter.externalId()
+                  << " ip=" << request.adapter.ip()
+                  << " port=" << request.adapter.port() << std::endl;
     }
 
     void onChannelInvoke(const phi::ChannelInvokeRequest &request) override
     {
-        phi::CmdResponse response;
-        response.id = request.cmdId;
-        response.status = phi::CmdStatus::Success;
-        response.finalValue = request.value;
-        response.tsMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::system_clock::now().time_since_epoch())
-                            .count();
+        phi::CmdResponse response = phi::CmdResponse::success(request.cmdId, request.value);
+        response.setTsMs(std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::system_clock::now().time_since_epoch())
+                             .count());
         std::cerr << "channel invoke extId=" << request.externalId
                   << " device=" << request.deviceExternalId
                   << " channel=" << request.channelExternalId << std::endl;
@@ -93,33 +90,27 @@ protected:
 
     void onAdapterActionInvoke(const phi::AdapterActionInvokeRequest &request) override
     {
-        phi::ActionResponse response;
-        response.id = request.cmdId;
-        response.status = phi::CmdStatus::Success;
+        phi::ActionResponse response = phi::ActionResponse::success(request.cmdId);
         if (request.actionId == "browseHosts") {
-            response.resultType = phi::ActionResultType::None;
             const phi::Utf8String zigbee = "1c:90:ff:0b:58:77";
             const phi::Utf8String phone = "26:d2:aa:57:79:46";
-            response.formValues = {{"trackedMacs", phi::ScalarList{zigbee, phone}}};
-            response.fieldChoices = {{"trackedMacs",
-                                      {{zigbee, "Zigbee (192.168.1.77)"},
-                                       {phone, "Phone (192.168.1.76)"},
-                                       {"cc:8c:bf:76:0c:54", "Heater (192.168.1.26)"}}}};
-            response.reloadLayout = false;
+            response.addFormValue("trackedMacs", phi::ScalarList{zigbee, phone})
+                .addFieldChoices("trackedMacs",
+                                 {{zigbee, "Zigbee (192.168.1.77)"},
+                                  {phone, "Phone (192.168.1.76)"},
+                                  {"cc:8c:bf:76:0c:54", "Heater (192.168.1.26)"}});
         } else if (request.actionId == "startRun") {
-            response.resultType = phi::ActionResultType::Run;
-            response.run.runId = "run-42";
-            response.run.streamKind = "adapter.run";
-            response.run.streamParams = {{"runId", phi::Utf8String("run-42")},
-                                         {"mode", phi::Utf8String("ws")},
-                                         {"scenario", phi::Utf8String("handshake")}};
+            phicore::adapter::v1::AdapterRunHandle run;
+            run.setRunId("run-42").setStreamKind("adapter.run").setStreamParams({{"runId", phi::Utf8String("run-42")},
+                                                                                 {"mode", phi::Utf8String("ws")},
+                                                                                 {"scenario", phi::Utf8String("handshake")}});
+            response.setRun(std::move(run));
         } else {
-            response.resultType = phi::ActionResultType::String;
-            response.resultValue = phi::Utf8String("ok");
+            response.setResult(phi::Utf8String("ok"), phi::ActionResultType::String);
         }
-        response.tsMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::system_clock::now().time_since_epoch())
-                            .count();
+        response.setTsMs(std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::system_clock::now().time_since_epoch())
+                             .count());
         std::cerr << "adapter action invoke extId=" << request.externalId
                   << " actionId=" << request.actionId << std::endl;
         phi::Utf8String err;
@@ -150,11 +141,8 @@ protected:
 
     void onFactoryActionInvoke(const phi::AdapterActionInvokeRequest &request) override
     {
-        phi::ActionResponse response;
-        response.id = request.cmdId;
-        response.status = phi::CmdStatus::Success;
-        response.resultType = phi::ActionResultType::String;
-        response.resultValue = phi::Utf8String("factory-ok");
+        const phi::ActionResponse response
+            = phi::ActionResponse::success(request.cmdId).setResult(phi::Utf8String("factory-ok"), phi::ActionResultType::String);
         phi::Utf8String err;
         if (!sendResult(response, &err)) {
             std::cerr << "failed to send factory action result: " << err << std::endl;
@@ -164,8 +152,8 @@ protected:
     void onBootstrap(const phi::BootstrapRequest &request) override
     {
         std::cerr << "factory bootstrap adapterId=" << request.adapterId
-                  << " extId='" << request.adapter.externalId
-                  << "' plugin=" << request.adapter.pluginType << std::endl;
+                  << " extId='" << request.adapter.externalId()
+                  << "' plugin=" << request.adapter.pluginType() << std::endl;
     }
 };
 

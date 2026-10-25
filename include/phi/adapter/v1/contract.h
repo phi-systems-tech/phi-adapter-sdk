@@ -8,6 +8,7 @@
 #include "phi/adapter/v1/frame.h"
 #include "phi/adapter/v1/color.h"
 #include "phi/adapter/v1/schema.h"
+#include "phi/adapter/v1/response.h"
 #include "phi/adapter/v1/device.h"
 #include "phi/adapter/v1/channel.h"
 #include "phi/adapter/v1/room.h"

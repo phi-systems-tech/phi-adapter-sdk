@@ -62,7 +62,7 @@ target_link_libraries(sdk_channel_value_tests PRIVATE phi::adapter-contract)
 # Vocabulary rather than runtime: the contract alone, no Qt and no event loop,
 # which is the point of it living there.
 add_executable(sdk_tlsconfig_tests tlsconfig_tests.cpp)
-target_link_libraries(sdk_tlsconfig_tests PRIVATE phi::adapter-contract)
+target_link_libraries(sdk_tlsconfig_tests PRIVATE phi::adapter-sdk)
 
 # Enum/flag name <-> value round trips: PowerOnBehavior, the two fault-flag
 # families, and the ChannelKind/ChannelDataType entries that name them.

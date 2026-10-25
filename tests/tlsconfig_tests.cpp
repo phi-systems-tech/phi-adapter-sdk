@@ -16,7 +16,7 @@ namespace {
 const AdapterConfigField *fieldNamed(const AdapterConfigFieldList &fields, const char *key)
 {
     for (const AdapterConfigField &field : fields) {
-        if (field.key == key)
+        if (field.key() == key)
             return &field;
     }
     return nullptr;
@@ -30,26 +30,26 @@ void testTheVocabularyIsTheOneEverybodyUses()
     const AdapterConfigField *tls = fieldNamed(fields, kTlsFieldKey);
     PHI_CHECK(tls != nullptr);
     if (tls) {
-        PHI_CHECK(tls->type == AdapterConfigFieldType::Boolean);
+        PHI_CHECK(tls->type() == AdapterConfigFieldType::Boolean);
         // Off. An adapter pointed at a plain endpoint has to keep working, and
         // an upgrade that silently started requiring TLS would take every one
         // of them off the air.
-        PHI_CHECK(std::get<bool>(tls->defaultValue) == false);
+        PHI_CHECK(std::get<bool>(tls->defaultValue()) == false);
     }
 
     const AdapterConfigField *ca = fieldNamed(fields, kTlsCaFileFieldKey);
     PHI_CHECK(ca != nullptr);
     if (ca)
-        PHI_CHECK(ca->type == AdapterConfigFieldType::String);
+        PHI_CHECK(ca->type() == AdapterConfigFieldType::String);
 
     const AdapterConfigField *verify = fieldNamed(fields, kTlsVerifyHostnameFieldKey);
     PHI_CHECK(verify != nullptr);
     if (verify) {
-        PHI_CHECK(verify->type == AdapterConfigFieldType::Boolean);
+        PHI_CHECK(verify->type() == AdapterConfigFieldType::Boolean);
         // On. This is the whole reason the fields are shared: an adapter that
         // shipped this off would encrypt and authenticate nothing, and would
         // look from the outside exactly like one that does both.
-        PHI_CHECK(std::get<bool>(verify->defaultValue) == true);
+        PHI_CHECK(std::get<bool>(verify->defaultValue()) == true);
     }
 }
 
@@ -61,24 +61,24 @@ void testTheTwoDetailsAreOnlyAskedWhenTlsIsOn()
         PHI_CHECK(field != nullptr);
         if (!field)
             continue;
-        PHI_CHECK(field->visibility.fieldKey == kTlsFieldKey);
-        PHI_CHECK(std::get<bool>(field->visibility.value));
-        PHI_CHECK(field->visibility.op == AdapterConfigVisibilityOp::Equals);
+        PHI_CHECK(field->visibility().fieldKey() == kTlsFieldKey);
+        PHI_CHECK(std::get<bool>(field->visibility().value()));
+        PHI_CHECK(field->visibility().op() == AdapterConfigVisibilityOp::Equals);
     }
     // The switch itself is always shown, or nothing could turn the others on.
     const AdapterConfigField *tls = fieldNamed(fields, kTlsFieldKey);
     PHI_CHECK(tls != nullptr);
     if (tls)
-        PHI_CHECK(tls->visibility.fieldKey.empty());
+        PHI_CHECK(tls->visibility().fieldKey().empty());
 }
 
 void testAnActionsFormCarriesTheFieldsToo()
 {
     for (const AdapterConfigField &field : tlsConfigFields("probe"))
-        PHI_CHECK(field.parentActionId == "probe");
+        PHI_CHECK(field.parentActionId() == "probe");
     // And an instance section's fields belong to no action.
     for (const AdapterConfigField &field : tlsConfigFields())
-        PHI_CHECK(field.parentActionId.empty());
+        PHI_CHECK(field.parentActionId().empty());
 }
 
 void testNothingSaidMeansOffAndVerified()

@@ -25,7 +25,7 @@ const std::string kDefaultSectionJson =
 std::string schemaWithFactoryField(const AdapterConfigField &field)
 {
     AdapterConfigSchema schema;
-    schema.factory.fields.push_back(field);
+    schema.factory().addField(field);
     return configSchemaToJson(schema);
 }
 
@@ -54,33 +54,29 @@ void testDefaultConstructedFieldOmitsEveryOptionalMember()
 
 void testFieldWithEveryOptionalMemberSet()
 {
-    AdapterConfigField field;
-    field.key = "k";
-    field.type = AdapterConfigFieldType::Select;
-    field.label = "L";
-    field.description = "D";
-    field.placeholder = "P";
-    field.defaultValue = ScalarValue(std::int64_t{42});
-    field.flags = AdapterConfigFieldFlag::Required | AdapterConfigFieldFlag::Secret;
-    field.options = {{"a", "A"}, {"b", ""}}; // "b" has no label: falls back to its value
-    field.choicesFrom = "cf";
-    field.perChoiceOf = "pc";
-    field.parentActionId = "pa";
-    field.actions = {{"a1", "A1"}};
-    field.visibility.fieldKey = "other";
-    field.visibility.value = ScalarValue(true);
-    field.visibility.op = AdapterConfigVisibilityOp::Contains;
-    field.layout.position = 3;
-    field.layout.cells = 2;
-    field.layout.newRow = true;
-    field.layout.controlWidth = AdapterConfigSize::Wide;
-    field.layout.labelPosition = AdapterConfigLabelPosition::Top;
-    field.layout.actionPosition = AdapterConfigActionPosition::Below;
-    field.minValue = 1.5;
-    field.maxValue = 99.5;
-    field.step = 0.5;
-    field.appendTo = "history";
-    field.reloadsForm = true;
+    AdapterConfigField field("k", AdapterConfigFieldType::Select, "L");
+    field.setDescription("D")
+        .setPlaceholder("P")
+        .setDefaultValue(ScalarValue(std::int64_t{42}))
+        .setFlags(AdapterConfigFieldFlag::Required | AdapterConfigFieldFlag::Secret)
+        .setOptions({{"a", "A"}, {"b", ""}}) // "b" has no label: falls back to its value
+        .setChoicesFrom("cf")
+        .setPerChoiceOf("pc")
+        .setParentActionId("pa")
+        .setActions({{"a1", "A1"}})
+        .setVisibility({"other", ScalarValue(true), AdapterConfigVisibilityOp::Contains})
+        .setMinValue(1.5)
+        .setMaxValue(99.5)
+        .setStep(0.5)
+        .setAppendTo("history")
+        .setReloadsForm(true);
+    field.layout()
+        .setPosition(3)
+        .setCells(2)
+        .setNewRow(true)
+        .setControlWidth(AdapterConfigSize::Wide)
+        .setLabelPosition(AdapterConfigLabelPosition::Top)
+        .setActionPosition(AdapterConfigActionPosition::Below);
 
     const std::string expectedField =
         "{\"key\":\"k\",\"type\":\"Select\",\"label\":\"L\",\"description\":\"D\",\"placeholder\":\"P\","
@@ -97,43 +93,41 @@ void testFieldWithEveryOptionalMemberSet()
 
 void testMinMaxStepAppendToReloadsFormOmittedThenPresent()
 {
-    AdapterConfigField field;
-    field.key = "k";
-    field.label = "L";
+    AdapterConfigField field("k", AdapterConfigFieldType::String, "L");
     // All absent: nothing beyond layout.
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson + "}"));
 
     // min/max/step set independently of one another.
-    field.minValue = 0.0;
+    field.setMinValue(0.0);
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
                                 ",\"min\":0}"));
-    field.minValue.reset();
+    field.setMinValue(std::nullopt);
 
-    field.maxValue = 10.0;
+    field.setMaxValue(10.0);
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
                                 ",\"max\":10}"));
-    field.maxValue.reset();
+    field.setMaxValue(std::nullopt);
 
-    field.step = 2.0;
+    field.setStep(2.0);
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
                                 ",\"step\":2}"));
-    field.step.reset();
+    field.setStep(std::nullopt);
 
     // appendTo empty: omitted; set: present.
-    PHI_CHECK(field.appendTo.empty());
-    field.appendTo = "targets";
+    PHI_CHECK(field.appendTo().empty());
+    field.setAppendTo("targets");
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
                                 ",\"appendTo\":\"targets\"}"));
-    field.appendTo.clear();
+    field.setAppendTo({});
 
     // reloadsForm false: omitted; true: present.
-    PHI_CHECK(!field.reloadsForm);
-    field.reloadsForm = true;
+    PHI_CHECK(!field.reloadsForm());
+    field.setReloadsForm(true);
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson +
                                 ",\"reloadsForm\":true}"));
@@ -158,10 +152,7 @@ void testEveryFieldTypeNameSerializesToItsWireName()
         {AdapterConfigFieldType::Section, "Section"},
     };
     for (const TypeCase &c : kCases) {
-        AdapterConfigField field;
-        field.key = "k";
-        field.type = c.type;
-        field.label = "L";
+        const AdapterConfigField field("k", c.type, "L");
         const std::string expectedField =
             "{\"key\":\"k\",\"type\":\"" + std::string(c.name) + "\",\"label\":\"L\"," + kDefaultFieldLayoutJson + "}";
         PHI_CHECK_MSG(schemaWithFactoryField(field) == wrapFactoryField(expectedField), "type=%s", c.name);
@@ -182,9 +173,7 @@ void testFormLayoutCoversEverySizeAndColumnCount()
     for (const SizeCase &w : kSizes) {
         for (const SizeCase &lw : kSizes) {
             AdapterConfigSchema schema;
-            schema.factory.layout.width = w.size;
-            schema.factory.layout.columns = 3;
-            schema.factory.layout.labelWidth = lw.size;
+            schema.factory().layout().setWidth(w.size).setColumns(3).setLabelWidth(lw.size);
             const std::string expectedFactory =
                 "{\"title\":\"\",\"description\":\"\",\"layout\":{\"width\":\"" + std::string(w.name) +
                 "\",\"columns\":3,\"labelWidth\":\"" + std::string(lw.name) + "\"},\"fields\":[]}";
@@ -227,12 +216,8 @@ void testFieldLayoutCoversEveryControlWidthLabelAndActionPosition()
     for (const SizeCase &cw : kSizes) {
         for (const LabelCase &lp : kLabelPositions) {
             for (const ActionCase &ap : kActionPositions) {
-                AdapterConfigField field;
-                field.key = "k";
-                field.label = "L";
-                field.layout.controlWidth = cw.size;
-                field.layout.labelPosition = lp.pos;
-                field.layout.actionPosition = ap.pos;
+                AdapterConfigField field("k", AdapterConfigFieldType::String, "L");
+                field.layout().setControlWidth(cw.size).setLabelPosition(lp.pos).setActionPosition(ap.pos);
                 const std::string expectedField =
                     "{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\",\"layout\":{\"position\":0,"
                     "\"cells\":1,\"newRow\":false,\"controlWidth\":\"" +
@@ -247,26 +232,20 @@ void testFieldLayoutCoversEveryControlWidthLabelAndActionPosition()
 
 void testFlagsOmittedForNoneAndListedInDeclarationOrderOtherwise()
 {
-    AdapterConfigField none;
-    none.key = "k";
-    none.label = "L";
+    const AdapterConfigField none("k", AdapterConfigFieldType::String, "L");
     PHI_CHECK(schemaWithFactoryField(none) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson + "}"));
 
-    AdapterConfigField single;
-    single.key = "k";
-    single.label = "L";
-    single.flags = AdapterConfigFieldFlag::ReadOnly;
+    AdapterConfigField single("k", AdapterConfigFieldType::String, "L");
+    single.setFlags(AdapterConfigFieldFlag::ReadOnly);
     PHI_CHECK(schemaWithFactoryField(single) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\",\"flags\":[\"ReadOnly\"]," +
                                 kDefaultFieldLayoutJson + "}"));
 
-    AdapterConfigField all;
-    all.key = "k";
-    all.label = "L";
-    all.flags = AdapterConfigFieldFlag::Required | AdapterConfigFieldFlag::Secret |
-                AdapterConfigFieldFlag::ReadOnly | AdapterConfigFieldFlag::Transient |
-                AdapterConfigFieldFlag::Multi | AdapterConfigFieldFlag::InstanceOnly;
+    AdapterConfigField all("k", AdapterConfigFieldType::String, "L");
+    all.setFlags(AdapterConfigFieldFlag::Required | AdapterConfigFieldFlag::Secret |
+                 AdapterConfigFieldFlag::ReadOnly | AdapterConfigFieldFlag::Transient |
+                 AdapterConfigFieldFlag::Multi | AdapterConfigFieldFlag::InstanceOnly);
     PHI_CHECK(schemaWithFactoryField(all) ==
               wrapFactoryField(
                   "{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\","
@@ -276,60 +255,54 @@ void testFlagsOmittedForNoneAndListedInDeclarationOrderOtherwise()
 
 void testDefaultValueSerializesEachScalarKind()
 {
-    AdapterConfigField field;
-    field.key = "k";
-    field.label = "L";
+    AdapterConfigField field("k", AdapterConfigFieldType::String, "L");
 
-    field.defaultValue = ScalarValue(true);
+    field.setDefaultValue(ScalarValue(true));
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\",\"default\":true," +
                                 kDefaultFieldLayoutJson + "}"));
 
-    field.defaultValue = ScalarValue(false);
+    field.setDefaultValue(ScalarValue(false));
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\",\"default\":false," +
                                 kDefaultFieldLayoutJson + "}"));
 
-    field.defaultValue = ScalarValue(std::int64_t{-7});
+    field.setDefaultValue(ScalarValue(std::int64_t{-7}));
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\",\"default\":-7," +
                                 kDefaultFieldLayoutJson + "}"));
 
-    field.defaultValue = ScalarValue(3.5);
+    field.setDefaultValue(ScalarValue(3.5));
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\",\"default\":3.5," +
                                 kDefaultFieldLayoutJson + "}"));
 
-    field.defaultValue = ScalarValue(Utf8String("hello"));
+    field.setDefaultValue(ScalarValue(Utf8String("hello")));
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\",\"default\":\"hello\"," +
                                 kDefaultFieldLayoutJson + "}"));
 
     // Reset to monostate: omitted again, same as the default-constructed case.
-    field.defaultValue = ScalarValue();
+    field.setDefaultValue(ScalarValue());
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson + "}"));
 }
 
 void testVisibilityOmittedWhenFieldKeyEmptyPresentOtherwise()
 {
-    AdapterConfigField field;
-    field.key = "k";
-    field.label = "L";
+    AdapterConfigField field("k", AdapterConfigFieldType::String, "L");
     // fieldKey empty: omitted even though value/op are non-default.
-    field.visibility.op = AdapterConfigVisibilityOp::Contains;
-    field.visibility.value = ScalarValue(std::int64_t{5});
+    field.visibility().setOp(AdapterConfigVisibilityOp::Contains).setValue(ScalarValue(std::int64_t{5}));
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\"," + kDefaultFieldLayoutJson + "}"));
 
-    field.visibility.fieldKey = "other";
+    field.visibility().setFieldKey("other");
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\","
                                 "\"visibility\":{\"fieldKey\":\"other\",\"value\":5,\"op\":\"Contains\"}," +
                                 kDefaultFieldLayoutJson + "}"));
 
-    field.visibility.op = AdapterConfigVisibilityOp::Equals;
-    field.visibility.value = ScalarValue(Utf8String("on"));
+    field.visibility().setOp(AdapterConfigVisibilityOp::Equals).setValue(ScalarValue(Utf8String("on")));
     PHI_CHECK(schemaWithFactoryField(field) ==
               wrapFactoryField("{\"key\":\"k\",\"type\":\"String\",\"label\":\"L\","
                                 "\"visibility\":{\"fieldKey\":\"other\",\"value\":\"on\",\"op\":\"Equals\"}," +
@@ -338,9 +311,7 @@ void testVisibilityOmittedWhenFieldKeyEmptyPresentOtherwise()
 
 void testStringsAreJsonEscaped()
 {
-    AdapterConfigField field;
-    field.key = "k";
-    field.label = "a\"b\\c\nd"; // quote, backslash, newline
+    const AdapterConfigField field("k", AdapterConfigFieldType::String, "a\"b\\c\nd"); // quote, backslash, newline
     const std::string expectedLabelJson = "\"a\\\"b\\\\c\\nd\"";
     const std::string expectedField =
         "{\"key\":\"k\",\"type\":\"String\",\"label\":" + expectedLabelJson + "," + kDefaultFieldLayoutJson + "}";

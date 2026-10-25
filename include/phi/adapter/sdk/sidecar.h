@@ -313,31 +313,58 @@ struct UnknownRequest {
  * This descriptor replaces static meta transport for adapter identity,
  * capabilities and config layout.
  */
-struct AdapterDescriptor {
+class AdapterDescriptor
+{
+public:
+    AdapterDescriptor();
+    AdapterDescriptor(const AdapterDescriptor &other);
+    AdapterDescriptor(AdapterDescriptor &&other) noexcept;
+    AdapterDescriptor &operator=(const AdapterDescriptor &other);
+    AdapterDescriptor &operator=(AdapterDescriptor &&other) noexcept;
+    ~AdapterDescriptor();
+
     /// Adapter plugin type (e.g. `onkyo-pioneer`).
-    phicore::adapter::v1::Utf8String pluginType;
+    const phicore::adapter::v1::Utf8String &pluginType() const noexcept;
+    AdapterDescriptor &setPluginType(phicore::adapter::v1::Utf8String pluginType);
     /// User-facing adapter name.
-    phicore::adapter::v1::Utf8String displayName;
+    const phicore::adapter::v1::Utf8String &displayName() const noexcept;
+    AdapterDescriptor &setDisplayName(phicore::adapter::v1::Utf8String displayName);
     /// User-facing adapter description.
-    phicore::adapter::v1::Utf8String description;
-    /// Adapter API version label.
-    phicore::adapter::v1::Utf8String apiVersion;
+    const phicore::adapter::v1::Utf8String &description() const noexcept;
+    AdapterDescriptor &setDescription(phicore::adapter::v1::Utf8String description);
+    /// Adapter API version label, the adapter's own.
+    const phicore::adapter::v1::Utf8String &apiVersion() const noexcept;
+    AdapterDescriptor &setApiVersion(phicore::adapter::v1::Utf8String apiVersion);
     /// The SDK version the adapter was compiled against. Filled by the
     /// dispatcher when the descriptor goes out, never by the adapter: it is
     /// PHI_ADAPTER_SDK_VERSION as the inline constructors captured it.
-    phicore::adapter::v1::Utf8String sdkVersion;
+    const phicore::adapter::v1::Utf8String &sdkVersion() const noexcept;
+    AdapterDescriptor &setSdkVersion(phicore::adapter::v1::Utf8String sdkVersion);
     /// Inline icon SVG markup.
-    phicore::adapter::v1::Utf8String iconSvg;
+    const phicore::adapter::v1::Utf8String &iconSvg() const noexcept;
+    AdapterDescriptor &setIconSvg(phicore::adapter::v1::Utf8String iconSvg);
     /// Optional image payload (base64 text).
-    phicore::adapter::v1::Utf8String imageBase64;
+    const phicore::adapter::v1::Utf8String &imageBase64() const noexcept;
+    AdapterDescriptor &setImageBase64(phicore::adapter::v1::Utf8String imageBase64);
     /// Default device timeout in milliseconds.
-    int timeoutMs = 0;
+    int timeoutMs() const noexcept;
+    AdapterDescriptor &setTimeoutMs(int timeoutMs);
     /// Maximum allowed instances (`0` => unlimited).
-    int maxInstances = 0;
-    /// Adapter capabilities.
-    phicore::adapter::v1::AdapterCapabilities capabilities;
-    /// Adapter config forms; none for an adapter without settings.
-    std::optional<phicore::adapter::v1::AdapterConfigSchema> configSchema;
+    int maxInstances() const noexcept;
+    AdapterDescriptor &setMaxInstances(int maxInstances);
+    const phicore::adapter::v1::AdapterCapabilities &capabilities() const noexcept;
+    phicore::adapter::v1::AdapterCapabilities &capabilities();
+    AdapterDescriptor &setCapabilities(phicore::adapter::v1::AdapterCapabilities capabilities);
+    /// The config forms; null for an adapter without settings.
+    const phicore::adapter::v1::AdapterConfigSchema *configSchema() const noexcept;
+    AdapterDescriptor &setConfigSchema(phicore::adapter::v1::AdapterConfigSchema schema);
+    AdapterDescriptor &clearConfigSchema();
+
+private:
+    struct Private;
+    const Private &p() const noexcept;
+    Private &m();
+    std::unique_ptr<Private> d;
 };
 
 // Shared log vocabulary.

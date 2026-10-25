@@ -1181,10 +1181,10 @@ LogFilterCache buildLogFilterCache(const phicore::adapter::v1::Adapter &adapter)
     LogFilterCache cache;
     cache.hasConfig = true;
     cache.forwardingEnabled =
-        phicore::adapter::v1::hasFlag(adapter.options, phicore::adapter::v1::AdapterOption::EnableLogs);
+        phicore::adapter::v1::hasFlag(adapter.options(), phicore::adapter::v1::AdapterOption::EnableLogs);
 
     LogFilterConfig filter;
-    if (!parseLogFilterConfig(adapter.metaJson, &filter))
+    if (!parseLogFilterConfig(adapter.metaJson(), &filter))
         filter = LogFilterConfig{};
     cache.minLevelPriority = logLevelPriority(filter.minLevel);
     cache.allowAllCategories = filter.allowAllCategories;
@@ -1435,9 +1435,9 @@ std::string channelToJson(const Channel &channel)
             out.push_back(',');
         firstChoice = false;
         out += "{\"value\":";
-        out += jsonQuoted(choice.value);
+        out += jsonQuoted(choice.value());
         out += ",\"label\":";
-        out += jsonQuoted(choice.label);
+        out += jsonQuoted(choice.label());
         out.push_back('}');
     }
     out.push_back(']');
@@ -1538,11 +1538,11 @@ std::string configEnumName(std::string_view enumType, int value)
 void appendFormLayoutJson(std::string &out, const phicore::adapter::v1::AdapterFormLayout &layout)
 {
     out += "{\"width\":";
-    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.width)));
+    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.width())));
     out += ",\"columns\":";
-    out += std::to_string(layout.columns);
+    out += std::to_string(layout.columns());
     out += ",\"labelWidth\":";
-    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.labelWidth)));
+    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.labelWidth())));
     out.push_back('}');
 }
 
@@ -1555,9 +1555,9 @@ void appendOptionListJson(std::string &out, const phicore::adapter::v1::AdapterC
             out.push_back(',');
         first = false;
         out += "{\"value\":";
-        out += jsonQuoted(option.value);
+        out += jsonQuoted(option.value());
         out += ",\"label\":";
-        out += jsonQuoted(option.label.empty() ? option.value : option.label);
+        out += jsonQuoted(option.label().empty() ? option.value() : option.label());
         out.push_back('}');
     }
     out.push_back(']');
@@ -1569,101 +1569,102 @@ void appendConfigFieldJson(std::string &out, const phicore::adapter::v1::Adapter
     out.push_back('{');
     bool first = true;
     appendFieldPrefix(out, first, "key");
-    out += jsonQuoted(field.key);
+    out += jsonQuoted(field.key());
     appendFieldPrefix(out, first, "type");
-    out += jsonQuoted(configEnumName("AdapterConfigFieldType", static_cast<int>(field.type)));
+    out += jsonQuoted(configEnumName("AdapterConfigFieldType", static_cast<int>(field.type())));
     appendFieldPrefix(out, first, "label");
-    out += jsonQuoted(field.label);
-    if (!field.description.empty()) {
+    out += jsonQuoted(field.label());
+    if (!field.description().empty()) {
         appendFieldPrefix(out, first, "description");
-        out += jsonQuoted(field.description);
+        out += jsonQuoted(field.description());
     }
-    if (!field.placeholder.empty()) {
+    if (!field.placeholder().empty()) {
         appendFieldPrefix(out, first, "placeholder");
-        out += jsonQuoted(field.placeholder);
+        out += jsonQuoted(field.placeholder());
     }
-    if (!std::holds_alternative<std::monostate>(field.defaultValue)) {
+    if (!std::holds_alternative<std::monostate>(field.defaultValue())) {
         appendFieldPrefix(out, first, "default");
-        appendScalarJson(out, field.defaultValue);
+        appendScalarJson(out, field.defaultValue());
     }
-    if (field.flags != AdapterConfigFieldFlag::None) {
+    if (field.flags() != AdapterConfigFieldFlag::None) {
         appendFieldPrefix(out, first, "flags");
-        appendArrayOfStrings(out, enum_names::flagNamesFor("AdapterConfigFieldFlag", static_cast<int>(field.flags)));
+        appendArrayOfStrings(out, enum_names::flagNamesFor("AdapterConfigFieldFlag", static_cast<int>(field.flags())));
     }
-    if (!field.options.empty()) {
+    if (!field.options().empty()) {
         appendFieldPrefix(out, first, "choices");
-        appendOptionListJson(out, field.options);
+        appendOptionListJson(out, field.options());
     }
-    if (!field.choicesFrom.empty()) {
+    if (!field.choicesFrom().empty()) {
         appendFieldPrefix(out, first, "choicesFrom");
-        out += jsonQuoted(field.choicesFrom);
+        out += jsonQuoted(field.choicesFrom());
     }
-    if (!field.perChoiceOf.empty()) {
+    if (!field.perChoiceOf().empty()) {
         appendFieldPrefix(out, first, "perChoiceOf");
-        out += jsonQuoted(field.perChoiceOf);
+        out += jsonQuoted(field.perChoiceOf());
     }
-    if (!field.parentActionId.empty()) {
+    if (!field.parentActionId().empty()) {
         appendFieldPrefix(out, first, "parentActionId");
-        out += jsonQuoted(field.parentActionId);
+        out += jsonQuoted(field.parentActionId());
     }
-    if (!field.actions.empty()) {
+    if (!field.actions().empty()) {
         appendFieldPrefix(out, first, "actions");
         out.push_back('[');
         bool firstAction = true;
-        for (const AdapterConfigAction &action : field.actions) {
+        for (const AdapterConfigAction &action : field.actions()) {
             if (!firstAction)
                 out.push_back(',');
             firstAction = false;
             out += "{\"id\":";
-            out += jsonQuoted(action.id);
+            out += jsonQuoted(action.id());
             out += ",\"label\":";
-            out += jsonQuoted(action.label);
+            out += jsonQuoted(action.label());
             out.push_back('}');
         }
         out.push_back(']');
     }
-    if (!field.visibility.fieldKey.empty()) {
+    const AdapterConfigFieldVisibility &visibility = field.visibility();
+    if (!visibility.fieldKey().empty()) {
         appendFieldPrefix(out, first, "visibility");
         out += "{\"fieldKey\":";
-        out += jsonQuoted(field.visibility.fieldKey);
+        out += jsonQuoted(visibility.fieldKey());
         out += ",\"value\":";
-        appendScalarJson(out, field.visibility.value);
+        appendScalarJson(out, visibility.value());
         out += ",\"op\":";
-        out += jsonQuoted(configEnumName("AdapterConfigVisibilityOp", static_cast<int>(field.visibility.op)));
+        out += jsonQuoted(configEnumName("AdapterConfigVisibilityOp", static_cast<int>(visibility.op())));
         out.push_back('}');
     }
-    const AdapterConfigFieldLayout &layout = field.layout;
+    const AdapterConfigFieldLayout &layout = field.layout();
     appendFieldPrefix(out, first, "layout");
     out += "{\"position\":";
-    out += std::to_string(layout.position);
+    out += std::to_string(layout.position());
     out += ",\"cells\":";
-    out += std::to_string(layout.cells);
+    out += std::to_string(layout.cells());
     out += ",\"newRow\":";
-    out += layout.newRow ? "true" : "false";
+    out += layout.newRow() ? "true" : "false";
     out += ",\"controlWidth\":";
-    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.controlWidth)));
+    out += jsonQuoted(configEnumName("AdapterConfigSize", static_cast<int>(layout.controlWidth())));
     out += ",\"labelPosition\":";
-    out += jsonQuoted(configEnumName("AdapterConfigLabelPosition", static_cast<int>(layout.labelPosition)));
+    out += jsonQuoted(configEnumName("AdapterConfigLabelPosition", static_cast<int>(layout.labelPosition())));
     out += ",\"actionPosition\":";
-    out += jsonQuoted(configEnumName("AdapterConfigActionPosition", static_cast<int>(layout.actionPosition)));
+    out += jsonQuoted(configEnumName("AdapterConfigActionPosition", static_cast<int>(layout.actionPosition())));
     out.push_back('}');
-    if (field.minValue) {
+    if (const auto minValue = field.minValue()) {
         appendFieldPrefix(out, first, "min");
-        appendDoubleJson(out, *field.minValue);
+        appendDoubleJson(out, *minValue);
     }
-    if (field.maxValue) {
+    if (const auto maxValue = field.maxValue()) {
         appendFieldPrefix(out, first, "max");
-        appendDoubleJson(out, *field.maxValue);
+        appendDoubleJson(out, *maxValue);
     }
-    if (field.step) {
+    if (const auto step = field.step()) {
         appendFieldPrefix(out, first, "step");
-        appendDoubleJson(out, *field.step);
+        appendDoubleJson(out, *step);
     }
-    if (!field.appendTo.empty()) {
+    if (!field.appendTo().empty()) {
         appendFieldPrefix(out, first, "appendTo");
-        out += jsonQuoted(field.appendTo);
+        out += jsonQuoted(field.appendTo());
     }
-    if (field.reloadsForm) {
+    if (field.reloadsForm()) {
         appendFieldPrefix(out, first, "reloadsForm");
         out += "true";
     }
@@ -1675,15 +1676,15 @@ void appendConfigSectionJson(std::string &out, const phicore::adapter::v1::Adapt
     out.push_back('{');
     bool first = true;
     appendFieldPrefix(out, first, "title");
-    out += jsonQuoted(section.title);
+    out += jsonQuoted(section.title());
     appendFieldPrefix(out, first, "description");
-    out += jsonQuoted(section.description);
+    out += jsonQuoted(section.description());
     appendFieldPrefix(out, first, "layout");
-    appendFormLayoutJson(out, section.layout);
+    appendFormLayoutJson(out, section.layout());
     appendFieldPrefix(out, first, "fields");
     out.push_back('[');
     bool firstField = true;
-    for (const auto &field : section.fields) {
+    for (const auto &field : section.fields()) {
         if (!firstField)
             out.push_back(',');
         firstField = false;
@@ -1699,45 +1700,46 @@ std::string actionToJson(const AdapterActionDescriptor &action)
     out.push_back('{');
     bool first = true;
     appendFieldPrefix(out, first, "id");
-    out += jsonQuoted(action.id);
+    out += jsonQuoted(action.id());
     appendFieldPrefix(out, first, "label");
-    out += jsonQuoted(action.label);
+    out += jsonQuoted(action.label());
     appendFieldPrefix(out, first, "description");
-    out += jsonQuoted(action.description);
+    out += jsonQuoted(action.description());
     appendFieldPrefix(out, first, "placement");
-    out += jsonQuoted(configEnumName("AdapterActionPlacement", static_cast<int>(action.placement)));
+    out += jsonQuoted(configEnumName("AdapterActionPlacement", static_cast<int>(action.placement())));
     appendFieldPrefix(out, first, "hasForm");
-    out += (action.hasForm ? "true" : "false");
+    out += (action.hasForm() ? "true" : "false");
     appendFieldPrefix(out, first, "danger");
-    out += (action.danger ? "true" : "false");
+    out += (action.danger() ? "true" : "false");
     appendFieldPrefix(out, first, "cooldownMs");
-    out += std::to_string(action.cooldownMs);
+    out += std::to_string(action.cooldownMs());
     appendFieldPrefix(out, first, "timeoutMs");
-    out += std::to_string(action.timeoutMs);
-    if (action.hasForm) {
+    out += std::to_string(action.timeoutMs());
+    if (action.hasForm()) {
         appendFieldPrefix(out, first, "formLayout");
-        appendFormLayoutJson(out, action.formLayout);
+        appendFormLayoutJson(out, action.formLayout());
         appendFieldPrefix(out, first, "loadFormOnOpen");
-        out += (action.loadFormOnOpen ? "true" : "false");
-        if (!action.submitLabel.empty()) {
+        out += (action.loadFormOnOpen() ? "true" : "false");
+        if (!action.submitLabel().empty()) {
             appendFieldPrefix(out, first, "submitLabel");
-            out += jsonQuoted(action.submitLabel);
+            out += jsonQuoted(action.submitLabel());
         }
     }
-    if (!action.resultField.empty()) {
+    if (!action.resultField().empty()) {
         appendFieldPrefix(out, first, "resultField");
-        out += jsonQuoted(action.resultField);
+        out += jsonQuoted(action.resultField());
     }
-    if (!action.confirm.title.empty()) {
+    const phicore::adapter::v1::AdapterActionConfirm &confirm = action.confirm();
+    if (!confirm.title().empty()) {
         appendFieldPrefix(out, first, "confirm");
         out += "{\"title\":";
-        out += jsonQuoted(action.confirm.title);
+        out += jsonQuoted(confirm.title());
         out += ",\"message\":";
-        out += jsonQuoted(action.confirm.message);
+        out += jsonQuoted(confirm.message());
         out += ",\"okLabel\":";
-        out += jsonQuoted(action.confirm.okLabel);
+        out += jsonQuoted(confirm.okLabel());
         out += ",\"cancelLabel\":";
-        out += jsonQuoted(action.confirm.cancelLabel);
+        out += jsonQuoted(confirm.cancelLabel());
         out.push_back('}');
     }
     out.push_back('}');
@@ -1750,7 +1752,7 @@ std::string actionListToJson(const std::vector<AdapterActionDescriptor> &actions
     out.push_back('[');
     bool first = true;
     for (const AdapterActionDescriptor &action : actions) {
-        if (action.id.empty())
+        if (action.id().empty())
             continue;
         if (!first)
             out.push_back(',');
@@ -1775,46 +1777,46 @@ void appendScalarFieldsJson(std::string &out, const phicore::adapter::v1::Channe
 /// The `resultValue` of an action result, in the shape its result type names.
 void appendActionResultValueJson(std::string &out, const ActionResponse &response)
 {
-    switch (response.resultType) {
+    switch (response.resultType()) {
     case ActionResultType::Display: {
-        const auto &display = response.display;
+        const auto &display = response.display();
         out += "{\"text\":";
-        out += jsonQuoted(display.text);
-        if (!display.code.empty()) {
+        out += jsonQuoted(display.text());
+        if (!display.code().empty()) {
             out += ",\"code\":";
-            out += jsonQuoted(display.code);
+            out += jsonQuoted(display.code());
         }
-        if (!display.qr.empty()) {
+        if (!display.qr().empty()) {
             out += ",\"qr\":";
-            out += jsonQuoted(display.qr);
+            out += jsonQuoted(display.qr());
         }
         out.push_back('}');
         return;
     }
     case ActionResultType::Run: {
-        const auto &run = response.run;
+        const auto &run = response.run();
         out += "{\"runId\":";
-        out += jsonQuoted(run.runId);
+        out += jsonQuoted(run.runId());
         out += ",\"streamKind\":";
-        out += jsonQuoted(run.streamKind);
+        out += jsonQuoted(run.streamKind());
         out += ",\"streamParams\":";
-        appendScalarFieldsJson(out, run.streamParams);
-        if (!run.abortActionId.empty()) {
+        appendScalarFieldsJson(out, run.streamParams());
+        if (!run.abortActionId().empty()) {
             out += ",\"abortActionId\":";
-            out += jsonQuoted(run.abortActionId);
+            out += jsonQuoted(run.abortActionId());
             out += ",\"abortParams\":";
-            appendScalarFieldsJson(out, run.abortParams);
+            appendScalarFieldsJson(out, run.abortParams());
         }
         out += ",\"batch\":";
-        out += run.batch ? "true" : "false";
+        out += run.batch() ? "true" : "false";
         out.push_back('}');
         return;
     }
     case ActionResultType::Data:
-        out += jsonTokenOrDefault(response.dataJson, "null");
+        out += jsonTokenOrDefault(response.dataJson(), "null");
         return;
     default:
-        appendScalarJson(out, response.resultValue);
+        appendScalarJson(out, response.resultValue());
         return;
     }
 }
@@ -1825,18 +1827,113 @@ std::string capabilitiesToJson(const AdapterCapabilities &caps)
     out.push_back('{');
     bool first = true;
     appendFieldPrefix(out, first, "required");
-    out += std::to_string(static_cast<int>(caps.required));
+    out += std::to_string(static_cast<int>(caps.required()));
     appendFieldPrefix(out, first, "optional");
-    out += std::to_string(static_cast<int>(caps.optional));
+    out += std::to_string(static_cast<int>(caps.optional()));
     appendFieldPrefix(out, first, "flags");
-    out += std::to_string(static_cast<int>(caps.flags));
+    out += std::to_string(static_cast<int>(caps.flags()));
     appendFieldPrefix(out, first, "factoryActions");
-    out += actionListToJson(caps.factoryActions);
+    out += actionListToJson(caps.factoryActions());
     appendFieldPrefix(out, first, "instanceActions");
-    out += actionListToJson(caps.instanceActions);
+    out += actionListToJson(caps.instanceActions());
     out.push_back('}');
     return out;
 }
+
+} // namespace
+
+// --- AdapterDescriptor -------------------------------------------------------
+// Behind its d-pointer like the v1 types it carries; the same rules apply.
+
+struct AdapterDescriptor::Private {
+    phicore::adapter::v1::Utf8String pluginType;
+    phicore::adapter::v1::Utf8String displayName;
+    phicore::adapter::v1::Utf8String description;
+    phicore::adapter::v1::Utf8String apiVersion;
+    phicore::adapter::v1::Utf8String sdkVersion;
+    phicore::adapter::v1::Utf8String iconSvg;
+    phicore::adapter::v1::Utf8String imageBase64;
+    int timeoutMs = 0;
+    int maxInstances = 0;
+    phicore::adapter::v1::AdapterCapabilities capabilities;
+    std::optional<phicore::adapter::v1::AdapterConfigSchema> configSchema;
+};
+
+AdapterDescriptor::AdapterDescriptor() : d(std::make_unique<Private>()) {}
+AdapterDescriptor::AdapterDescriptor(const AdapterDescriptor &other)
+    : d(other.d ? std::make_unique<Private>(*other.d) : nullptr)
+{
+}
+AdapterDescriptor::AdapterDescriptor(AdapterDescriptor &&other) noexcept : d(std::move(other.d)) {}
+AdapterDescriptor &AdapterDescriptor::operator=(const AdapterDescriptor &other)
+{
+    if (this != &other)
+        d = other.d ? std::make_unique<Private>(*other.d) : nullptr;
+    return *this;
+}
+AdapterDescriptor &AdapterDescriptor::operator=(AdapterDescriptor &&other) noexcept
+{
+    d = std::move(other.d);
+    return *this;
+}
+AdapterDescriptor::~AdapterDescriptor() = default;
+const AdapterDescriptor::Private &AdapterDescriptor::p() const noexcept
+{
+    static const Private empty;
+    return d ? *d : empty;
+}
+AdapterDescriptor::Private &AdapterDescriptor::m()
+{
+    if (!d)
+        d = std::make_unique<Private>();
+    return *d;
+}
+
+#define PHI_DESCRIPTOR_FIELD(Type, name, Setter)                                                        \
+    Type AdapterDescriptor::name() const noexcept { return p().name; }                                  \
+    AdapterDescriptor &AdapterDescriptor::Setter(std::remove_cvref_t<Type> value)                       \
+    {                                                                                                   \
+        m().name = std::move(value);                                                                    \
+        return *this;                                                                                   \
+    }
+PHI_DESCRIPTOR_FIELD(const phicore::adapter::v1::Utf8String &, pluginType, setPluginType)
+PHI_DESCRIPTOR_FIELD(const phicore::adapter::v1::Utf8String &, displayName, setDisplayName)
+PHI_DESCRIPTOR_FIELD(const phicore::adapter::v1::Utf8String &, description, setDescription)
+PHI_DESCRIPTOR_FIELD(const phicore::adapter::v1::Utf8String &, apiVersion, setApiVersion)
+PHI_DESCRIPTOR_FIELD(const phicore::adapter::v1::Utf8String &, sdkVersion, setSdkVersion)
+PHI_DESCRIPTOR_FIELD(const phicore::adapter::v1::Utf8String &, iconSvg, setIconSvg)
+PHI_DESCRIPTOR_FIELD(const phicore::adapter::v1::Utf8String &, imageBase64, setImageBase64)
+PHI_DESCRIPTOR_FIELD(int, timeoutMs, setTimeoutMs)
+PHI_DESCRIPTOR_FIELD(int, maxInstances, setMaxInstances)
+#undef PHI_DESCRIPTOR_FIELD
+
+const phicore::adapter::v1::AdapterCapabilities &AdapterDescriptor::capabilities() const noexcept
+{
+    return p().capabilities;
+}
+phicore::adapter::v1::AdapterCapabilities &AdapterDescriptor::capabilities() { return m().capabilities; }
+AdapterDescriptor &AdapterDescriptor::setCapabilities(phicore::adapter::v1::AdapterCapabilities capabilities)
+{
+    m().capabilities = std::move(capabilities);
+    return *this;
+}
+const phicore::adapter::v1::AdapterConfigSchema *AdapterDescriptor::configSchema() const noexcept
+{
+    const Private &priv = p();
+    return priv.configSchema ? &*priv.configSchema : nullptr;
+}
+AdapterDescriptor &AdapterDescriptor::setConfigSchema(phicore::adapter::v1::AdapterConfigSchema schema)
+{
+    m().configSchema = std::move(schema);
+    return *this;
+}
+AdapterDescriptor &AdapterDescriptor::clearConfigSchema()
+{
+    m().configSchema.reset();
+    return *this;
+}
+
+namespace {
 
 std::string descriptorToJson(const AdapterDescriptor &descriptor)
 {
@@ -1844,71 +1941,49 @@ std::string descriptorToJson(const AdapterDescriptor &descriptor)
     out.push_back('{');
     bool first = true;
     appendFieldPrefix(out, first, "pluginType");
-    out += jsonQuoted(descriptor.pluginType);
+    out += jsonQuoted(descriptor.pluginType());
     appendFieldPrefix(out, first, "displayName");
-    out += jsonQuoted(descriptor.displayName);
+    out += jsonQuoted(descriptor.displayName());
     appendFieldPrefix(out, first, "description");
-    out += jsonQuoted(descriptor.description);
+    out += jsonQuoted(descriptor.description());
     appendFieldPrefix(out, first, "apiVersion");
-    out += jsonQuoted(descriptor.apiVersion);
+    out += jsonQuoted(descriptor.apiVersion());
     appendFieldPrefix(out, first, "sdkVersion");
-    out += jsonQuoted(descriptor.sdkVersion);
+    out += jsonQuoted(descriptor.sdkVersion());
     appendFieldPrefix(out, first, "iconSvg");
-    out += jsonQuoted(descriptor.iconSvg);
+    out += jsonQuoted(descriptor.iconSvg());
     appendFieldPrefix(out, first, "imageBase64");
-    out += jsonQuoted(descriptor.imageBase64);
+    out += jsonQuoted(descriptor.imageBase64());
     appendFieldPrefix(out, first, "timeoutMs");
-    out += std::to_string(descriptor.timeoutMs);
+    out += std::to_string(descriptor.timeoutMs());
     appendFieldPrefix(out, first, "maxInstances");
-    out += std::to_string(descriptor.maxInstances);
+    out += std::to_string(descriptor.maxInstances());
     appendFieldPrefix(out, first, "capabilities");
-    out += capabilitiesToJson(descriptor.capabilities);
+    out += capabilitiesToJson(descriptor.capabilities());
     appendFieldPrefix(out, first, "configSchema");
-    out += descriptor.configSchema ? configSchemaToJson(*descriptor.configSchema) : "null";
+    out += descriptor.configSchema() ? configSchemaToJson(*descriptor.configSchema()) : "null";
     out.push_back('}');
     return out;
 }
 
 CmdResponse defaultCmdResponse(CmdId cmdId, const std::string &message)
 {
-    CmdResponse response;
-    response.id = cmdId;
-    response.status = CmdStatus::NotImplemented;
-    response.error = message;
-    response.tsMs = nowMs();
-    return response;
+    return CmdResponse::failure(cmdId, CmdStatus::NotImplemented, message).setTsMs(nowMs());
 }
 
 ActionResponse defaultActionResponse(CmdId cmdId, const std::string &message)
 {
-    ActionResponse response;
-    response.id = cmdId;
-    response.status = CmdStatus::NotImplemented;
-    response.error = message;
-    response.resultType = ActionResultType::None;
-    response.tsMs = nowMs();
-    return response;
+    return ActionResponse::failure(cmdId, CmdStatus::NotImplemented, message).setTsMs(nowMs());
 }
 
 CmdResponse invalidArgumentCmdResponse(CmdId cmdId, const std::string &message)
 {
-    CmdResponse response;
-    response.id = cmdId;
-    response.status = CmdStatus::InvalidArgument;
-    response.error = message;
-    response.tsMs = nowMs();
-    return response;
+    return CmdResponse::failure(cmdId, CmdStatus::InvalidArgument, message).setTsMs(nowMs());
 }
 
 ActionResponse invalidArgumentActionResponse(CmdId cmdId, const std::string &message)
 {
-    ActionResponse response;
-    response.id = cmdId;
-    response.status = CmdStatus::InvalidArgument;
-    response.error = message;
-    response.resultType = ActionResultType::None;
-    response.tsMs = nowMs();
-    return response;
+    return ActionResponse::failure(cmdId, CmdStatus::InvalidArgument, message).setTsMs(nowMs());
 }
 
 } // namespace
@@ -1946,9 +2021,9 @@ bool shouldForwardLog(const LogFilterCache &cache, LogLevel level, LogCategory c
 phicore::adapter::v1::JsonText configSchemaToJson(const phicore::adapter::v1::AdapterConfigSchema &schema)
 {
     std::string out = "{\"factory\":";
-    appendConfigSectionJson(out, schema.factory);
+    appendConfigSectionJson(out, schema.factory());
     out += ",\"instance\":";
-    appendConfigSectionJson(out, schema.instance);
+    appendConfigSectionJson(out, schema.instance());
     out.push_back('}');
     return out;
 }
@@ -1960,17 +2035,17 @@ phicore::adapter::v1::JsonText formValuesToJson(const phicore::adapter::v1::Adap
     out.push_back('{');
     bool first = true;
     for (const AdapterFormValue &value : values) {
-        if (value.key.empty())
+        if (value.key().empty())
             continue;
-        appendFieldPrefix(out, first, value.key);
-        if (const auto *scalar = std::get_if<ScalarValue>(&value.data)) {
+        appendFieldPrefix(out, first, value.key());
+        if (const auto *scalar = std::get_if<ScalarValue>(&value.data())) {
             appendScalarJson(out, *scalar);
-        } else if (const auto *list = std::get_if<ScalarList>(&value.data)) {
+        } else if (const auto *list = std::get_if<ScalarList>(&value.data())) {
             appendScalarListJson(out, *list);
         } else {
             out.push_back('{');
             bool firstChoice = true;
-            for (const auto &[choice, entry] : std::get<AdapterConfigPerChoiceValues>(value.data)) {
+            for (const auto &[choice, entry] : std::get<AdapterConfigPerChoiceValues>(value.data())) {
                 appendFieldPrefix(out, firstChoice, choice);
                 appendScalarJson(out, entry);
             }
@@ -2029,10 +2104,10 @@ phicore::adapter::v1::JsonText fieldChoicesToJson(const phicore::adapter::v1::Ad
     out.push_back('{');
     bool first = true;
     for (const auto &entry : choices) {
-        if (entry.key.empty())
+        if (entry.key().empty())
             continue;
-        appendFieldPrefix(out, first, entry.key);
-        appendOptionListJson(out, entry.choices);
+        appendFieldPrefix(out, first, entry.key());
+        appendOptionListJson(out, entry.choices());
     }
     out.push_back('}');
     return out;
@@ -2231,19 +2306,18 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
 
     auto parseAdapterFromMap = [](const MemberMap &adapterMap) {
         phicore::adapter::v1::Adapter adapter;
-        adapter.name = decodeStringOrDefault(member(adapterMap, "name"));
-        adapter.host = decodeStringOrDefault(member(adapterMap, "host"));
-        adapter.ip = decodeStringOrDefault(member(adapterMap, "ip"));
-        adapter.port =
-            static_cast<std::uint16_t>(parseIntOrDefault(member(adapterMap, "port"), 0));
-        adapter.user = decodeStringOrDefault(member(adapterMap, "user"));
-        adapter.password = decodeStringOrDefault(member(adapterMap, "password"));
-        adapter.token = decodeStringOrDefault(member(adapterMap, "token"));
-        adapter.pluginType = decodeStringOrDefault(member(adapterMap, "pluginType"));
-        adapter.externalId = decodeStringOrDefault(member(adapterMap, "externalId"));
-        adapter.metaJson = std::string(member(adapterMap, "meta"));
-        adapter.options = static_cast<phicore::adapter::v1::AdapterOption>(
-            parseIntOrDefault(member(adapterMap, "options"), 0));
+        adapter.setName(decodeStringOrDefault(member(adapterMap, "name")))
+            .setHost(decodeStringOrDefault(member(adapterMap, "host")))
+            .setIp(decodeStringOrDefault(member(adapterMap, "ip")))
+            .setPort(static_cast<std::uint16_t>(parseIntOrDefault(member(adapterMap, "port"), 0)))
+            .setUser(decodeStringOrDefault(member(adapterMap, "user")))
+            .setPassword(decodeStringOrDefault(member(adapterMap, "password")))
+            .setToken(decodeStringOrDefault(member(adapterMap, "token")))
+            .setPluginType(decodeStringOrDefault(member(adapterMap, "pluginType")))
+            .setExternalId(decodeStringOrDefault(member(adapterMap, "externalId")))
+            .setMetaJson(std::string(member(adapterMap, "meta")))
+            .setOptions(static_cast<phicore::adapter::v1::AdapterOption>(
+                parseIntOrDefault(member(adapterMap, "options"), 0)));
         return adapter;
     };
 
@@ -2254,18 +2328,18 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
             request.correlationId = header.correlationId;
             request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
             request.staticConfigJson = std::string(member(payloadMap, "staticConfig"));
-            request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-            request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
+            request.adapter.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+            request.adapter.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
 
             MemberMap adapterMap;
             const std::string_view adapterToken = member(payloadMap, "adapter");
             if (parseObjectMembers(adapterToken, &adapterMap, nullptr)) {
                 request.adapter = parseAdapterFromMap(adapterMap);
             }
-            if (request.adapter.pluginType.empty())
-                request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
-            if (request.adapter.externalId.empty())
-                request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+            if (request.adapter.pluginType().empty())
+                request.adapter.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
+            if (request.adapter.externalId().empty())
+                request.adapter.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
             m_handlers.onBootstrap(request);
         }
         return true;
@@ -2278,16 +2352,16 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
             request.correlationId = header.correlationId;
             request.adapterId = static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0));
             request.staticConfigJson = std::string(member(payloadMap, "staticConfig"));
-            request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
-            request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
+            request.adapter.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+            request.adapter.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
 
             MemberMap adapterMap;
             if (parseObjectMembers(member(payloadMap, "adapter"), &adapterMap, nullptr))
                 request.adapter = parseAdapterFromMap(adapterMap);
-            if (request.adapter.pluginType.empty())
-                request.adapter.pluginType = decodeStringOrDefault(member(payloadMap, "pluginType"));
-            if (request.adapter.externalId.empty())
-                request.adapter.externalId = decodeStringOrDefault(member(payloadMap, "externalId"));
+            if (request.adapter.pluginType().empty())
+                request.adapter.setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
+            if (request.adapter.externalId().empty())
+                request.adapter.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
             m_handlers.onConfigChanged(request);
         }
         return true;
@@ -2448,7 +2522,7 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         if ((request.kind != "live" && request.kind != "snapshot")
             || (request.profile != "main" && request.profile != "sub")) {
             ActionResponse response = defaultActionResponse(cmdId, "Stream source kind must be live or snapshot, profile main or sub");
-            response.status = CmdStatus::InvalidArgument;
+            response.setStatus(CmdStatus::InvalidArgument);
             return sendActionResult(response, nullptr);
         }
         if (m_handlers.onStreamSourceRequest) {
@@ -2734,60 +2808,60 @@ bool SidecarDispatcher::flushSendQueue(phicore::adapter::v1::Utf8String *error)
 
 bool SidecarDispatcher::sendCmdResult(const CmdResponse &response, phicore::adapter::v1::Utf8String *error)
 {
-    const std::int64_t tsMs = response.tsMs > 0 ? response.tsMs : nowMs();
+    const std::int64_t tsMs = response.tsMs() > 0 ? response.tsMs() : nowMs();
     std::string body;
     bool first = true;
-    openEnvelopeWithCmdId(body, IpcCommand::ResultCmd, response.id, first);
+    openEnvelopeWithCmdId(body, IpcCommand::ResultCmd, response.id(), first);
     appendFieldPrefix(body, first, "status");
-    body += std::to_string(static_cast<int>(response.status));
+    body += std::to_string(static_cast<int>(response.status()));
     appendFieldPrefix(body, first, "error");
-    body += jsonQuoted(response.error);
+    body += jsonQuoted(response.error());
     appendFieldPrefix(body, first, "errorCtx");
-    body += jsonQuoted(response.errorContext);
+    body += jsonQuoted(response.errorContext());
     appendFieldPrefix(body, first, "errorParams");
-    appendScalarListJson(body, response.errorParams);
+    appendScalarListJson(body, response.errorParams());
     appendFieldPrefix(body, first, "finalValue");
-    appendScalarJson(body, response.finalValue);
+    appendScalarJson(body, response.finalValue());
     appendFieldPrefix(body, first, "tsMs");
     body += std::to_string(tsMs);
     closeEnvelope(body);
-    return sendJson(MessageType::Response, response.id, body, error);
+    return sendJson(MessageType::Response, response.id(), body, error);
 }
 
 bool SidecarDispatcher::sendActionResult(const ActionResponse &response, phicore::adapter::v1::Utf8String *error)
 {
-    const std::int64_t tsMs = response.tsMs > 0 ? response.tsMs : nowMs();
+    const std::int64_t tsMs = response.tsMs() > 0 ? response.tsMs() : nowMs();
     std::string body;
     bool first = true;
-    openEnvelopeWithCmdId(body, IpcCommand::ResultAction, response.id, first);
+    openEnvelopeWithCmdId(body, IpcCommand::ResultAction, response.id(), first);
     appendFieldPrefix(body, first, "status");
-    body += std::to_string(static_cast<int>(response.status));
+    body += std::to_string(static_cast<int>(response.status()));
     appendFieldPrefix(body, first, "error");
-    body += jsonQuoted(response.error);
+    body += jsonQuoted(response.error());
     appendFieldPrefix(body, first, "errorCtx");
-    body += jsonQuoted(response.errorContext);
+    body += jsonQuoted(response.errorContext());
     appendFieldPrefix(body, first, "errorParams");
-    appendScalarListJson(body, response.errorParams);
+    appendScalarListJson(body, response.errorParams());
     appendFieldPrefix(body, first, "resultType");
-    body += std::to_string(static_cast<int>(response.resultType));
+    body += std::to_string(static_cast<int>(response.resultType()));
     appendFieldPrefix(body, first, "resultValue");
     appendActionResultValueJson(body, response);
-    if (!response.formValues.empty()) {
+    if (!response.formValues().empty()) {
         appendFieldPrefix(body, first, "formValues");
-        body += formValuesToJson(response.formValues);
+        body += formValuesToJson(response.formValues());
     }
-    if (!response.fieldChoices.empty()) {
+    if (!response.fieldChoices().empty()) {
         appendFieldPrefix(body, first, "fieldChoices");
-        body += fieldChoicesToJson(response.fieldChoices);
+        body += fieldChoicesToJson(response.fieldChoices());
     }
-    if (response.reloadLayout) {
+    if (response.reloadLayout()) {
         appendFieldPrefix(body, first, "reloadLayout");
         body += "true";
     }
     appendFieldPrefix(body, first, "tsMs");
     body += std::to_string(tsMs);
     closeEnvelope(body);
-    return sendJson(MessageType::Response, response.id, body, error);
+    return sendJson(MessageType::Response, response.id(), body, error);
 }
 
 bool SidecarDispatcher::sendConnectionStateChanged(const phicore::adapter::v1::ExternalId &externalId,
@@ -2918,7 +2992,7 @@ bool SidecarDispatcher::sendAdapterDescriptor(const phicore::adapter::v1::Extern
     body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "descriptor");
     AdapterDescriptor stamped = descriptor;
-    stamped.sdkVersion = m_impl->builtAgainst;
+    stamped.setSdkVersion(m_impl->builtAgainst);
     body += descriptorToJson(stamped);
     closeEnvelope(body);
     return sendJson(MessageType::Response, correlationId, body, error);
@@ -2935,7 +3009,7 @@ bool SidecarDispatcher::sendAdapterDescriptorUpdated(const phicore::adapter::v1:
     body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "descriptor");
     AdapterDescriptor stamped = descriptor;
-    stamped.sdkVersion = m_impl->builtAgainst;
+    stamped.setSdkVersion(m_impl->builtAgainst);
     body += descriptorToJson(stamped);
     closeEnvelope(body);
     return sendJson(MessageType::Event, 0, body, error);
@@ -3404,16 +3478,17 @@ std::optional<phicore::adapter::v1::AdapterConfigSchema> AdapterFactory::configS
 AdapterDescriptor AdapterFactory::descriptor() const
 {
     AdapterDescriptor out;
-    out.pluginType = pluginType();
-    out.displayName = displayName();
-    out.description = description();
-    out.apiVersion = apiVersion();
-    out.iconSvg = iconSvg();
-    out.imageBase64 = imageBase64();
-    out.timeoutMs = timeoutMs();
-    out.maxInstances = maxInstances();
-    out.capabilities = capabilities();
-    out.configSchema = configSchema();
+    out.setPluginType(pluginType())
+        .setDisplayName(displayName())
+        .setDescription(description())
+        .setApiVersion(apiVersion())
+        .setIconSvg(iconSvg())
+        .setImageBase64(imageBase64())
+        .setTimeoutMs(timeoutMs())
+        .setMaxInstances(maxInstances())
+        .setCapabilities(capabilities());
+    if (auto schema = configSchema())
+        out.setConfigSchema(std::move(*schema));
     return out;
 }
 
@@ -3467,8 +3542,8 @@ bool AdapterFactory::sendError(LogCategory category,
 AdapterDescriptor AdapterFactory::factoryDescriptor() const
 {
     AdapterDescriptor descriptorValue = descriptor();
-    if (descriptorValue.pluginType.empty())
-        descriptorValue.pluginType = pluginType();
+    if (descriptorValue.pluginType().empty())
+        descriptorValue.setPluginType(pluginType());
     return descriptorValue;
 }
 bool AdapterFactory::sendFactoryDescriptorUpdated(phicore::adapter::v1::Utf8String *error)
@@ -3493,7 +3568,7 @@ bool AdapterFactory::sendResult(const phicore::adapter::v1::ActionResponse &resp
             *error = "Factory action result submitter not bound";
         return false;
     }
-    if (response.id == 0) {
+    if (response.id() == 0) {
         if (error)
             *error = "ActionResponse.id must be > 0";
         return false;
@@ -3981,7 +4056,7 @@ bool AdapterInstance::sendResult(const phicore::adapter::v1::CmdResponse &respon
             *error = "Command result submitter not bound";
         return false;
     }
-    if (response.id == 0) {
+    if (response.id() == 0) {
         if (error)
             *error = "CmdResponse.id must be > 0";
         return false;
@@ -3997,7 +4072,7 @@ bool AdapterInstance::sendResult(const phicore::adapter::v1::ActionResponse &res
             *error = "Action result submitter not bound";
         return false;
     }
-    if (response.id == 0) {
+    if (response.id() == 0) {
         if (error)
             *error = "ActionResponse.id must be > 0";
         return false;
@@ -4258,16 +4333,16 @@ const SidecarDispatcher *SidecarHost::dispatcher() const { return &m_dispatcher;
 phicore::adapter::v1::CmdResponse SidecarHost::normalizeCmdResponse(const phicore::adapter::v1::CmdResponse &response)
 {
     CmdResponse out = response;
-    if (out.tsMs <= 0)
-        out.tsMs = nowMs();
+    if (out.tsMs() <= 0)
+        out.setTsMs(nowMs());
     return out;
 }
 
 phicore::adapter::v1::ActionResponse SidecarHost::normalizeActionResponse(const phicore::adapter::v1::ActionResponse &response)
 {
     ActionResponse out = response;
-    if (out.tsMs <= 0)
-        out.tsMs = nowMs();
+    if (out.tsMs() <= 0)
+        out.setTsMs(nowMs());
     return out;
 }
 
@@ -4289,17 +4364,17 @@ const AdapterInstance *SidecarHost::findInstance(const phicore::adapter::v1::Ext
 
 AdapterInstance *SidecarHost::ensureInstance(const ConfigChangedRequest &request)
 {
-    if (!m_factory || request.adapter.externalId.empty())
+    if (!m_factory || request.adapter.externalId().empty())
         return nullptr;
-    if (!findRuntime(request.adapter.externalId)) {
+    if (!findRuntime(request.adapter.externalId())) {
         phicore::adapter::v1::Utf8String error;
         if (!createInstanceRuntime(request, &error)) {
             reportProtocolError("Failed to create instance runtime for externalId='"
-                            + request.adapter.externalId + "': " + error);
+                            + request.adapter.externalId() + "': " + error);
             return nullptr;
         }
     }
-    return findInstance(request.adapter.externalId);
+    return findInstance(request.adapter.externalId());
 }
 
 bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phicore::adapter::v1::Utf8String *error)
@@ -4309,23 +4384,23 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
             *error = "Factory not available";
         return false;
     }
-    if (request.adapter.externalId.empty()) {
+    if (request.adapter.externalId().empty()) {
         if (error)
             *error = "externalId is required";
         return false;
     }
-    if (findRuntime(request.adapter.externalId))
+    if (findRuntime(request.adapter.externalId()))
         return true;
 
     const AdapterDescriptor descriptor = m_factory->hostDescriptor();
-    if (descriptor.maxInstances > 0
-        && static_cast<int>(m_instances.size()) >= descriptor.maxInstances) {
+    if (descriptor.maxInstances() > 0
+        && static_cast<int>(m_instances.size()) >= descriptor.maxInstances()) {
         if (error)
             *error = "maxInstances reached";
         return false;
     }
 
-    std::unique_ptr<AdapterInstance> createdInstance = m_factory->hostCreateInstance(request.adapter.externalId);
+    std::unique_ptr<AdapterInstance> createdInstance = m_factory->hostCreateInstance(request.adapter.externalId());
     if (!createdInstance) {
         if (error)
             *error = "Factory createInstance returned null";
@@ -4333,7 +4408,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
     }
 
     std::unique_ptr<InstanceExecutionBackend> execution
-        = m_factory->hostCreateInstanceExecutionBackend(request.adapter.externalId);
+        = m_factory->hostCreateInstanceExecutionBackend(request.adapter.externalId());
     if (!execution) {
         if (error)
             *error = "Factory createInstanceExecutionBackend returned null";
@@ -4357,7 +4432,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
         [this](const phicore::adapter::v1::ActionResponse &response) {
             queueDeferredResult(DeferredActionResult{normalizeActionResponse(response)});
         });
-    createdInstance->bindContext(request.adapterId, request.adapter.pluginType, request.adapter.externalId);
+    createdInstance->bindContext(request.adapterId, request.adapter.pluginType(), request.adapter.externalId());
     // The configuration before the first start, not after it.
     //
     // An instance is created because a config.changed arrived, and that
@@ -4377,7 +4452,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
     createdInstance->cacheConfig(request);
 
     auto runtime = std::make_unique<InstanceRuntime>();
-    runtime->externalId = request.adapter.externalId;
+    runtime->externalId = request.adapter.externalId();
     runtime->instance = std::move(createdInstance);
     runtime->execution = std::move(execution);
 
@@ -4418,7 +4493,7 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
             if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
                 reportProtocolError("Execution backend stop failed after start timeout: " + stopError);
             if (error)
-                *error = "Timed out waiting for instance start completion for externalId='" + request.adapter.externalId + "'";
+                *error = "Timed out waiting for instance start completion for externalId='" + request.adapter.externalId() + "'";
             m_factory->hostDestroyInstance(std::move(runtime->instance));
             return false;
         }
@@ -4428,12 +4503,12 @@ bool SidecarHost::createInstanceRuntime(const ConfigChangedRequest &request, phi
         if (!runtime->execution->stop(kExecutionBackendStopTimeout, &stopError) && m_factory)
             reportProtocolError("Execution backend stop failed after instance start failure: " + stopError);
         if (error)
-            *error = "Instance start() failed for externalId='" + request.adapter.externalId + "'";
+            *error = "Instance start() failed for externalId='" + request.adapter.externalId() + "'";
         m_factory->hostDestroyInstance(std::move(runtime->instance));
         return false;
     }
 
-    auto [it, inserted] = m_instances.try_emplace(request.adapter.externalId, nullptr);
+    auto [it, inserted] = m_instances.try_emplace(request.adapter.externalId(), nullptr);
     if (!inserted) {
         if (runtime && runtime->execution) {
             phicore::adapter::v1::Utf8String ignoreError;
@@ -4547,7 +4622,7 @@ void SidecarHost::drainDeferredResults()
 
     for (auto &result : local) {
         if (auto *cmd = std::get_if<DeferredCmdResult>(&result)) {
-            if (cmd->response.id == 0) {
+            if (cmd->response.id() == 0) {
                 if (m_factory)
                     reportProtocolError("Dropped command result with id=0");
                 continue;
@@ -4558,7 +4633,7 @@ void SidecarHost::drainDeferredResults()
             continue;
         }
         if (auto *action = std::get_if<DeferredActionResult>(&result)) {
-            if (action->response.id == 0) {
+            if (action->response.id() == 0) {
                 if (m_factory)
                     reportProtocolError("Dropped action result with id=0");
                 continue;
@@ -4718,13 +4793,13 @@ void SidecarHost::wireHandlers()
     handlers.onBootstrap = [this](const BootstrapRequest &request) {
         if (!m_factory)
             return;
-        if (!request.adapter.externalId.empty()) {
+        if (!request.adapter.externalId().empty()) {
             reportProtocolError("Bootstrap must target factory scope (externalId must be empty)");
             return;
         }
         BootstrapRequest normalized = request;
-        if (normalized.adapter.pluginType.empty())
-            normalized.adapter.pluginType = m_factory->hostPluginType();
+        if (normalized.adapter.pluginType().empty())
+            normalized.adapter.setPluginType(m_factory->hostPluginType());
         // Cached here, on the host thread, so host-thread hooks such as
         // createInstance never read it while the factory thread writes it.
         m_factory->cacheBootstrap(normalized);
@@ -4738,8 +4813,8 @@ void SidecarHost::wireHandlers()
             factory->hostOnBootstrap(normalized);
 
             AdapterDescriptor descriptor = factory->hostDescriptor();
-            if (descriptor.pluginType.empty())
-                descriptor.pluginType = normalized.adapter.pluginType;
+            if (descriptor.pluginType().empty())
+                descriptor.setPluginType(normalized.adapter.pluginType());
             phicore::adapter::v1::Utf8String err;
             if (!m_dispatcher.sendAdapterDescriptor({}, descriptor, normalized.correlationId, &err))
                 reportProtocolError("Failed to send bootstrap descriptor: " + err);
@@ -4756,9 +4831,9 @@ void SidecarHost::wireHandlers()
         if (!m_factory)
             return;
         ConfigChangedRequest normalized = request;
-        if (normalized.adapter.pluginType.empty())
-            normalized.adapter.pluginType = m_factory->hostPluginType();
-        if (normalized.adapter.externalId.empty()) {
+        if (normalized.adapter.pluginType().empty())
+            normalized.adapter.setPluginType(m_factory->hostPluginType());
+        if (normalized.adapter.externalId().empty()) {
             m_factory->cacheFactoryConfig(normalized);
             AdapterFactory *factory = m_factory;
             phicore::adapter::v1::Utf8String error;
@@ -4771,14 +4846,14 @@ void SidecarHost::wireHandlers()
         if (!ensureInstance(normalized))
             return;
         phicore::adapter::v1::Utf8String error;
-        if (!executeOnRuntime(normalized.adapter.externalId,
-                              [instance = findInstance(normalized.adapter.externalId), normalized]() {
+        if (!executeOnRuntime(normalized.adapter.externalId(),
+                              [instance = findInstance(normalized.adapter.externalId()), normalized]() {
                                   if (instance)
                                       instance->hostOnConfigChanged(normalized);
                               },
                               &error)) {
             reportProtocolError("Failed to dispatch config.changed for externalId='"
-                                           + normalized.adapter.externalId + "': " + error);
+                                           + normalized.adapter.externalId() + "': " + error);
         }
     };
     handlers.onInstanceRemoved = [this](const InstanceRemovedRequest &request) {
@@ -4794,11 +4869,11 @@ void SidecarHost::wireHandlers()
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         CmdResponse response;
-        response.id = request.cmdId;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdChannelInvoke";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdChannelInvoke");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
@@ -4809,19 +4884,19 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnChannelInvoke(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch channel invoke: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch channel invoke: " + dispatchError);
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
     handlers.onAdapterActionInvoke = [this](const AdapterActionInvokeRequest &request) {
         ActionResponse response;
-        response.id = request.cmdId;
-        response.resultType = ActionResultType::None;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setResultType(ActionResultType::None);
+        response.setTsMs(nowMs());
         if (!m_factory) {
-            response.status = CmdStatus::Failure;
-            response.error = "Adapter factory not available";
+            response.setStatus(CmdStatus::Failure);
+            response.setError("Adapter factory not available");
             m_dispatcher.sendActionResult(response, nullptr);
             return;
         }
@@ -4830,8 +4905,8 @@ void SidecarHost::wireHandlers()
             phicore::adapter::v1::Utf8String dispatchError;
             if (!executeOnFactory([factory, request]() { factory->hostOnFactoryActionInvoke(request); },
                                   &dispatchError)) {
-                response.status = CmdStatus::Failure;
-                response.error = "Failed to dispatch factory action: " + dispatchError;
+                response.setStatus(CmdStatus::Failure);
+                response.setError("Failed to dispatch factory action: " + dispatchError);
                 m_dispatcher.sendActionResult(response, nullptr);
             }
             return;
@@ -4843,18 +4918,18 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnAdapterActionInvoke(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch adapter action: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch adapter action: " + dispatchError);
             m_dispatcher.sendActionResult(response, nullptr);
         }
     };
     handlers.onDeviceNameUpdate = [this](const DeviceNameUpdateRequest &request) {
         CmdResponse response;
-        response.id = request.cmdId;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdDeviceNameUpdate";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdDeviceNameUpdate");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
@@ -4865,18 +4940,18 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnDeviceNameUpdate(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch device.name.update: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch device.name.update: " + dispatchError);
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
     handlers.onEntityNameUpdate = [this](const EntityNameUpdateRequest &request) {
         CmdResponse response;
-        response.id = request.cmdId;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdEntityNameUpdate";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdEntityNameUpdate");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
@@ -4887,18 +4962,18 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnEntityNameUpdate(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch entity.name.update: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch entity.name.update: " + dispatchError);
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
     handlers.onDeviceEffectInvoke = [this](const DeviceEffectInvokeRequest &request) {
         CmdResponse response;
-        response.id = request.cmdId;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdDeviceEffectInvoke";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdDeviceEffectInvoke");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
@@ -4909,18 +4984,18 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnDeviceEffectInvoke(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch device.effect.invoke: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch device.effect.invoke: " + dispatchError);
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
     handlers.onMediaPlayerInvoke = [this](const MediaPlayerInvokeRequest &request) {
         CmdResponse response;
-        response.id = request.cmdId;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdMediaPlayerInvoke";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdMediaPlayerInvoke");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
@@ -4931,19 +5006,19 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnMediaPlayerInvoke(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch mediaPlayer.invoke: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch mediaPlayer.invoke: " + dispatchError);
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
     handlers.onStreamSourceRequest = [this](const StreamSourceRequest &request) {
         ActionResponse response;
-        response.id = request.cmdId;
-        response.resultType = ActionResultType::None;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setResultType(ActionResultType::None);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdStreamSourceRequest";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdStreamSourceRequest");
             m_dispatcher.sendActionResult(response, nullptr);
             return;
         }
@@ -4954,18 +5029,18 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnStreamSourceRequest(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch stream source request: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch stream source request: " + dispatchError);
             m_dispatcher.sendActionResult(response, nullptr);
         }
     };
     handlers.onSceneInvoke = [this](const SceneInvokeRequest &request) {
         CmdResponse response;
-        response.id = request.cmdId;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdSceneInvoke";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdSceneInvoke");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
@@ -4976,18 +5051,18 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnSceneInvoke(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch scene invoke: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch scene invoke: " + dispatchError);
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
     handlers.onAdaptersStreamStart = [this](const AdaptersStreamStartRequest &request) {
         CmdResponse response;
-        response.id = request.cmdId;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdAdaptersStreamStart";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdAdaptersStreamStart");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
@@ -4998,18 +5073,18 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnAdaptersStreamStart(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch adapters stream.start: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch adapters stream.start: " + dispatchError);
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
     handlers.onAdaptersStreamStop = [this](const AdaptersStreamStopRequest &request) {
         CmdResponse response;
-        response.id = request.cmdId;
-        response.tsMs = nowMs();
+        response.setId(request.cmdId);
+        response.setTsMs(nowMs());
         if (request.externalId.empty()) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "externalId is required for CmdAdaptersStreamStop";
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("externalId is required for CmdAdaptersStreamStop");
             m_dispatcher.sendCmdResult(response, nullptr);
             return;
         }
@@ -5020,8 +5095,8 @@ void SidecarHost::wireHandlers()
                                       instance->hostOnAdaptersStreamStop(request);
                               },
                               &dispatchError)) {
-            response.status = CmdStatus::InvalidArgument;
-            response.error = "Failed to dispatch adapters stream.stop: " + dispatchError;
+            response.setStatus(CmdStatus::InvalidArgument);
+            response.setError("Failed to dispatch adapters stream.stop: " + dispatchError);
             m_dispatcher.sendCmdResult(response, nullptr);
         }
     };
