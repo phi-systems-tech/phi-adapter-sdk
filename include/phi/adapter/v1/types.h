@@ -350,6 +350,8 @@ enum class ChannelKind : std::uint16_t {
     Volume = 30,
     Mute = 31,
     HdmiInput = 32,
+    // Bool: playing (true) or not; read-only where it only reports, as beside
+    // the Media* kinds, where it tells a client whether to count the position on
     PlayPause = 33,
     // What a player is playing, read-only. Each is its own kind so a client can
     // lay a player out (title over artist, a countdown) without guessing from
