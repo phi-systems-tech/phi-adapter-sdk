@@ -30,6 +30,9 @@ public:
     static CmdResponse success(CmdId id, ScalarValue finalValue = {});
     static CmdResponse failure(CmdId id, CmdStatus status, Utf8String error, ScalarList errorParams = {},
                                Utf8String errorContext = {});
+    /// A status as it came, success or not: for the helper that answers every
+    /// command the same way.
+    static CmdResponse answer(CmdId id, CmdStatus status, Utf8String error = {});
 
     CmdId id() const noexcept;
     CmdResponse &setId(CmdId id);
@@ -130,6 +133,8 @@ public:
     static ActionResponse success(CmdId id);
     static ActionResponse failure(CmdId id, CmdStatus status, Utf8String error, ScalarList errorParams = {},
                                   Utf8String errorContext = {});
+    /// A status as it came, success or not.
+    static ActionResponse answer(CmdId id, CmdStatus status, Utf8String error = {});
 
     CmdId id() const noexcept;
     ActionResponse &setId(CmdId id);

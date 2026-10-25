@@ -61,6 +61,8 @@ public:
         Call &setHeaders(std::vector<Header> headers);
         Call &addHeader(std::string name, std::string value);
         Call &addHeader(Header header);
+        /// Replaces the header of that name (case-insensitively), or adds it.
+        Call &setHeader(std::string name, std::string value);
         const std::string &body() const noexcept;
         Call &setBody(std::string body);
         /// Body and its Content-Type in one call.

@@ -145,6 +145,14 @@ HttpClient::Call &HttpClient::Call::addHeader(Header header)
     return *this;
 }
 
+HttpClient::Call &HttpClient::Call::setHeader(std::string name, std::string value)
+{
+    Private &priv = m();
+    std::erase_if(priv.headers, [&name](const Header &h) { return sameHeaderName(h.first, name); });
+    priv.headers.emplace_back(std::move(name), std::move(value));
+    return *this;
+}
+
 v1::TlsSettings &HttpClient::Call::tls() { return m().tls; }
 
 // --- HttpClient::Result ------------------------------------------------------
@@ -224,6 +232,14 @@ Fetch &Fetch::addHeader(std::string name, std::string value)
 Fetch &Fetch::addHeader(Header header)
 {
     m().headers.push_back(std::move(header));
+    return *this;
+}
+
+Fetch &Fetch::setHeader(std::string name, std::string value)
+{
+    Private &priv = m();
+    std::erase_if(priv.headers, [&name](const Header &h) { return sameHeaderName(h.first, name); });
+    priv.headers.emplace_back(std::move(name), std::move(value));
     return *this;
 }
 

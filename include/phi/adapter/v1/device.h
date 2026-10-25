@@ -60,6 +60,8 @@ public:
     Device &setDeviceClass(DeviceClass deviceClass);
     DeviceFlags flags() const noexcept;
     Device &setFlags(DeviceFlags flags);
+    /// Ors into what is set.
+    Device &addFlags(DeviceFlags flags);
     const ExternalId &externalId() const noexcept;
     Device &setExternalId(ExternalId externalId);
     const Utf8String &manufacturer() const noexcept;
@@ -72,8 +74,10 @@ public:
     Device &setMetaJson(JsonText metaJson);
     MediaPlayerFeatures mediaPlayerFeatures() const noexcept;
     Device &setMediaPlayerFeatures(MediaPlayerFeatures features);
+    Device &addMediaPlayerFeatures(MediaPlayerFeatures features);
     CameraFeatures cameraFeatures() const noexcept;
     Device &setCameraFeatures(CameraFeatures features);
+    Device &addCameraFeatures(CameraFeatures features);
     const DeviceEffectDescriptorList &effects() const noexcept;
     Device &setEffects(DeviceEffectDescriptorList effects);
     Device &addEffect(DeviceEffectDescriptor effect);

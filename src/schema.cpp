@@ -436,6 +436,15 @@ CmdResponse CmdResponse::success(CmdId id, ScalarValue finalValue)
     return out;
 }
 
+CmdResponse CmdResponse::answer(CmdId id, CmdStatus status, Utf8String error)
+{
+    CmdResponse out;
+    out.d->id = id;
+    out.d->status = status;
+    out.d->error = std::move(error);
+    return out;
+}
+
 CmdResponse CmdResponse::failure(CmdId id, CmdStatus status, Utf8String error, ScalarList errorParams,
                                  Utf8String errorContext)
 {
@@ -528,6 +537,15 @@ ActionResponse ActionResponse::success(CmdId id)
 {
     ActionResponse out;
     out.d->id = id;
+    return out;
+}
+
+ActionResponse ActionResponse::answer(CmdId id, CmdStatus status, Utf8String error)
+{
+    ActionResponse out;
+    out.d->id = id;
+    out.d->status = status;
+    out.d->error = std::move(error);
     return out;
 }
 

@@ -42,6 +42,8 @@ public:
     Scene &setState(SceneState state);
     SceneFlags flags() const noexcept;
     Scene &setFlags(SceneFlags flags);
+    /// Ors into what is set.
+    Scene &addFlags(SceneFlags flags);
     const JsonText &metaJson() const noexcept;
     Scene &setMetaJson(JsonText metaJson);
 

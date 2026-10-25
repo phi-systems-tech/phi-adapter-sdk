@@ -86,6 +86,23 @@ PHI_V1_FIELD(Channel, double, stepValue, setStepValue)
 PHI_V1_FIELD(Channel, const JsonText &, metaJson, setMetaJson)
 PHI_V1_FIELD(Channel, const AdapterConfigOptionList &, choices, setChoices)
 
+Channel::Channel(ExternalId externalId, Utf8String name, ChannelKind kind, ChannelDataType dataType, ChannelFlags flags)
+    : d(std::make_unique<Private>())
+{
+    d->externalId = std::move(externalId);
+    d->name = std::move(name);
+    d->kind = kind;
+    d->dataType = dataType;
+    d->flags = flags;
+}
+
+Channel &Channel::addFlags(ChannelFlags flags)
+{
+    Private &priv = m();
+    priv.flags = priv.flags | flags;
+    return *this;
+}
+
 Channel &Channel::setRange(double minValue, double maxValue, double stepValue)
 {
     Private &priv = m();
@@ -177,6 +194,27 @@ Device &Device::addEffect(DeviceEffectDescriptor effect)
     return *this;
 }
 
+Device &Device::addFlags(DeviceFlags flags)
+{
+    Private &priv = m();
+    priv.flags = priv.flags | flags;
+    return *this;
+}
+
+Device &Device::addMediaPlayerFeatures(MediaPlayerFeatures features)
+{
+    Private &priv = m();
+    priv.mediaPlayerFeatures = priv.mediaPlayerFeatures | features;
+    return *this;
+}
+
+Device &Device::addCameraFeatures(CameraFeatures features)
+{
+    Private &priv = m();
+    priv.cameraFeatures = priv.cameraFeatures | features;
+    return *this;
+}
+
 // --- Room --------------------------------------------------------------------
 
 struct Room::Private {
@@ -253,6 +291,13 @@ PHI_V1_FIELD(Scene, const Utf8String &, presetTag, setPresetTag)
 PHI_V1_FIELD(Scene, SceneState, state, setState)
 PHI_V1_FIELD(Scene, SceneFlags, flags, setFlags)
 PHI_V1_FIELD(Scene, const JsonText &, metaJson, setMetaJson)
+
+Scene &Scene::addFlags(SceneFlags flags)
+{
+    Private &priv = m();
+    priv.flags = priv.flags | flags;
+    return *this;
+}
 
 Scene &Scene::setScope(Utf8String scopeType, ExternalId scopeExternalId)
 {

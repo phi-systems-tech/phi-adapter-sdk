@@ -25,7 +25,9 @@ now calls accessors. Nothing on the wire changed; core is indifferent.
 
 | Before | After |
 |---|---|
+| `v1::Channel c; c.externalId = "p"; c.name = "Power"; c.kind = K; c.dataType = T; c.flags = F;` | `v1::Channel c("p", "Power", K, T, F);` |
 | `v1::Channel c; c.name = "Power"; c.kind = K;` | `v1::Channel c; c.setName("Power").setKind(K);` |
+| `d.flags \|= Battery;` `d.mediaPlayerFeatures \|= Play;` | `d.addFlags(Battery);` `d.addMediaPlayerFeatures(Play);` (Channel and Scene have `addFlags` too) |
 | `c.minValue = 0; c.maxValue = 100; c.stepValue = 1;` | `c.setRange(0, 100, 1);` |
 | `c.lastValue = v; c.lastUpdateMs = t; c.hasValue = true;` | `c.setLastValue(v, t);` |
 | `c.hasValue = false;` | `c.clearValue();` |
@@ -64,6 +66,7 @@ Answers:
 |---|---|
 | `CmdResponse r; r.id = id; r.status = Success; r.finalValue = v;` | `auto r = CmdResponse::success(id, v);` |
 | `r.id = id; r.status = S; r.error = "..."; r.errorParams = {...};` | `auto r = CmdResponse::failure(id, S, "...", {...});` |
+| a helper answering with a runtime status, success or not | `CmdResponse::answer(id, status, error)` / `ActionResponse::answer(id, status, error)` |
 | `ActionResponse r; r.id = id; r.status = Success;` | `auto r = ActionResponse::success(id);` |
 | `r.resultType = String; r.resultValue = v;` | `r.setResult(v, ActionResultType::String);` |
 | `r.resultType = Data; r.dataJson = json;` | `r.setData(json);` |
@@ -90,6 +93,7 @@ record, then `.externalId()`, `.host()`, `.user()`, `.password()`, ...),
 |---|---|
 | `HttpClient::Call call; call.url = u; call.method = "PUT";` | `HttpClient::Call call(u, "PUT");` |
 | `call.headers.push_back({"Accept", "application/json"});` | `call.addHeader("Accept", "application/json");` |
+| finding and overwriting one header in `call.headers` | `call.setHeader("Accept", "text/event-stream");` (replaces or adds) |
 | `call.body = b; call.headers.push_back({"Content-Type", ct});` | `call.setBody(b, ct);` |
 | `call.credentials = {user, pass};` | `call.setCredentials({user, pass});` |
 | `call.timeout = 2s;` `call.tls = settings;` `call.tlsServerName = n;` | `call.setTimeout(2s);` `call.setTls(settings);` `call.setTlsServerName(n);` |

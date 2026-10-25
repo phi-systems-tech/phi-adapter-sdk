@@ -22,6 +22,9 @@ class Channel
 {
 public:
     Channel();
+    /// The four every channel has, in one line; flags and the rest follow.
+    Channel(ExternalId externalId, Utf8String name, ChannelKind kind, ChannelDataType dataType,
+            ChannelFlags flags = ChannelFlag::None);
     Channel(const Channel &other);
     Channel(Channel &&other) noexcept;
     Channel &operator=(const Channel &other);
@@ -38,6 +41,8 @@ public:
     Channel &setDataType(ChannelDataType dataType);
     ChannelFlags flags() const noexcept;
     Channel &setFlags(ChannelFlags flags);
+    /// Ors into what is set.
+    Channel &addFlags(ChannelFlags flags);
     const Utf8String &unit() const noexcept;
     Channel &setUnit(Utf8String unit);
     double minValue() const noexcept;
@@ -60,8 +65,8 @@ public:
     const ScalarValue &lastValue() const noexcept;
     std::int64_t lastUpdateMs() const noexcept;
     bool hasValue() const noexcept;
-    /// Sets the value and its time and marks the channel as having one.
-    Channel &setLastValue(ScalarValue value, std::int64_t updateMs);
+    /// Sets the value and its time (0: unknown) and marks the channel as having one.
+    Channel &setLastValue(ScalarValue value, std::int64_t updateMs = 0);
     /// Back to "no value yet".
     Channel &clearValue();
 

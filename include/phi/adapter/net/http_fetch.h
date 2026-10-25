@@ -35,6 +35,8 @@ public:
     Fetch &setHeaders(std::vector<Header> headers);
     Fetch &addHeader(std::string name, std::string value);
     Fetch &addHeader(Header header);
+    /// Replaces the header of that name (case-insensitively), or adds it.
+    Fetch &setHeader(std::string name, std::string value);
     const std::string &body() const noexcept;
     Fetch &setBody(std::string body);
     /// The whole exchange, redirects included; 10 s by default.

@@ -141,6 +141,24 @@ void testHttpAndTlsTypesFollowTheSameRules()
     // A second Content-Type replaces the first rather than joining it.
     call.setBody("x", "text/plain");
     PHI_CHECK(call.headers().size() == 2 && call.headers().back().second == "text/plain");
+    // setHeader replaces by name, case-insensitively, or adds.
+    call.setHeader("accept", "text/event-stream").setHeader("X-New", "1");
+    PHI_CHECK(call.headers().size() == 3 && call.headers()[1].second == "text/event-stream");
+    PHI_CHECK(call.headers().back().first == "X-New");
+
+    // The conveniences the first ports asked for.
+    const v1::Channel quick("p", "Power", v1::ChannelKind::Power, v1::ChannelDataType::Bool, v1::kChannelFlagDefaultWrite);
+    PHI_CHECK(quick.externalId() == "p" && quick.kind() == v1::ChannelKind::Power && quick.flags() == v1::kChannelFlagDefaultWrite);
+    v1::Device flagged;
+    flagged.setFlags(v1::DeviceFlag::Wireless).addFlags(v1::DeviceFlag::Battery).addMediaPlayerFeatures(v1::MediaPlayerFeature::Play);
+    PHI_CHECK(v1::hasFlag(flagged.flags(), v1::DeviceFlag::Wireless) && v1::hasFlag(flagged.flags(), v1::DeviceFlag::Battery));
+    PHI_CHECK(v1::hasFlag(flagged.mediaPlayerFeatures(), v1::MediaPlayerFeature::Play));
+    v1::Channel valued;
+    valued.setLastValue(true);
+    PHI_CHECK(valued.hasValue() && valued.lastUpdateMs() == 0);
+    const v1::CmdResponse plain = v1::CmdResponse::answer(3, v1::CmdStatus::Busy, "later");
+    PHI_CHECK(plain.id() == 3 && plain.status() == v1::CmdStatus::Busy && plain.error() == "later");
+    PHI_CHECK(v1::ActionResponse::answer(4, v1::CmdStatus::Success).status() == v1::CmdStatus::Success);
 
     const HttpClient::Call defaults;
     PHI_CHECK(defaults.method() == "GET" && defaults.timeout() == std::chrono::milliseconds(5000) && !defaults.tls().enabled());
