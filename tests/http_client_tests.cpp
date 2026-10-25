@@ -7,6 +7,7 @@
 #include <phi/adapter/testing/check.h>
 
 #include "phi/adapter/net/http_client.h"
+#include "net/http_auth.h"
 #include "phi/runtime/epollloop.h"
 
 #include "tls_test_server.h"
@@ -272,11 +273,11 @@ std::vector<HttpClient::Result> run(const std::vector<HttpClient::Call> &calls,
 HttpClient::Call callTo(std::uint16_t port, const char *path = "/upnp/control/deviceinfo")
 {
     HttpClient::Call call;
-    call.url = "http://127.0.0.1:" + std::to_string(port) + path;
-    call.method = "POST";
-    call.body = "<x/>";
-    call.credentials = {kUser, kPassword};
-    call.timeout = 4000ms;
+    call.setUrl("http://127.0.0.1:" + std::to_string(port) + path);
+    call.setMethod("POST");
+    call.setBody("<x/>");
+    call.setCredentials({kUser, kPassword});
+    call.setTimeout(4000ms);
     return call;
 }
 
@@ -288,9 +289,9 @@ void testAPlainRequest()
     PHI_CHECK(results.size() == 1);
     if (results.empty())
         return;
-    PHI_CHECK_MSG(results[0].ok, "%s", results[0].error.c_str());
-    PHI_CHECK(results[0].status == 200);
-    PHI_CHECK(results[0].body == "ok");
+    PHI_CHECK_MSG(results[0].ok(), "%s", results[0].error().c_str());
+    PHI_CHECK(results[0].status() == 200);
+    PHI_CHECK(results[0].body() == "ok");
     PHI_CHECK(server.lastBody() == "<x/>");
 }
 
@@ -305,10 +306,10 @@ void testTheChallengeIsAnsweredAndThenNotAskedForAgain()
         return;
 
     for (const HttpClient::Result &result : results) {
-        PHI_CHECK_MSG(result.ok, "%s", result.error.c_str());
-        PHI_CHECK(result.status == 200);
-        PHI_CHECK(result.body == "secret");
-        PHI_CHECK(!result.unauthorized);
+        PHI_CHECK_MSG(result.ok(), "%s", result.error().c_str());
+        PHI_CHECK(result.status() == 200);
+        PHI_CHECK(result.body() == "secret");
+        PHI_CHECK(!result.unauthorized());
     }
 
     // Three requests for two calls: the first was challenged, the second went
@@ -331,12 +332,12 @@ void testAPasswordThatIsWrongSaysSo()
     PHI_CHECK(results.size() == 1);
     if (results.empty())
         return;
-    PHI_CHECK(!results[0].ok);
-    PHI_CHECK(results[0].status == 401);
+    PHI_CHECK(!results[0].ok());
+    PHI_CHECK(results[0].status() == 401);
     // Reached and refused is a different thing from unreachable, and it sends
     // the user somewhere else.
-    PHI_CHECK_MSG(results[0].unauthorized, "a refusal did not read as one");
-    PHI_CHECK(results[0].error == "Invalid credentials");
+    PHI_CHECK_MSG(results[0].unauthorized(), "a refusal did not read as one");
+    PHI_CHECK(results[0].error() == "Invalid credentials");
     // Answered once, not forever.
     PHI_CHECK_MSG(server.requests() == 2, "the server saw %d requests, expected 2",
                   server.requests());
@@ -349,7 +350,7 @@ void testAChunkedBody()
     const auto results = run({callTo(server.port())});
     PHI_CHECK(results.size() == 1);
     if (!results.empty())
-        PHI_CHECK_MSG(results[0].body == "hello world", "got '%s'", results[0].body.c_str());
+        PHI_CHECK_MSG(results[0].body() == "hello world", "got '%s'", results[0].body().c_str());
 }
 
 void testASilentServerCostsItsTimeoutAndNoMore()
@@ -358,7 +359,7 @@ void testASilentServerCostsItsTimeoutAndNoMore()
     PHI_CHECK(server.ok());
 
     HttpClient::Call call = callTo(server.port());
-    call.timeout = 300ms;
+    call.setTimeout(300ms);
 
     const auto before = std::chrono::steady_clock::now();
     const auto results = run({call});
@@ -368,8 +369,8 @@ void testASilentServerCostsItsTimeoutAndNoMore()
     PHI_CHECK(results.size() == 1);
     if (results.empty())
         return;
-    PHI_CHECK(!results[0].ok);
-    PHI_CHECK(results[0].error == "Request timed out");
+    PHI_CHECK(!results[0].ok());
+    PHI_CHECK(results[0].error() == "Request timed out");
     PHI_CHECK_MSG(elapsed < 1500ms, "a silent server cost %lldms",
                   static_cast<long long>(elapsed.count()));
 }
@@ -385,9 +386,9 @@ void testNothingListening()
     PHI_CHECK(results.size() == 1);
     if (results.empty())
         return;
-    PHI_CHECK(!results[0].ok);
-    PHI_CHECK(!results[0].unauthorized);
-    PHI_CHECK(!results[0].error.empty());
+    PHI_CHECK(!results[0].ok());
+    PHI_CHECK(!results[0].unauthorized());
+    PHI_CHECK(!results[0].error().empty());
 }
 
 void testWhatIsRefusedOutright()
@@ -396,7 +397,7 @@ void testWhatIsRefusedOutright()
     HttpClient client(loop);
     // A URL this client cannot address is refused before anything is opened,
     // and the callback is not called for it.
-    PHI_CHECK(!client.send({.url = "ftp://host/x"}, [](HttpClient::Result) {}));
+    PHI_CHECK(!client.send(HttpClient::Call("ftp://host/x"), [](HttpClient::Result) {}));
     PHI_CHECK(!client.busy());
 }
 
@@ -437,7 +438,7 @@ HttpClient::Result runOne(HttpClient::Call call)
     });
     phi::runtime::Timer watchdog = loop.timerAfter(6s, [&loop]() { loop.stop(); });
     loop.run();
-    return result.value_or(HttpClient::Result{.error = "no result"});
+    return result.value_or(HttpClient::Result().setError("no result"));
 }
 
 std::string okResponse(const std::string &body)
@@ -461,45 +462,45 @@ void testTlsIsVerified()
                            &fixture.certificate));
 
     HttpClient::Call byName;
-    byName.url = "https://localhost:" + std::to_string(server.port()) + "/x";
-    byName.tls.caFile = fixture.pemPath;
-    byName.timeout = 4000ms;
+    byName.setUrl("https://localhost:" + std::to_string(server.port()) + "/x");
+    byName.tls().setCaFile(fixture.pemPath);
+    byName.setTimeout(4000ms);
     HttpClient::Result result = runOne(byName);
-    PHI_CHECK_MSG(result.ok, "%s", result.error.c_str());
-    PHI_CHECK(result.body == "secure");
+    PHI_CHECK_MSG(result.ok(), "%s", result.error().c_str());
+    PHI_CHECK(result.body() == "secure");
 
     // Dialled by address: the certificate names localhost, not 127.0.0.1.
     HttpClient::Call byAddress = byName;
-    byAddress.url = "https://127.0.0.1:" + std::to_string(server.port()) + "/x";
+    byAddress.setUrl("https://127.0.0.1:" + std::to_string(server.port()) + "/x");
     result = runOne(byAddress);
-    PHI_CHECK_MSG(!result.ok, "a certificate for another name was accepted");
-    PHI_CHECK_MSG(result.error.find("certificate") != std::string::npos, "error was: %s",
-                  result.error.c_str());
+    PHI_CHECK_MSG(!result.ok(), "a certificate for another name was accepted");
+    PHI_CHECK_MSG(result.error().find("certificate") != std::string::npos, "error was: %s",
+                  result.error().c_str());
 
     // ...unless the caller says which name the certificate has to carry.
     HttpClient::Call expectingName = byAddress;
-    expectingName.tlsServerName = "localhost";
+    expectingName.setTlsServerName("localhost");
     result = runOne(expectingName);
-    PHI_CHECK_MSG(result.ok, "%s", result.error.c_str());
+    PHI_CHECK_MSG(result.ok(), "%s", result.error().c_str());
 
     // The wrong expected name is still wrong.
     HttpClient::Call wrongName = byAddress;
-    wrongName.tlsServerName = "bridge-0123";
+    wrongName.setTlsServerName("bridge-0123");
     result = runOne(wrongName);
-    PHI_CHECK(!result.ok);
+    PHI_CHECK(!result.ok());
 
     // Nothing trusts a self-signed certificate on its own.
     HttpClient::Call systemStore = byName;
-    systemStore.tls.caFile.clear();
+    systemStore.tls().setCaFile({});
     result = runOne(systemStore);
-    PHI_CHECK_MSG(!result.ok, "a self-signed certificate was accepted by the system store");
+    PHI_CHECK_MSG(!result.ok(), "a self-signed certificate was accepted by the system store");
 
     // Off is not accept anything: with no bundle the chain still fails.
     HttpClient::Call noCheckNoBundle = byAddress;
-    noCheckNoBundle.tls.caFile.clear();
-    noCheckNoBundle.tls.verifyHostname = false;
+    noCheckNoBundle.tls().setCaFile({});
+    noCheckNoBundle.tls().setVerifyHostname(false);
     result = runOne(noCheckNoBundle);
-    PHI_CHECK(!result.ok);
+    PHI_CHECK(!result.ok());
 }
 
 /// Pieces arrive as they are sent, decoded; the end of the stream ends it.
@@ -527,17 +528,17 @@ void testAStreamDeliversAsItGoes()
     std::optional<HttpClient::Result> ended;
     const auto started = std::chrono::steady_clock::now();
     HttpClient::Call call;
-    call.url = "http://127.0.0.1:" + std::to_string(server.port()) + "/eventstream";
-    call.headers.emplace_back("Accept", "text/event-stream");
-    call.timeout = 300ms; // covers the head only
+    call.setUrl("http://127.0.0.1:" + std::to_string(server.port()) + "/eventstream");
+    call.addHeader("Accept", "text/event-stream");
+    call.setTimeout(300ms); // covers the head only
     PHI_CHECK(client.stream(call, {
-        .head = [&](int status, const std::vector<Header> &) { headStatus = status; },
-        .chunk = [&](std::string_view piece) {
+        [&](int status, const std::vector<Header> &) { headStatus = status; },
+        [&](std::string_view piece) {
             pieces.emplace_back(piece);
             pieceAt.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(
                                   std::chrono::steady_clock::now() - started).count());
         },
-        .done = [&](HttpClient::Result r) { ended = std::move(r); loop.stop(); },
+        [&](HttpClient::Result r) { ended = std::move(r); loop.stop(); },
     }));
     PHI_CHECK(client.busy());
     phi::runtime::Timer watchdog = loop.timerAfter(6s, [&loop]() { loop.stop(); });
@@ -556,8 +557,8 @@ void testAStreamDeliversAsItGoes()
         PHI_CHECK_MSG(pieceAt.back() - pieceAt.front() >= 100, "pieces were held back until the end");
     PHI_CHECK(ended.has_value());
     if (ended) {
-        PHI_CHECK_MSG(ended->ok, "%s", ended->error.c_str());
-        PHI_CHECK(ended->status == 200);
+        PHI_CHECK_MSG(ended->ok(), "%s", ended->error().c_str());
+        PHI_CHECK(ended->status() == 200);
     }
     PHI_CHECK(!client.busy());
 }
@@ -579,12 +580,12 @@ void testAStreamCanBeCancelledFromInside()
     int chunks = 0;
     bool doneCalled = false;
     HttpClient::Call call;
-    call.url = "http://127.0.0.1:" + std::to_string(server.port()) + "/s";
-    call.timeout = 2000ms;
+    call.setUrl("http://127.0.0.1:" + std::to_string(server.port()) + "/s");
+    call.setTimeout(2000ms);
     client.stream(call, {
-        .head = nullptr,
-        .chunk = [&](std::string_view) { ++chunks; client.cancel(); loop.stop(); },
-        .done = [&](HttpClient::Result) { doneCalled = true; },
+        nullptr,
+        [&](std::string_view) { ++chunks; client.cancel(); loop.stop(); },
+        [&](HttpClient::Result) { doneCalled = true; },
     });
     phi::runtime::Timer watchdog = loop.timerAfter(4s, [&loop]() { loop.stop(); });
     loop.run();
@@ -598,7 +599,7 @@ void testAStreamCanBeCancelledFromInside()
     client.send(plain, [&](HttpClient::Result r) { again = std::move(r); loop.stop(); });
     phi::runtime::Timer watchdog2 = loop.timerAfter(4s, [&loop]() { loop.stop(); });
     loop.run();
-    PHI_CHECK(again.has_value() && again->ok && again->body == "abcdefgh");
+    PHI_CHECK(again.has_value() && again->ok() && again->body() == "abcdefgh");
 }
 
 /// A 4xx head ends a stream at once, and a 401 is named as such.
@@ -613,17 +614,17 @@ void testAStreamRefusedIsNamed()
     std::optional<HttpClient::Result> ended;
     bool anyChunk = false;
     HttpClient::Call call;
-    call.url = "http://127.0.0.1:" + std::to_string(server.port()) + "/s";
-    call.timeout = 2000ms;
+    call.setUrl("http://127.0.0.1:" + std::to_string(server.port()) + "/s");
+    call.setTimeout(2000ms);
     client.stream(call, {
-        .head = nullptr,
-        .chunk = [&](std::string_view) { anyChunk = true; },
-        .done = [&](HttpClient::Result r) { ended = std::move(r); loop.stop(); },
+        nullptr,
+        [&](std::string_view) { anyChunk = true; },
+        [&](HttpClient::Result r) { ended = std::move(r); loop.stop(); },
     });
     phi::runtime::Timer watchdog = loop.timerAfter(4s, [&loop]() { loop.stop(); });
     loop.run();
     PHI_CHECK(!anyChunk);
-    PHI_CHECK(ended.has_value() && !ended->ok && ended->unauthorized && ended->status == 401);
+    PHI_CHECK(ended.has_value() && !ended->ok() && ended->unauthorized() && ended->status() == 401);
 }
 
 } // namespace

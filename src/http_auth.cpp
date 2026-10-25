@@ -1,4 +1,4 @@
-#include "phi/adapter/net/http_auth.h"
+#include "net/http_auth.h"
 
 #include <algorithm>
 #include <array>
@@ -213,7 +213,7 @@ std::string buildAuthorization(const Challenge &challenge,
     if (challenge.scheme == Challenge::Scheme::Basic) {
         static constexpr char kAlphabet[] =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        const std::string raw = credentials.user + ":" + credentials.password;
+        const std::string raw = credentials.user() + ":" + credentials.password();
         std::string encoded;
         encoded.reserve(((raw.size() + 2) / 3) * 4);
         for (std::size_t i = 0; i < raw.size(); i += 3) {
@@ -242,7 +242,7 @@ std::string buildAuthorization(const Challenge &challenge,
         return {};
     }
 
-    std::string ha1 = md5Hex(credentials.user + ":" + challenge.realm + ":" + credentials.password);
+    std::string ha1 = md5Hex(credentials.user() + ":" + challenge.realm + ":" + credentials.password());
     if (sessionAlgorithm)
         ha1 = md5Hex(ha1 + ":" + challenge.nonce + ":" + std::string(cnonce));
 
@@ -258,7 +258,7 @@ std::string buildAuthorization(const Challenge &challenge,
                           + challenge.qop + ":" + ha2);
     }
 
-    std::string out = "Digest username=" + quote(credentials.user)
+    std::string out = "Digest username=" + quote(credentials.user())
         + ", realm=" + quote(challenge.realm)
         + ", nonce=" + quote(challenge.nonce)
         + ", uri=" + quote(uri)

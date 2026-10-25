@@ -565,14 +565,14 @@ void testMainExitsWithoutStaticDestructorsWhenThreadAbandoned()
             std::_Exit(70);
         bool announced = false;
         sdk::SidecarMainOptions options;
-        options.pollTimeout = std::chrono::milliseconds(50);
-        options.onIteration = [&]() {
+        options.setPollTimeout(std::chrono::milliseconds(50));
+        options.setOnIteration([&]() {
             if (announced || host.instance("inst-1") == nullptr)
                 return;
             announced = true;
             const char byte = 'r';
             (void)::write(ready[1], &byte, 1);
-        };
+        });
         const int rc = sdk::runSidecarMain(host, options);
         // Reached only if runSidecarMain returned, i.e. it saw nothing
         // abandoned and let static destructors run. 71 is the old behaviour.

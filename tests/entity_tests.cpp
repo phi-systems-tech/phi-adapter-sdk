@@ -10,11 +10,16 @@
 #include "phi/adapter/v1/room.h"
 #include "phi/adapter/v1/scene.h"
 #include "phi/adapter/sdk/requests.h"
+#include "phi/adapter/sdk/sidecar.h"
+#include "phi/adapter/net/http_client.h"
+#include "phi/adapter/net/http_fetch.h"
 
+#include <chrono>
 #include <utility>
 
 namespace v1 = phicore::adapter::v1;
 namespace sdk = phicore::adapter::sdk;
+namespace net = phicore::adapter::net;
 
 namespace {
 
@@ -116,6 +121,45 @@ void testAMovedFromObjectIsEmptyAndAlive()
     PHI_CHECK(c.name() == "source" && b.name().empty()); // NOLINT(bugprone-use-after-move)
 }
 
+void testHttpAndTlsTypesFollowTheSameRules()
+{
+    using net::HttpClient;
+    PHI_CHECK(sizeof(HttpClient::Call) == sizeof(void *) && sizeof(HttpClient::Result) == sizeof(void *));
+    PHI_CHECK(sizeof(net::Fetch) == sizeof(void *) && sizeof(net::Credentials) == sizeof(void *));
+    PHI_CHECK(sizeof(v1::TlsSettings) == sizeof(void *) && sizeof(sdk::SidecarMainOptions) == sizeof(void *));
+
+    HttpClient::Call call("http://bridge.local/api", "PUT");
+    call.setBody("{\"on\":true}", "application/json").addHeader("Accept", "application/json").setTimeout(std::chrono::seconds(2));
+    call.tls().setEnabled(true).setVerifyHostname(false);
+    PHI_CHECK(call.url() == "http://bridge.local/api" && call.method() == "PUT" && call.body() == "{\"on\":true}");
+    PHI_CHECK(call.headers().size() == 2 && call.headers()[0].first == "Content-Type");
+    PHI_CHECK(call.timeout() == std::chrono::milliseconds(2000));
+    PHI_CHECK(call.tls().enabled() && !call.tls().verifyHostname() && call.tls().caFile().empty());
+    PHI_CHECK(call.credentials().empty());
+    call.setCredentials({"admin", "secret"});
+    PHI_CHECK(!call.credentials().empty() && call.credentials().user() == "admin");
+    // A second Content-Type replaces the first rather than joining it.
+    call.setBody("x", "text/plain");
+    PHI_CHECK(call.headers().size() == 2 && call.headers().back().second == "text/plain");
+
+    const HttpClient::Call defaults;
+    PHI_CHECK(defaults.method() == "GET" && defaults.timeout() == std::chrono::milliseconds(5000) && !defaults.tls().enabled());
+    PHI_CHECK(defaults.tls().verifyHostname());
+
+    HttpClient::Result result;
+    result.setOk(true).setStatus(200).setHeaders({{"Content-Type", "text/html"}, {"X-Two", "2"}});
+    PHI_CHECK(result.ok() && result.status() == 200 && result.header("content-type") == "text/html");
+    PHI_CHECK(result.header("missing").empty() && !result.unauthorized());
+
+    const net::Fetch fetch("https://example.org/");
+    PHI_CHECK(fetch.maxRedirects() == 5 && fetch.timeout() == std::chrono::milliseconds(10000));
+
+    sdk::SidecarMainOptions options;
+    PHI_CHECK(options.installSignalHandlers() && options.pollTimeout() == std::chrono::milliseconds(1000) && !options.keepRunning());
+    options.setKeepRunning([] { return false; }).setInstallSignalHandlers(false);
+    PHI_CHECK(options.keepRunning() && !options.keepRunning()() && !options.installSignalHandlers());
+}
+
 void testRequestsFollowTheSameRules()
 {
     PHI_CHECK(sizeof(sdk::BootstrapRequest) == sizeof(void *) && sizeof(sdk::ChannelInvokeRequest) == sizeof(void *));
@@ -186,6 +230,7 @@ void testFormAndAnswerTypesFollowTheSameRules()
 
 int main()
 {
+    testHttpAndTlsTypesFollowTheSameRules();
     testRequestsFollowTheSameRules();
     testFormAndAnswerTypesFollowTheSameRules();
     testOnePointerWide();

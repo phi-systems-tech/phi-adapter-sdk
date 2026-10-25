@@ -22,6 +22,7 @@
 // correct answer already: name the certificate in `tlsCaFile`. That is one more
 // step for the operator and the difference between encrypted and secure.
 
+#include <memory>
 #include <string>
 #include <variant>
 
@@ -36,20 +37,33 @@ inline constexpr const char *kTlsCaFileFieldKey = "tlsCaFile";
 inline constexpr const char *kTlsVerifyHostnameFieldKey = "tlsVerifyHostname";
 
 /// What an instance says about TLS, once the three values have been read.
-struct TlsSettings {
-    /// Whether to speak TLS at all. Off unless the operator said otherwise: an
-    /// adapter pointed at a plain endpoint has to keep working, and an upgrade
-    /// that silently started requiring TLS would take every one of them off the
-    /// air.
-    bool enabled = false;
-    /// A certificate or bundle to trust in addition to the system store, for an
-    /// endpoint whose certificate no public authority signed - which is the
-    /// usual case on a local network. Empty means the system store alone.
-    Utf8String caFile;
-    /// Whether the certificate has to name the address that was dialled. On
-    /// unless the operator turned it off, which they need when they connect by
-    /// IP to a certificate that names a host. The chain is still checked.
-    bool verifyHostname = true;
+/// How a connection is encrypted and checked. Behind a d-pointer (see
+/// channel.h for the rule): a client certificate is the obvious next field.
+class TlsSettings
+{
+public:
+    TlsSettings();
+    TlsSettings(const TlsSettings &other);
+    TlsSettings(TlsSettings &&other) noexcept;
+    TlsSettings &operator=(const TlsSettings &other);
+    TlsSettings &operator=(TlsSettings &&other) noexcept;
+    ~TlsSettings();
+
+    /// Off by default: a plain endpoint has to keep working.
+    bool enabled() const noexcept;
+    TlsSettings &setEnabled(bool enabled);
+    /// A certificate or bundle to trust besides the system store.
+    const Utf8String &caFile() const noexcept;
+    TlsSettings &setCaFile(Utf8String caFile);
+    /// On by default; off still checks the chain, only not the name.
+    bool verifyHostname() const noexcept;
+    TlsSettings &setVerifyHostname(bool verify);
+
+private:
+    struct Private;
+    const Private &p() const noexcept;
+    Private &m();
+    std::unique_ptr<Private> d;
 };
 
 /// Whether a stored value means yes.
@@ -93,14 +107,14 @@ struct TlsSettings {
                                                  const ScalarValue &verifyHostname)
 {
     TlsSettings settings;
-    settings.enabled = tlsTruthOf(tls, false);
+    settings.setEnabled(tlsTruthOf(tls, false));
     if (const Utf8String *text = std::get_if<Utf8String>(&caFile)) {
         const auto first = text->find_first_not_of(" \t\n\r");
         const auto last = text->find_last_not_of(" \t\n\r");
         if (first != Utf8String::npos)
-            settings.caFile = text->substr(first, last - first + 1);
+            settings.setCaFile(text->substr(first, last - first + 1));
     }
-    settings.verifyHostname = tlsTruthOf(verifyHostname, true);
+    settings.setVerifyHostname(tlsTruthOf(verifyHostname, true));
     return settings;
 }
 

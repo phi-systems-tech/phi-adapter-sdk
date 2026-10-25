@@ -1,4 +1,5 @@
 #include "phi/adapter/sdk/sidecar.h"
+#include "logfilter.h"
 #include "runtime_internal.h"
 #include "abandoned_threads.h"
 

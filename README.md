@@ -74,12 +74,23 @@ library. That promise rests on three things, none of them good intentions:
   the one switch for a wire break that is meant.
 - **The C++ boundary hides its layout.** Data types that are worth centralising
   carry a d-pointer and are read through exported accessors, so a type grows
-  by an accessor and never by `sizeof`. The virtuals of `AdapterFactory`,
-  `AdapterInstance` and `InstanceExecutionBackend` are frozen: nothing is
-  inserted, removed or re-signed. New requests arrive as a registration (one
-  typed setter per request class); a request nobody registered for is answered
-  `NotSupported`. Small value types that do not change (`Color`, `Value`, the
-  enums, `FrameHeader`) stay plain. Copies are deep, not shared.
+  by an accessor and never by `sizeof`: the entities (`phi/adapter/v1/channel.h`,
+  `device.h`, `room.h`, `group.h`, `scene.h`), the record and the form and
+  action vocabulary (`schema.h`), the answers (`response.h`), the requests core
+  sends (`phi/adapter/sdk/requests.h`), `AdapterDescriptor` and
+  `SidecarMainOptions` (`sidecar.h`), `TlsSettings` (`tlsconfig.h`), and the
+  HTTP side (`phi/adapter/net/http_types.h`, `http_client.h`, `http_fetch.h`).
+  Getters carry the field's name, setters `set` plus the name and chain; nested
+  parts have a const and a mutable reader (`field.layout().setCells(2)`); the
+  answers have makers (`ActionResponse::success(id).setData(json)`). The
+  virtuals of `AdapterFactory`, `AdapterInstance` and `InstanceExecutionBackend`
+  are frozen: nothing is inserted, removed or re-signed. New requests arrive as
+  a registration (one typed setter per request class); a request nobody
+  registered for is answered `NotSupported`. Small value types that do not
+  change (`Color`, `Value`, the enums, `FrameHeader`) stay plain, and so do the
+  library's own wiring types no adapter sees (`SidecarHandlers`, `LogEntry`).
+  The HTTP framing and authentication internals left the public headers
+  altogether (`src/net/`). Copies are deep, not shared.
 - **The version travels, and the rules are checked.** `PHI_ADAPTER_SDK_VERSION`
   (`phi/adapter/v1/sdk_version.h`, generated) is read where the adapter
   compiles and goes out in the descriptor as `sdkVersion`; core holds a minimum

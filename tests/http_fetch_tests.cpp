@@ -63,12 +63,12 @@ std::string firstLine(const std::string &request)
 Fetch translationRequest(const std::string &url)
 {
     Fetch request;
-    request.url = url;
-    request.method = "POST";
-    request.timeout = std::chrono::milliseconds(3000);
-    request.headers.push_back({"Content-Type", "application/json"});
-    request.headers.push_back({"x-phi-token", "secret"});
-    request.body = "{\"locale\":\"de\",\"msg\":\"Hello\"}";
+    request.setUrl(url);
+    request.setMethod("POST");
+    request.setTimeout(std::chrono::milliseconds(3000));
+    request.addHeader({"Content-Type", "application/json"});
+    request.addHeader({"x-phi-token", "secret"});
+    request.setBody("{\"locale\":\"de\",\"msg\":\"Hello\"}");
     return request;
 }
 
@@ -95,11 +95,11 @@ void testWireAndFramings()
     const std::string base = "http://127.0.0.1:" + std::to_string(server.port());
 
     const FetchResult ok = fetch(translationRequest(base + "/api/v1/tr"));
-    PHI_CHECK_MSG(ok.ok, "error: %s", ok.error.c_str());
-    PHI_CHECK(ok.status == 200);
-    PHI_CHECK(ok.body == "{\"translation\":\"Hallo\"}");
-    PHI_CHECK(ok.error.empty());
-    PHI_CHECK(ok.headers.size() == 2);
+    PHI_CHECK_MSG(ok.ok(), "error: %s", ok.error().c_str());
+    PHI_CHECK(ok.status() == 200);
+    PHI_CHECK(ok.body() == "{\"translation\":\"Hallo\"}");
+    PHI_CHECK(ok.error().empty());
+    PHI_CHECK(ok.headers().size() == 2);
 
     const std::vector<std::string> seen = server.requests();
     PHI_CHECK(seen.size() == 1);
@@ -118,35 +118,35 @@ void testWireAndFramings()
     }
 
     const FetchResult chunked = fetch(translationRequest(base + "/chunked"));
-    PHI_CHECK_MSG(chunked.ok, "error: %s", chunked.error.c_str());
-    PHI_CHECK(chunked.body == "Hallo, Welt!");
+    PHI_CHECK_MSG(chunked.ok(), "error: %s", chunked.error().c_str());
+    PHI_CHECK(chunked.body() == "Hallo, Welt!");
 
     const FetchResult eof = fetch(translationRequest(base + "/eof"));
-    PHI_CHECK_MSG(eof.ok, "error: %s", eof.error.c_str());
-    PHI_CHECK(eof.body == "until close");
+    PHI_CHECK_MSG(eof.ok(), "error: %s", eof.error().c_str());
+    PHI_CHECK(eof.body() == "until close");
 
     const FetchResult empty = fetch(translationRequest(base + "/empty"));
-    PHI_CHECK(empty.ok && empty.status == 204 && empty.body.empty());
+    PHI_CHECK(empty.ok() && empty.status() == 204 && empty.body().empty());
 
     // A failing status is not ok, but its body still comes through: an
     // endpoint says why in the body, and a caller that only saw the status
     // would have to guess.
     const FetchResult failing = fetch(translationRequest(base + "/other"));
-    PHI_CHECK(!failing.ok);
-    PHI_CHECK(failing.status == 500);
-    PHI_CHECK(failing.error == "HTTP 500");
-    PHI_CHECK(failing.body == "{\"error\":\"boom\"}");
+    PHI_CHECK(!failing.ok());
+    PHI_CHECK(failing.status() == 500);
+    PHI_CHECK(failing.error() == "HTTP 500");
+    PHI_CHECK(failing.body() == "{\"error\":\"boom\"}");
 
     const FetchResult garbage = fetch(translationRequest(base + "/garbage"));
-    PHI_CHECK(!garbage.ok);
-    PHI_CHECK_MSG(garbage.error == "not an HTTP response", "error: %s", garbage.error.c_str());
+    PHI_CHECK(!garbage.ok());
+    PHI_CHECK_MSG(garbage.error() == "not an HTTP response", "error: %s", garbage.error().c_str());
 
     // A body that stopped halfway is a different sentence: the response was
     // read, it just did not finish.
     const FetchResult truncated = fetch(translationRequest(base + "/truncated"));
-    PHI_CHECK(!truncated.ok);
-    PHI_CHECK_MSG(truncated.error == "the connection closed before the response was complete",
-                  "error: %s", truncated.error.c_str());
+    PHI_CHECK(!truncated.ok());
+    PHI_CHECK_MSG(truncated.error() == "the connection closed before the response was complete",
+                  "error: %s", truncated.error().c_str());
 }
 
 void testRedirects()
@@ -169,8 +169,8 @@ void testRedirects()
     // 307 keeps the POST and its body; 302 turns it into a GET without one,
     // and its relative Location resolves against the path it came from.
     const FetchResult chain = fetch(translationRequest(base + "/start"));
-    PHI_CHECK_MSG(chain.ok, "error: %s", chain.error.c_str());
-    PHI_CHECK(chain.status == 200 && chain.body == "done");
+    PHI_CHECK_MSG(chain.ok(), "error: %s", chain.error().c_str());
+    PHI_CHECK(chain.status() == 200 && chain.body() == "done");
     const std::vector<std::string> seen = server.requests();
     PHI_CHECK(seen.size() == 3);
     if (seen.size() == 3) {
@@ -183,15 +183,15 @@ void testRedirects()
     // Redirects are bounded; past the limit the last redirect is the answer,
     // and it is a failure rather than an empty body somebody reads as one.
     const FetchResult loop = fetch(translationRequest(base + "/loop"));
-    PHI_CHECK(!loop.ok);
-    PHI_CHECK(loop.status == 308);
-    PHI_CHECK(loop.error == "HTTP 308 redirect not followed");
+    PHI_CHECK(!loop.ok());
+    PHI_CHECK(loop.status() == 308);
+    PHI_CHECK(loop.error() == "HTTP 308 redirect not followed");
     PHI_CHECK(server.requests().size() == 3 + 6);
 
     Fetch none = translationRequest(base + "/start");
-    none.maxRedirects = 0;
+    none.setMaxRedirects(0);
     const FetchResult unfollowed = fetch(none);
-    PHI_CHECK(!unfollowed.ok && unfollowed.status == 307);
+    PHI_CHECK(!unfollowed.ok() && unfollowed.status() == 307);
 }
 
 void testFailures()
@@ -203,12 +203,12 @@ void testFailures()
     }));
 
     Fetch request = translationRequest("http://127.0.0.1:" + std::to_string(slow.port()) + "/slow");
-    request.timeout = std::chrono::milliseconds(200);
+    request.setTimeout(std::chrono::milliseconds(200));
     Clock::time_point started = Clock::now();
     const FetchResult timedOut = fetch(request);
-    PHI_CHECK(!timedOut.ok);
-    PHI_CHECK_MSG(timedOut.error.find("timed out") != std::string::npos, "error: %s",
-                  timedOut.error.c_str());
+    PHI_CHECK(!timedOut.ok());
+    PHI_CHECK_MSG(timedOut.error().find("timed out") != std::string::npos, "error: %s",
+                  timedOut.error().c_str());
     PHI_CHECK_MSG(msSince(started) < 600, "took %lld ms", (long long)msSince(started));
     const std::uint16_t deadPort = slow.port();
     slow.stop();
@@ -217,18 +217,18 @@ void testFailures()
     started = Clock::now();
     const FetchResult refused =
         fetch(translationRequest("http://127.0.0.1:" + std::to_string(deadPort) + "/"));
-    PHI_CHECK(!refused.ok);
-    PHI_CHECK(refused.status == 0);
-    PHI_CHECK_MSG(refused.error.find("could not connect") != std::string::npos, "error: %s",
-                  refused.error.c_str());
+    PHI_CHECK(!refused.ok());
+    PHI_CHECK(refused.status() == 0);
+    PHI_CHECK_MSG(refused.error().find("could not connect") != std::string::npos, "error: %s",
+                  refused.error().c_str());
     PHI_CHECK(msSince(started) < 1000);
 
     const FetchResult scheme = fetch(translationRequest("ftp://127.0.0.1/x"));
-    PHI_CHECK(!scheme.ok && scheme.error.find("not an http(s) URL") != std::string::npos);
+    PHI_CHECK(!scheme.ok() && scheme.error().find("not an http(s) URL") != std::string::npos);
     const FetchResult nohost = fetch(translationRequest("https://"));
-    PHI_CHECK(!nohost.ok);
+    PHI_CHECK(!nohost.ok());
     const FetchResult unresolved = fetch(translationRequest("http://no-such-host.invalid/"));
-    PHI_CHECK(!unresolved.ok && unresolved.error.find("could not resolve") != std::string::npos);
+    PHI_CHECK(!unresolved.ok() && unresolved.error().find("could not resolve") != std::string::npos);
 }
 
 void testTls(const std::string &dir)
@@ -247,10 +247,10 @@ void testTls(const std::string &dir)
 
     // The name the certificate carries, verified against the bundle it is in.
     Fetch trusted = translationRequest("https://localhost:" + port + "/api/v1/tr");
-    trusted.tls.caFile = pem;
+    trusted.tls().setCaFile(pem);
     const FetchResult ok = fetch(trusted);
-    PHI_CHECK_MSG(ok.ok, "error: %s", ok.error.c_str());
-    PHI_CHECK(ok.body == "{\"translation\":\"sicher\"}");
+    PHI_CHECK_MSG(ok.ok(), "error: %s", ok.error().c_str());
+    PHI_CHECK(ok.body() == "{\"translation\":\"sicher\"}");
     PHI_CHECK(server.requests().size() == 1);
     if (!server.requests().empty())
         PHI_CHECK(server.requests().front().find("Host: localhost:") != std::string::npos);
@@ -258,54 +258,54 @@ void testTls(const std::string &dir)
     // Same certificate, another name: refused before a byte of the request
     // leaves.
     Fetch wrongName = translationRequest("https://127.0.0.1:" + port + "/api/v1/tr");
-    wrongName.tls.caFile = pem;
+    wrongName.tls().setCaFile(pem);
     const FetchResult mismatch = fetch(wrongName);
-    PHI_CHECK(!mismatch.ok);
-    PHI_CHECK_MSG(mismatch.error.find("certificate") != std::string::npos, "error: %s",
-                  mismatch.error.c_str());
+    PHI_CHECK(!mismatch.ok());
+    PHI_CHECK_MSG(mismatch.error().find("certificate") != std::string::npos, "error: %s",
+                  mismatch.error().c_str());
     PHI_CHECK(server.requests().size() == 1);
 
     // The same wrong name with the hostname check turned off: the operator
     // said the certificate names a host they reach by address. The chain is
     // still checked, which is why the bundle still has to be named.
     Fetch byAddress = wrongName;
-    byAddress.tls.verifyHostname = false;
+    byAddress.tls().setVerifyHostname(false);
     const FetchResult accepted = fetch(byAddress);
-    PHI_CHECK_MSG(accepted.ok, "error: %s", accepted.error.c_str());
+    PHI_CHECK_MSG(accepted.ok(), "error: %s", accepted.error().c_str());
     PHI_CHECK(server.requests().size() == 2);
 
     // ... and with the check off but nothing trusting the certificate, it is
     // still refused. Off is not "accept anything".
     Fetch unverifiable = translationRequest("https://127.0.0.1:" + port + "/api/v1/tr");
-    unverifiable.tls.verifyHostname = false;
+    unverifiable.tls().setVerifyHostname(false);
     const FetchResult stillRefused = fetch(unverifiable);
-    PHI_CHECK(!stillRefused.ok);
-    PHI_CHECK_MSG(stillRefused.error.find("certificate") != std::string::npos, "error: %s",
-                  stillRefused.error.c_str());
+    PHI_CHECK(!stillRefused.ok());
+    PHI_CHECK_MSG(stillRefused.error().find("certificate") != std::string::npos, "error: %s",
+                  stillRefused.error().c_str());
 
     // The system's trust store does not know this certificate: the production
     // path refuses it.
     const FetchResult selfSigned =
         fetch(translationRequest("https://localhost:" + port + "/api/v1/tr"));
-    PHI_CHECK(!selfSigned.ok);
-    PHI_CHECK_MSG(selfSigned.error.find("certificate") != std::string::npos, "error: %s",
-                  selfSigned.error.c_str());
+    PHI_CHECK(!selfSigned.ok());
+    PHI_CHECK_MSG(selfSigned.error().find("certificate") != std::string::npos, "error: %s",
+                  selfSigned.error().c_str());
 
     // A redirect off the protected connection is refused rather than
     // followed: the caller asked for https and only the redirect said
     // otherwise.
     Fetch downgrade = translationRequest("https://localhost:" + port + "/downgrade");
-    downgrade.tls.caFile = pem;
+    downgrade.tls().setCaFile(pem);
     const FetchResult refusedDowngrade = fetch(downgrade);
-    PHI_CHECK(!refusedDowngrade.ok);
-    PHI_CHECK_MSG(refusedDowngrade.error == "redirect from https to a plain connection refused",
-                  "error: %s", refusedDowngrade.error.c_str());
+    PHI_CHECK(!refusedDowngrade.ok());
+    PHI_CHECK_MSG(refusedDowngrade.error() == "redirect from https to a plain connection refused",
+                  "error: %s", refusedDowngrade.error().c_str());
 
     // Plain http to a TLS port is a transport failure, not a hang.
     Fetch plain = translationRequest("http://localhost:" + port + "/api/v1/tr");
-    plain.timeout = std::chrono::milliseconds(500);
+    plain.setTimeout(std::chrono::milliseconds(500));
     const FetchResult confused = fetch(plain);
-    PHI_CHECK(!confused.ok);
+    PHI_CHECK(!confused.ok());
 }
 
 } // namespace

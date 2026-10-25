@@ -36,26 +36,26 @@ int runSidecarMain(SidecarHost &host, const SidecarMainOptions &options)
         return 1;
     }
 
-    if (options.installSignalHandlers) {
+    if (options.installSignalHandlers()) {
         g_stopRequested.store(false, std::memory_order_relaxed);
         std::signal(SIGINT, handleStopSignal);
         std::signal(SIGTERM, handleStopSignal);
     }
 
     for (;;) {
-        if (options.installSignalHandlers && g_stopRequested.load(std::memory_order_relaxed))
+        if (options.installSignalHandlers() && g_stopRequested.load(std::memory_order_relaxed))
             break;
-        if (options.keepRunning && !options.keepRunning())
+        if (options.keepRunning() && !options.keepRunning()())
             break;
 
         phicore::adapter::v1::Utf8String pollError;
-        if (!host.pollOnce(options.pollTimeout, &pollError)) {
+        if (!host.pollOnce(options.pollTimeout(), &pollError)) {
             std::cerr << "[sidecar][pollFailure][host] " << pollError << std::endl;
             std::this_thread::sleep_for(kPollFailureBackoff);
         }
 
-        if (options.onIteration)
-            options.onIteration();
+        if (options.onIteration())
+            options.onIteration()();
     }
 
     host.stop();
@@ -79,6 +79,69 @@ int runSidecarMain(SidecarHost &host, const SidecarMainOptions &options)
     }
 
     return 0;
+}
+
+// --- SidecarMainOptions ------------------------------------------------------
+
+struct SidecarMainOptions::Private {
+    std::chrono::milliseconds pollTimeout{1000};
+    std::function<bool()> keepRunning;
+    std::function<void()> onIteration;
+    bool installSignalHandlers = true;
+};
+
+SidecarMainOptions::SidecarMainOptions() : d(std::make_unique<Private>()) {}
+SidecarMainOptions::SidecarMainOptions(const SidecarMainOptions &other)
+    : d(other.d ? std::make_unique<Private>(*other.d) : nullptr)
+{
+}
+SidecarMainOptions::SidecarMainOptions(SidecarMainOptions &&other) noexcept : d(std::move(other.d)) {}
+SidecarMainOptions &SidecarMainOptions::operator=(const SidecarMainOptions &other)
+{
+    if (this != &other)
+        d = other.d ? std::make_unique<Private>(*other.d) : nullptr;
+    return *this;
+}
+SidecarMainOptions &SidecarMainOptions::operator=(SidecarMainOptions &&other) noexcept
+{
+    d = std::move(other.d);
+    return *this;
+}
+SidecarMainOptions::~SidecarMainOptions() = default;
+const SidecarMainOptions::Private &SidecarMainOptions::p() const noexcept
+{
+    static const Private empty;
+    return d ? *d : empty;
+}
+SidecarMainOptions::Private &SidecarMainOptions::m()
+{
+    if (!d)
+        d = std::make_unique<Private>();
+    return *d;
+}
+std::chrono::milliseconds SidecarMainOptions::pollTimeout() const noexcept { return p().pollTimeout; }
+SidecarMainOptions &SidecarMainOptions::setPollTimeout(std::chrono::milliseconds timeout)
+{
+    m().pollTimeout = timeout;
+    return *this;
+}
+const std::function<bool()> &SidecarMainOptions::keepRunning() const noexcept { return p().keepRunning; }
+SidecarMainOptions &SidecarMainOptions::setKeepRunning(std::function<bool()> keepRunning)
+{
+    m().keepRunning = std::move(keepRunning);
+    return *this;
+}
+const std::function<void()> &SidecarMainOptions::onIteration() const noexcept { return p().onIteration; }
+SidecarMainOptions &SidecarMainOptions::setOnIteration(std::function<void()> onIteration)
+{
+    m().onIteration = std::move(onIteration);
+    return *this;
+}
+bool SidecarMainOptions::installSignalHandlers() const noexcept { return p().installSignalHandlers; }
+SidecarMainOptions &SidecarMainOptions::setInstallSignalHandlers(bool install)
+{
+    m().installSignalHandlers = install;
+    return *this;
 }
 
 } // namespace phicore::adapter::sdk

@@ -58,6 +58,7 @@ add_library(phi_adapter_sdk SHARED
     src/reachability.cpp
     src/http_auth.cpp
     src/http_client.cpp
+    src/http_types.cpp
     src/http_fetch.cpp
     src/http_message.cpp
     src/net_tls.cpp

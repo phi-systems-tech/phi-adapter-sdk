@@ -1,4 +1,4 @@
-#include "phi/adapter/net/http_message.h"
+#include "net/http_message.h"
 
 #include <algorithm>
 #include <cctype>

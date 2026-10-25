@@ -25,7 +25,7 @@ namespace phicore::adapter::net::detail {
 /// empty. Always clears the queue, so the next failure is not read as this one.
 std::string opensslText(const std::string &what);
 
-/// A verifying client context, or null with `error` set. `tls.enabled` is not
+/// A verifying client context, or null with `error` set. `tls.enabled()` is not
 /// read: the caller has already decided to speak TLS.
 SSL_CTX *makeClientContext(const v1::TlsSettings &tls, std::string *error);
 

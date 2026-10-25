@@ -3,7 +3,7 @@
 
 #include <phi/adapter/testing/check.h>
 
-#include "phi/adapter/net/http_message.h"
+#include "net/http_message.h"
 
 #include <string>
 

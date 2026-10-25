@@ -5,6 +5,7 @@
 // - default response for unknown commands
 // - disconnect on invalid frame headers
 #include "phi/adapter/sdk/sidecar.h"
+#include "logfilter.h"
 #include "phi/adapter/v1/ipc_command.h"
 #include "test_support.h"
 

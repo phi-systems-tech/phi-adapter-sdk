@@ -86,9 +86,9 @@ void testNothingSaidMeansOffAndVerified()
     // An instance made before the adapter offered these fields, which is every
     // instance that exists today.
     const TlsSettings settings = tlsSettingsFrom({}, {}, {});
-    PHI_CHECK(!settings.enabled);
-    PHI_CHECK(settings.caFile.empty());
-    PHI_CHECK(settings.verifyHostname);
+    PHI_CHECK(!settings.enabled());
+    PHI_CHECK(settings.caFile().empty());
+    PHI_CHECK(settings.verifyHostname());
 }
 
 void testTheAnswerIsReadTheSameWhateverShapeItComesBackIn()
@@ -108,10 +108,10 @@ void testTheAnswerIsReadTheSameWhateverShapeItComesBackIn()
 
     // And a value nobody can make sense of falls to the safe answer, which is
     // not the same one for both.
-    PHI_CHECK(!tlsSettingsFrom(ScalarValue(Utf8String("perhaps")), {}, {}).enabled);
-    PHI_CHECK(tlsSettingsFrom({}, {}, ScalarValue(Utf8String("perhaps"))).verifyHostname);
-    PHI_CHECK(!tlsSettingsFrom({}, {}, ScalarValue(false)).verifyHostname);
-    PHI_CHECK(!tlsSettingsFrom({}, {}, ScalarValue(Utf8String("no"))).verifyHostname);
+    PHI_CHECK(!tlsSettingsFrom(ScalarValue(Utf8String("perhaps")), {}, {}).enabled());
+    PHI_CHECK(tlsSettingsFrom({}, {}, ScalarValue(Utf8String("perhaps"))).verifyHostname());
+    PHI_CHECK(!tlsSettingsFrom({}, {}, ScalarValue(false)).verifyHostname());
+    PHI_CHECK(!tlsSettingsFrom({}, {}, ScalarValue(Utf8String("no"))).verifyHostname());
 }
 
 void testTheCertificateIsReadWithoutItsSurroundingSpace()
@@ -119,9 +119,9 @@ void testTheCertificateIsReadWithoutItsSurroundingSpace()
     const TlsSettings settings =
         tlsSettingsFrom(ScalarValue(true), ScalarValue(Utf8String("  /etc/ssl/broker.crt  ")),
                         ScalarValue(true));
-    PHI_CHECK(settings.caFile == "/etc/ssl/broker.crt");
+    PHI_CHECK(settings.caFile() == "/etc/ssl/broker.crt");
     // A field left blank is not a path made of spaces.
-    PHI_CHECK(tlsSettingsFrom({}, ScalarValue(Utf8String("   ")), {}).caFile.empty());
+    PHI_CHECK(tlsSettingsFrom({}, ScalarValue(Utf8String("   ")), {}).caFile().empty());
 }
 
 } // namespace

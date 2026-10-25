@@ -7,7 +7,7 @@
 
 #include <phi/adapter/testing/check.h>
 
-#include "phi/adapter/net/http_auth.h"
+#include "net/http_auth.h"
 
 #include <string>
 

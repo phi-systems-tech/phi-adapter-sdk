@@ -160,24 +160,16 @@ static_assert(static_cast<std::uint8_t>(LogCategory::Database) < 64,
  * Rebuilt whenever the effective adapter config changes so the hot log path
  * never parses the meta JSON per call. Info, Warn and Error always pass.
  */
-struct LogFilterCache {
-    /// Effective config received (without it, everything is forwarded).
-    bool hasConfig = false;
-    /// AdapterOption::EnableLogs on the effective config.
-    bool forwardingEnabled = false;
-    /// Minimum forwarded level as priority (Trace=0 ... Error=4).
-    int minLevelPriority = 1;
-    bool allowAllCategories = true;
-    /// Bit per LogCategory index when allowAllCategories is false.
-    std::uint16_t categoryMask = 0;
-};
+
 
 /// Whether this log reaches core. Info and above always do - what an operator
 /// has to see does not hang on a switch - while Trace and Debug wait for
 /// `AdapterOption::EnableLogs` and pass `logging.minLevel` / `logging.categories`.
 /// Declared here for the test that pins that rule.
-[[nodiscard]] bool shouldForwardLog(const LogFilterCache &cache, LogLevel level, LogCategory category);
+// The log filter (LogFilterCache, shouldForwardLog) is the library's own, in src/logfilter.h.
 
+// One log line as the library sends it. Adapters log through the log(...)
+// helpers and never build this themselves, so it stays plain.
 struct LogEntry {
     LogLevel level = LogLevel::Info;
     LogCategory category = LogCategory::Internal;
@@ -201,6 +193,9 @@ phicore::adapter::v1::JsonText makeSourceLocationFieldsJson(const char *file,
                                                             int line,
                                                             const char *functionName);
 
+// The dispatcher's wiring. No adapter sees this struct - SidecarHost fills it
+// inside the library and the tests fill it directly - so its layout is nobody's
+// contract and it stays plain.
 /**
  * @brief Callback set used by SidecarDispatcher.
  *
@@ -545,6 +540,9 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
+// Frozen since 0.26.0: this virtual set does not change (nothing inserted,
+// removed or re-signed), because its table lives in the adapter. Anything new
+// arrives as a registration on the host or the instance, never as a slot here.
 /**
  * @brief Optional instance execution backend (thread/event-loop abstraction).
  *
@@ -573,6 +571,9 @@ public:
 
 class AdapterInstance;
 
+// Frozen since 0.26.0: the virtuals below stay as they are. A new request from
+// core is a new request class in requests.h and a new handler setter, which an
+// adapter built before it simply never registers - and so answers NotSupported.
 /**
  * @brief Factory base class for adapter sidecar runtimes.
  *
@@ -731,6 +732,8 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
+// Frozen since 0.26.0, like AdapterFactory: no new virtuals, new requests by
+// registration.
 /**
  * @brief Adapter instance base class.
  *
@@ -1064,27 +1067,40 @@ private:
 /**
  * @brief Options for `runSidecarMain(...)`.
  */
-struct SidecarMainOptions {
-    /**
-     * @brief Poll timeout per iteration.
-     *
-     * Outbound work (results, events, logs) interrupts a blocking poll through
-     * the internal wake descriptor, so a long timeout does not add latency; it
-     * only bounds how often an otherwise idle sidecar wakes up.
-     */
-    std::chrono::milliseconds pollTimeout{1000};
-    /// Loop predicate. The loop exits as soon as it returns `false`.
-    std::function<bool()> keepRunning;
-    /// Optional per-iteration hook (for example a foreign event-loop pump).
-    std::function<void()> onIteration;
-    /**
-     * @brief Install `SIGINT`/`SIGTERM` handlers that stop the loop.
-     *
-     * Enabled by default because this helper is meant to *be* the process main
-     * loop. Set to `false` when the host application owns signal handling and
-     * drives the loop through `keepRunning`.
-     */
-    bool installSignalHandlers = true;
+/// Options for `runSidecarMain(...)`. Behind a d-pointer (see
+/// phi/adapter/v1/channel.h for the rule); two adapters drive the loop with it.
+class SidecarMainOptions
+{
+public:
+    SidecarMainOptions();
+    SidecarMainOptions(const SidecarMainOptions &other);
+    SidecarMainOptions(SidecarMainOptions &&other) noexcept;
+    SidecarMainOptions &operator=(const SidecarMainOptions &other);
+    SidecarMainOptions &operator=(SidecarMainOptions &&other) noexcept;
+    ~SidecarMainOptions();
+
+    /// Poll timeout per iteration, 1 s by default. Outbound work interrupts a
+    /// blocking poll through the wake descriptor, so a long timeout adds no
+    /// latency; it only bounds how often an idle sidecar wakes up.
+    std::chrono::milliseconds pollTimeout() const noexcept;
+    SidecarMainOptions &setPollTimeout(std::chrono::milliseconds timeout);
+    /// Loop predicate; the loop exits as soon as it returns false.
+    const std::function<bool()> &keepRunning() const noexcept;
+    SidecarMainOptions &setKeepRunning(std::function<bool()> keepRunning);
+    /// A per-iteration hook, for example a foreign event-loop pump.
+    const std::function<void()> &onIteration() const noexcept;
+    SidecarMainOptions &setOnIteration(std::function<void()> onIteration);
+    /// Install SIGINT/SIGTERM handlers that stop the loop; on by default
+    /// because this helper is meant to *be* the process main loop. Off when
+    /// the host owns signal handling and drives the loop through keepRunning.
+    bool installSignalHandlers() const noexcept;
+    SidecarMainOptions &setInstallSignalHandlers(bool install);
+
+private:
+    struct Private;
+    const Private &p() const noexcept;
+    Private &m();
+    std::unique_ptr<Private> d;
 };
 
 /**

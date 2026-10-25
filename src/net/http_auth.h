@@ -16,6 +16,8 @@
 #include <string>
 #include <string_view>
 
+#include "phi/adapter/net/http_types.h"
+
 namespace phicore::adapter::net {
 
 /// What a server said it wants in `WWW-Authenticate`.
@@ -47,10 +49,7 @@ struct Challenge {
     }
 };
 
-struct Credentials {
-    std::string user;
-    std::string password;
-};
+
 
 /**
  * @brief Reads one `WWW-Authenticate` header value.

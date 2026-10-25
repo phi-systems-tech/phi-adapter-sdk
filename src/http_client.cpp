@@ -1,5 +1,8 @@
 #include "phi/adapter/net/http_client.h"
 
+#include "net/http_auth.h"
+#include "net/http_message.h"
+
 #include <cerrno>
 #include <cstring>
 #include <utility>
@@ -319,7 +322,7 @@ struct HttpClient::Impl {
         busy = false;
         // Moved out first: the callback may start the next call from inside
         // itself and must find an idle client.
-        Done callback = streaming ? std::move(stream.done) : std::move(done);
+        Done callback = streaming ? std::move(stream.done()) : std::move(done);
         done = nullptr;
         stream = StreamHandlers{};
         streaming = false;
@@ -330,33 +333,33 @@ struct HttpClient::Impl {
     void fail(std::string error)
     {
         Result result;
-        result.error = std::move(error);
+        result.setError(std::move(error));
         if (streaming && parser.headComplete()) {
-            result.status = parser.response().status;
-            result.headers = parser.response().headers;
+            result.setStatus(parser.response().status);
+            result.setHeaders(parser.response().headers);
         }
         finish(std::move(result));
     }
 
     std::string authorizationHeader()
     {
-        if (call.credentials.user.empty() && call.credentials.password.empty())
+        if (call.credentials().user().empty() && call.credentials().password().empty())
             return {};
         if (!challenge.usable() || challengeOrigin != authority)
             return {};
         ++nonceCount;
-        return buildAuthorization(challenge, call.credentials, call.method, target, nonceCount,
+        return buildAuthorization(challenge, call.credentials(), call.method(), target, nonceCount,
                                   makeClientNonce());
     }
 
     void begin()
     {
         Request request;
-        request.method = call.method;
+        request.method = call.method();
         request.target = target;
         request.authority = authority;
-        request.headers = call.headers;
-        request.body = call.body;
+        request.headers = call.headers();
+        request.body = call.body();
         const std::string authorization = authorizationHeader();
         if (!authorization.empty())
             request.headers.emplace_back("Authorization", authorization);
@@ -443,7 +446,7 @@ struct HttpClient::Impl {
     bool startTls()
     {
         std::string error;
-        sslCtx = detail::makeClientContext(call.tls, &error);
+        sslCtx = detail::makeClientContext(call.tls(), &error);
         if (!sslCtx) {
             fail(error);
             return false;
@@ -453,8 +456,8 @@ struct HttpClient::Impl {
             fail(detail::opensslText("TLS session"));
             return false;
         }
-        const std::string &name = call.tlsServerName.empty() ? host : call.tlsServerName;
-        if (!detail::prepareSession(ssl, name, call.tls.verifyHostname, &error)) {
+        const std::string &name = call.tlsServerName().empty() ? host : call.tlsServerName();
+        if (!detail::prepareSession(ssl, name, call.tls().verifyHostname(), &error)) {
             fail(error);
             return false;
         }
@@ -636,18 +639,18 @@ struct HttpClient::Impl {
             const Response &response = parser.response();
             if (response.status == 401 || response.status >= 400) {
                 Result result;
-                result.status = response.status;
-                result.headers = response.headers;
-                result.unauthorized = response.status == 401;
-                result.error = response.status == 401 ? "Invalid credentials"
-                                                      : "HTTP " + std::to_string(response.status);
+                result.setStatus(response.status);
+                result.setHeaders(response.headers);
+                result.setUnauthorized(response.status == 401);
+                result.setError(response.status == 401 ? "Invalid credentials"
+                                                       : "HTTP " + std::to_string(response.status));
                 finish(std::move(result));
                 return false;
             }
             bodyDecoder.configure(parser.chunked(), parser.hasContentLength(),
                                   parser.contentLength());
-            if (stream.head)
-                stream.head(response.status, response.headers);
+            if (stream.head())
+                stream.head()(response.status, response.headers);
             if (fd < 0)
                 return false; // the head callback cancelled
             const std::string rest = inbound.substr(parser.bodyStart());
@@ -663,8 +666,8 @@ struct HttpClient::Impl {
     {
         const StreamBodyDecoder::State state =
             bodyDecoder.feed(bytes, [this](std::string_view piece) {
-                if (stream.chunk && fd >= 0)
-                    stream.chunk(piece);
+                if (stream.chunk() && fd >= 0)
+                    stream.chunk()(piece);
             });
         if (fd < 0)
             return false; // cancelled from inside a chunk callback
@@ -709,9 +712,9 @@ struct HttpClient::Impl {
     void endStream()
     {
         Result result;
-        result.status = parser.response().status;
-        result.headers = parser.response().headers;
-        result.ok = true;
+        result.setStatus(parser.response().status);
+        result.setHeaders(parser.response().headers);
+        result.setOk(true);
         finish(std::move(result));
     }
 
@@ -720,7 +723,7 @@ struct HttpClient::Impl {
         const Response &response = parser.response();
 
         if (response.status == 401 && !retried
-            && !(call.credentials.user.empty() && call.credentials.password.empty())) {
+            && !(call.credentials().user().empty() && call.credentials().password().empty())) {
             const Challenge offered = parseChallenge(response.header("WWW-Authenticate"));
             if (offered.usable()) {
                 // A new nonce means a new counter; reusing one across
@@ -737,22 +740,22 @@ struct HttpClient::Impl {
         }
 
         Result result;
-        result.status = response.status;
-        result.body = response.body;
-        result.headers = response.headers;
-        result.ok = response.status > 0 && response.status < 400;
+        result.setStatus(response.status);
+        result.setBody(response.body);
+        result.setHeaders(response.headers);
+        result.setOk(response.status > 0 && response.status < 400);
         if (response.status == 401) {
-            result.unauthorized = true;
+            result.setUnauthorized(true);
             // The device was reached and said no. Saying that, rather than
             // "HTTP 401", is what lets a caller send somebody to their
             // password instead of to their network.
-            result.error = "Invalid credentials";
+            result.setError("Invalid credentials");
             // A stale nonce is not a wrong password; the next call gets a
             // fresh challenge rather than reusing the one that was refused.
             challenge = Challenge{};
             challengeOrigin.clear();
-        } else if (!result.ok) {
-            result.error = "HTTP " + std::to_string(response.status);
+        } else if (!result.ok()) {
+            result.setError("HTTP " + std::to_string(response.status));
         }
         finish(std::move(result));
     }
@@ -767,7 +770,7 @@ struct HttpClient::Impl {
         std::string newPort;
         std::string newTarget;
         bool https = false;
-        if (!parseUrl(newCall.url, &https, &newHost, &newPort, &newTarget))
+        if (!parseUrl(newCall.url(), &https, &newHost, &newPort, &newTarget))
             return false;
 
         call = std::move(newCall);
@@ -779,7 +782,7 @@ struct HttpClient::Impl {
         retried = false;
         busy = true;
 
-        deadline = loop.timerAfter(call.timeout, [this]() { fail("Request timed out"); });
+        deadline = loop.timerAfter(call.timeout(), [this]() { fail("Request timed out"); });
         begin();
         return true;
     }

@@ -36,8 +36,8 @@ SSL_CTX *makeClientContext(const v1::TlsSettings &tls, std::string *error)
     // an endpoint with a private authority does not cost the operator every
     // public one.
     bool loaded = SSL_CTX_set_default_verify_paths(ctx) == 1;
-    if (!tls.caFile.empty())
-        loaded = SSL_CTX_load_verify_locations(ctx, tls.caFile.c_str(), nullptr) == 1;
+    if (!tls.caFile().empty())
+        loaded = SSL_CTX_load_verify_locations(ctx, tls.caFile().c_str(), nullptr) == 1;
     if (!loaded) {
         *error = opensslText("TLS trust store");
         SSL_CTX_free(ctx);

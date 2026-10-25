@@ -5,6 +5,7 @@
 
 #include "phi/adapter/v1/response.h"
 #include "phi/adapter/v1/schema.h"
+#include "phi/adapter/v1/tlsconfig.h"
 
 #include <type_traits>
 #include <utility>
@@ -585,6 +586,19 @@ ActionResponse &ActionResponse::addFieldChoices(Utf8String key, AdapterConfigOpt
     m().fieldChoices.emplace_back(std::move(key), std::move(choices));
     return *this;
 }
+
+// --- TlsSettings -------------------------------------------------------------
+
+struct TlsSettings::Private {
+    bool enabled = false;
+    Utf8String caFile;
+    bool verifyHostname = true;
+};
+
+PHI_V1_ENTITY_MEMBERS(TlsSettings)
+PHI_V1_FIELD(TlsSettings, bool, enabled, setEnabled)
+PHI_V1_FIELD(TlsSettings, const Utf8String &, caFile, setCaFile)
+PHI_V1_FIELD(TlsSettings, bool, verifyHostname, setVerifyHostname)
 
 #undef PHI_V1_PART
 #undef PHI_V1_FIELD

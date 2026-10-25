@@ -14,9 +14,10 @@
 #include <utility>
 #include <vector>
 
+#include "phi/adapter/net/http_types.h"
+
 namespace phicore::adapter::net {
 
-using Header = std::pair<std::string, std::string>;
 
 struct Request {
     std::string method = "GET";

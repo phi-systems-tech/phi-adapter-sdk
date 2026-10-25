@@ -1,6 +1,8 @@
 # phi-adapter-sdk tests: plain C++ binaries registered with ctest.
 # Run automatically by dh_auto_test during Debian package builds.
 find_package(Threads REQUIRED)
+# The framing and auth internals moved out of the public headers; their tests reach them here.
+include_directories(${CMAKE_SOURCE_DIR}/src)
 
 add_executable(sdk_runtime_tests runtime_tests.cpp)
 target_link_libraries(sdk_runtime_tests PRIVATE phi::adapter-sdk Threads::Threads)

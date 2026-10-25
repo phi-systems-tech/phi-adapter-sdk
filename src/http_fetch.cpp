@@ -1,5 +1,8 @@
 #include "phi/adapter/net/http_fetch.h"
 
+#include "net/http_auth.h"
+#include "net/http_message.h"
+
 #include "net_tls.h"
 
 #include <algorithm>
@@ -208,7 +211,7 @@ private:
             *error = detail::opensslText("TLS session");
             return false;
         }
-        if (!detail::prepareSession(m_ssl, host, tls.verifyHostname, error))
+        if (!detail::prepareSession(m_ssl, host, tls.verifyHostname(), error))
             return false;
         if (SSL_set_fd(m_ssl, m_fd) != 1) {
             *error = detail::opensslText("TLS socket");
@@ -289,7 +292,7 @@ bool isRedirect(int status)
 FetchResult failed(std::string error)
 {
     FetchResult result;
-    result.error = std::move(error);
+    result.setError(std::move(error));
     return result;
 }
 
@@ -298,12 +301,12 @@ FetchResult failed(std::string error)
 FetchResult fetch(const Fetch &request)
 {
     const Clock::time_point deadline =
-        Clock::now() + std::max(std::chrono::milliseconds(1), request.timeout);
+        Clock::now() + std::max(std::chrono::milliseconds(1), request.timeout());
 
-    std::string url = request.url;
-    std::string method = request.method;
-    std::string body = request.body;
-    int redirectsLeft = std::max(0, request.maxRedirects);
+    std::string url = request.url();
+    std::string method = request.method();
+    std::string body = request.body();
+    int redirectsLeft = std::max(0, request.maxRedirects());
 
     for (;;) {
         bool secure = false;
@@ -315,14 +318,14 @@ FetchResult fetch(const Fetch &request)
 
         Connection connection;
         std::string error;
-        if (!connection.open(host, port, secure, request.tls, deadline, &error))
+        if (!connection.open(host, port, secure, request.tls(), deadline, &error))
             return failed(std::move(error));
 
         Request wire;
         wire.method = method;
         wire.target = target;
         wire.authority = authorityOf(host, port, secure);
-        wire.headers = request.headers;
+        wire.headers = request.headers();
         wire.body = body;
         if (!connection.writeAll(serializeRequest(wire), deadline, &error))
             return failed(std::move(error));
@@ -365,15 +368,15 @@ FetchResult fetch(const Fetch &request)
         }
 
         FetchResult result;
-        result.status = response.status;
-        result.body = response.body;
-        result.headers = response.headers;
+        result.setStatus(response.status);
+        result.setBody(response.body);
+        result.setHeaders(response.headers);
         if (isRedirect(response.status) && !location.empty())
-            result.error = "HTTP " + std::to_string(response.status) + " redirect not followed";
+            result.setError("HTTP " + std::to_string(response.status) + " redirect not followed");
         else if (response.status >= 400)
-            result.error = "HTTP " + std::to_string(response.status);
+            result.setError("HTTP " + std::to_string(response.status));
         else
-            result.ok = true;
+            result.setOk(true);
         return result;
     }
 }
