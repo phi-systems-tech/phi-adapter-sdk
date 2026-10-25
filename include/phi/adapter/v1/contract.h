@@ -14,5 +14,3 @@
 #include "phi/adapter/v1/room.h"
 #include "phi/adapter/v1/group.h"
 #include "phi/adapter/v1/scene.h"
-#include "phi/adapter/v1/discovery_query.h"
-#include "phi/adapter/v1/discovery.h"
