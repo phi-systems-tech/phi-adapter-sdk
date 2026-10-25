@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -8,28 +9,67 @@
 
 namespace phicore::adapter::v1 {
 
-struct Channel {
-    Utf8String name;
-    ExternalId externalId;
-    ChannelKind kind = ChannelKind::Unknown;
-    ChannelDataType dataType = ChannelDataType::Unknown;
-    ChannelFlags flags = ChannelFlag::None;
-    Utf8String unit;
-    double minValue = 0.0;
-    double maxValue = 0.0;
-    double stepValue = 0.0;
-    JsonText metaJson;
-    AdapterConfigOptionList choices;
+// A channel as the adapter reports it. The data lives behind a d-pointer and
+// is reached through the accessors below, which the shared library exports:
+// a field added in a later SDK is a new accessor, never a change of size, so
+// an adapter built against this release keeps running on that library. Copies
+// are deep; a moved-from object is empty and still valid.
+//
+//     v1::Channel c;
+//     c.setExternalId("power").setName("Power").setKind(v1::ChannelKind::Power)
+//      .setDataType(v1::ChannelDataType::Bool).setFlags(v1::kChannelFlagDefaultWrite);
+class Channel
+{
+public:
+    Channel();
+    Channel(const Channel &other);
+    Channel(Channel &&other) noexcept;
+    Channel &operator=(const Channel &other);
+    Channel &operator=(Channel &&other) noexcept;
+    ~Channel();
 
-    // Runtime value in canonical form for dataType:
-    // - Bool: bool(true/false) or int64(0/1)
-    // - Int/Enum: int64
-    // - Float: double
-    // - String: Utf8String
-    // - Color: transported via dedicated Color payloads (not ScalarValue)
-    ScalarValue lastValue;
-    std::int64_t lastUpdateMs = 0;
-    bool hasValue = false;
+    const Utf8String &name() const noexcept;
+    Channel &setName(Utf8String name);
+    const ExternalId &externalId() const noexcept;
+    Channel &setExternalId(ExternalId externalId);
+    ChannelKind kind() const noexcept;
+    Channel &setKind(ChannelKind kind);
+    ChannelDataType dataType() const noexcept;
+    Channel &setDataType(ChannelDataType dataType);
+    ChannelFlags flags() const noexcept;
+    Channel &setFlags(ChannelFlags flags);
+    const Utf8String &unit() const noexcept;
+    Channel &setUnit(Utf8String unit);
+    double minValue() const noexcept;
+    Channel &setMinValue(double value);
+    double maxValue() const noexcept;
+    Channel &setMaxValue(double value);
+    double stepValue() const noexcept;
+    Channel &setStepValue(double value);
+    /// min, max and step in one call, the common case for a level.
+    Channel &setRange(double minValue, double maxValue, double stepValue = 0.0);
+    const JsonText &metaJson() const noexcept;
+    Channel &setMetaJson(JsonText metaJson);
+    const AdapterConfigOptionList &choices() const noexcept;
+    Channel &setChoices(AdapterConfigOptionList choices);
+    Channel &addChoice(Utf8String value, Utf8String label);
+
+    // The runtime value, in canonical form for dataType: Bool as bool or
+    // int64 0/1, Int and Enum as int64, Float as double, String as Utf8String;
+    // Color travels in its own payloads, never here.
+    const ScalarValue &lastValue() const noexcept;
+    std::int64_t lastUpdateMs() const noexcept;
+    bool hasValue() const noexcept;
+    /// Sets the value and its time and marks the channel as having one.
+    Channel &setLastValue(ScalarValue value, std::int64_t updateMs);
+    /// Back to "no value yet".
+    Channel &clearValue();
+
+private:
+    struct Private;
+    const Private &p() const noexcept;
+    Private &m();
+    std::unique_ptr<Private> d;
 };
 
 using ChannelList = std::vector<Channel>;

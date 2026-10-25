@@ -68,83 +68,75 @@ bool writeFileText(const std::string &path, const std::string &text)
 v1::Device fixtureDevice()
 {
     v1::Device device;
-    device.name = "Living Room Light \"Süd\"";
-    device.deviceClass = v1::DeviceClass::Light;
-    device.flags = v1::DeviceFlag::Wireless | v1::DeviceFlag::Battery;
-    device.externalId = "dev-9";
-    device.manufacturer = "Acme";
-    device.firmware = "1.2.3";
-    device.model = "LTG-002";
-    device.metaJson = "{\"vendorId\":7}";
+    device.setName("Living Room Light \"Süd\"")
+        .setDeviceClass(v1::DeviceClass::Light)
+        .setFlags(v1::DeviceFlag::Wireless | v1::DeviceFlag::Battery)
+        .setExternalId("dev-9")
+        .setManufacturer("Acme")
+        .setFirmware("1.2.3")
+        .setModel("LTG-002")
+        .setMetaJson("{\"vendorId\":7}");
     v1::DeviceEffectDescriptor effect;
-    effect.effect = v1::DeviceEffect::ColorLoop;
-    effect.id = "vendor-loop";
-    effect.label = "Color Loop";
-    effect.description = "Cycles colors";
-    effect.requiresParams = false;
-    device.effects.push_back(effect);
+    effect.setEffect(v1::DeviceEffect::ColorLoop)
+        .setId("vendor-loop")
+        .setLabel("Color Loop")
+        .setDescription("Cycles colors")
+        .setRequiresParams(false);
+    device.addEffect(effect);
     return device;
 }
 
 v1::Channel fixtureChannel()
 {
     v1::Channel channel;
-    channel.name = "Brightness";
-    channel.externalId = "ch-2";
-    channel.kind = v1::ChannelKind::Brightness;
-    channel.dataType = v1::ChannelDataType::Int;
-    channel.flags = v1::kChannelFlagDefaultWrite;
-    channel.unit = "%";
-    channel.minValue = 0.0;
-    channel.maxValue = 100.0;
-    channel.stepValue = 1.0;
-    channel.metaJson = "{}";
-    v1::AdapterConfigOption choice;
-    choice.value = "auto";
-    choice.label = "Automatic";
-    channel.choices.push_back(choice);
-    channel.lastValue = static_cast<std::int64_t>(75);
-    channel.lastUpdateMs = kFixedTsMs;
-    channel.hasValue = true;
+    channel.setName("Brightness")
+        .setExternalId("ch-2")
+        .setKind(v1::ChannelKind::Brightness)
+        .setDataType(v1::ChannelDataType::Int)
+        .setFlags(v1::kChannelFlagDefaultWrite)
+        .setUnit("%")
+        .setRange(0.0, 100.0, 1.0)
+        .setMetaJson("{}")
+        .addChoice("auto", "Automatic")
+        .setLastValue(static_cast<std::int64_t>(75), kFixedTsMs);
     return channel;
 }
 
 v1::Room fixtureRoom()
 {
     v1::Room room;
-    room.externalId = "room-1";
-    room.name = "Living Room";
-    room.zone = "Ground";
-    room.roomClass = v1::RoomClass::LivingRoom;
-    room.deviceExternalIds = {"dev-9", "dev-10"};
-    room.metaJson = "{}";
+    room.setExternalId("room-1")
+        .setName("Living Room")
+        .setZone("Ground")
+        .setRoomClass(v1::RoomClass::LivingRoom)
+        .setDeviceExternalIds({"dev-9", "dev-10"})
+        .setMetaJson("{}");
     return room;
 }
 
 v1::Group fixtureGroup()
 {
     v1::Group group;
-    group.externalId = "grp-1";
-    group.name = "All Lights";
-    group.zone = "Ground";
-    group.deviceExternalIds = {"dev-9"};
-    group.metaJson = "{}";
+    group.setExternalId("grp-1")
+        .setName("All Lights")
+        .setZone("Ground")
+        .setDeviceExternalIds({"dev-9"})
+        .setMetaJson("{}");
     return group;
 }
 
 v1::Scene fixtureScene()
 {
     v1::Scene scene;
-    scene.externalId = "scene-1";
-    scene.name = "Relax";
-    scene.description = "Evening scene";
-    scene.scopeExternalId = "grp-1";
-    scene.scopeType = "group";
-    scene.avatarColor = "#ff8800";
-    scene.presetTag = "relax";
-    scene.state = v1::SceneState::Inactive;
-    scene.flags = v1::SceneFlag::OriginAdapter | v1::SceneFlag::SupportsDynamic;
-    scene.metaJson = "{}";
+    scene.setExternalId("scene-1")
+        .setName("Relax")
+        .setDescription("Evening scene")
+        .setScope("group", "grp-1")
+        .setAvatarColor("#ff8800")
+        .setPresetTag("relax")
+        .setState(v1::SceneState::Inactive)
+        .setFlags(v1::SceneFlag::OriginAdapter | v1::SceneFlag::SupportsDynamic)
+        .setMetaJson("{}");
     return scene;
 }
 

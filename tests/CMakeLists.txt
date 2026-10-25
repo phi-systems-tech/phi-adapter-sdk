@@ -21,6 +21,10 @@ target_compile_definitions(sdk_golden_wire_tests
 add_executable(sdk_version_tests sdk_version_tests.cpp)
 target_link_libraries(sdk_version_tests PRIVATE phi::adapter-sdk Threads::Threads)
 
+# The entities behind their d-pointers: size, deep copies, moves, the value.
+add_executable(sdk_entity_tests entity_tests.cpp)
+target_link_libraries(sdk_entity_tests PRIVATE phi::adapter-sdk)
+
 # A device that goes quiet: the strikes, the growing wait, and the line.
 add_executable(sdk_reachability_tests reachability_tests.cpp)
 target_link_libraries(sdk_reachability_tests PRIVATE phi::adapter-sdk)
@@ -80,6 +84,7 @@ add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
 add_test(NAME sdk_button_presses_tests COMMAND sdk_button_presses_tests)
 add_test(NAME sdk_reachability_tests COMMAND sdk_reachability_tests)
 add_test(NAME sdk_version_tests COMMAND sdk_version_tests)
+add_test(NAME sdk_entity_tests COMMAND sdk_entity_tests)
 add_test(NAME sdk_http_fetch_tests COMMAND sdk_http_fetch_tests)
 add_test(NAME sdk_loop_execution_backend_tests COMMAND sdk_loop_execution_backend_tests)
 add_test(NAME sdk_runtime_tests COMMAND sdk_runtime_tests)
