@@ -1,3 +1,17 @@
+phi-adapter-sdk (0.26.0-1) trixie; urgency=medium
+
+  * The binary boundary: every public data type is a class behind a d-pointer
+    (entities, record, forms, actions, answers, the fourteen requests, HTTP,
+    TLS, main-loop options), read and written through exported accessors;
+    one pointer wide, deep copies. The wire is unchanged (golden fixtures pass).
+  * PHI_ADAPTER_SDK_VERSION in a generated sdk_version.h, sent in every
+    descriptor as sdkVersion; sdkLibraryVersion() is the library's own.
+  * scripts/abi-check.sh and abi-baseline.sh; the debian build runs the check.
+  * http_message.h, http_auth.h, the log filter and the unused Discovery
+    structs left the public headers. docs/MIGRATION-0.26.md maps the port.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 25 Oct 2026 11:32:42 +0100
+
 phi-adapter-sdk (0.25.0-1) trixie; urgency=medium
 
   * Voice and cameras in one version, so a camera adapter needs no SDK
