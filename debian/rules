@@ -16,8 +16,9 @@ override_dh_auto_test:
 	dh_auto_test
 	dh_auto_build -- abi-check
 
-# With a symbols file in place, -c4 fails the build on a symbol that went
-# missing or arrived unannounced, and dpkg-shlibdeps gives every adapter the
-# ">= version" its symbols need.
+# Every adapter built against this library gets "phi-adapter-sdk (>= <this
+# version>)": a newer adapter cannot land on an older library. A symbols file
+# would say it per symbol, but a C++ symbol table is churn (templates,
+# instantiations, mangled names) and abidiff already watches the ABI itself.
 override_dh_makeshlibs:
-	dh_makeshlibs -- -c4
+	dh_makeshlibs -V

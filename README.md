@@ -97,8 +97,8 @@ library. That promise rests on three things, none of them good intentions:
   and refuses older adapters with a log line. `sdkLibraryVersion()` is the
   library's own number. `scripts/abi-check.sh` runs in every package build
   against the committed baseline in `abi/` (written by `scripts/abi-baseline.sh`
-  at a release, on purpose); `debian/phi-adapter-sdk.symbols` makes
-  `dpkg-shlibdeps` give each adapter the `>=` it needs.
+  at a release, on purpose); `dh_makeshlibs -V` makes `dpkg-shlibdeps` give
+  each adapter `phi-adapter-sdk (>= <the version it was built against>)`.
 
 New capabilities take the generic path first: an action id announced in the
 descriptor, `cmd.adapter.action.invoke` with JSON in, `ActionResponse Data`
