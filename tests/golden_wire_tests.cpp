@@ -591,7 +591,9 @@ int main()
     const bool updateMode = std::getenv("PHI_GOLDEN_UPDATE") != nullptr;
 
     const std::string path = phitest::uniqueSocketPath("golden");
-    sdk::SidecarDispatcher dispatcher(path);
+    // Pinned: the descriptor fixture carries the built-against version, and the
+    // fixture must not change with every release.
+    sdk::SidecarDispatcher dispatcher(path, "0.0.0-golden");
     TestClient client;
     bool connected = false;
     InboundCapture capture;

@@ -8,3 +8,16 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 override_dh_auto_configure:
 	dh_auto_configure -- \
 		-DCMAKE_INSTALL_PREFIX=/usr
+
+# The binary boundary is checked at every package build: the library against
+# the committed baseline (abi/, see scripts/abi-check.sh). Until the first
+# release of the d-pointer shape there is no baseline and the check says so.
+override_dh_auto_test:
+	dh_auto_test
+	dh_auto_build -- abi-check
+
+# With a symbols file in place, -c4 fails the build on a symbol that went
+# missing or arrived unannounced, and dpkg-shlibdeps gives every adapter the
+# ">= version" its symbols need.
+override_dh_makeshlibs:
+	dh_makeshlibs -- -c4

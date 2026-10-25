@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.25.0
+    VERSION 0.26.0
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )
@@ -32,9 +32,18 @@ set_target_properties(phi_adapter_contract PROPERTIES
 
 target_compile_features(phi_adapter_contract INTERFACE cxx_std_20)
 
+# The version an adapter compiles against, as macros it can test and as the
+# number the inline constructors hand to the library (sdk_version.h.in).
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/phi/adapter/v1/sdk_version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/phi/adapter/v1/sdk_version.h
+    @ONLY
+)
+
 target_include_directories(phi_adapter_contract
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
@@ -92,6 +101,35 @@ else()
     message(FATAL_ERROR "phi_adapter_sdk runtime currently supports Linux only")
 endif()
 
+# The binary boundary is checked, not remembered: `abi-check` compares the
+# built library with the committed baseline (abi/libphi_adapter_sdk.abi, an
+# abidw dump of the last release) and fails on anything an adapter built
+# against that release would notice. `abi-baseline` rewrites the dump; that is
+# a release step, taken on purpose. Both need libabigail (abigail-tools).
+find_program(PHI_ABIDIFF abidiff)
+find_program(PHI_ABIDW abidw)
+set(PHI_ADAPTER_SDK_ABI_BASELINE ${CMAKE_CURRENT_SOURCE_DIR}/abi/libphi_adapter_sdk.abi)
+if(PHI_ABIDIFF AND PHI_ABIDW)
+    add_custom_target(abi-check
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/abi-check.sh
+                ${PHI_ADAPTER_SDK_ABI_BASELINE} $<TARGET_FILE:phi_adapter_sdk>
+                ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/generated
+        DEPENDS phi_adapter_sdk
+        COMMENT "Comparing libphi_adapter_sdk with the ABI baseline"
+        VERBATIM
+    )
+    add_custom_target(abi-baseline
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/abi-baseline.sh
+                ${PHI_ADAPTER_SDK_ABI_BASELINE} $<TARGET_FILE:phi_adapter_sdk>
+                ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/generated
+        DEPENDS phi_adapter_sdk
+        COMMENT "Writing the ABI baseline from this build"
+        VERBATIM
+    )
+else()
+    message(STATUS "abigail-tools not found: abi-check and abi-baseline are not available")
+endif()
+
 
 
 option(PHI_ADAPTER_SDK_BUILD_TESTS "Build phi-adapter-sdk tests" ${PROJECT_IS_TOP_LEVEL})
@@ -114,6 +152,10 @@ install(
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/phi/adapter
     FILES_MATCHING
         PATTERN "*.h"
+)
+install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/phi/adapter/v1/sdk_version.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/phi/adapter/v1
 )
 install(
     DIRECTORY include/phi/adapter/net

@@ -63,26 +63,48 @@ With that alias, common contract types are available as:
 - `phi::CmdResponse`, `phi::ActionResponse`, `phi::CmdStatus`, `phi::ActionResultType`
 - `phi::Adapter`, `phi::Device`, `phi::Channel`, `phi::Room`, `phi::Group`, `phi::Scene`
 
-## STRICT V1 POLICY: NO FALLBACKS, NO BACKWARD COMPATIBILITY (while v1 is being shaped)
+## The binary boundary (from 0.26.0)
 
-This policy is **temporary and has an end**. It applies while v1 is still being
-cut - everything is rebuilt together, so breaking a shape costs a rebuild and
-nothing else. It stops applying once the SDK is something somebody outside can
-build against (M4, "API stabilization"), and from then on the rule is the
-opposite: **the protocol is backward compatible, and breaking it takes a major
-version.**
+An adapter built against an SDK release keeps running on every later 0.x
+library. That promise rests on three things, none of them good intentions:
 
-Both halves matter, and the second is what the promise above - that adapters
-keep working across phi-core releases - actually rests on. What an adapter
-survives is core releases *that do not move the protocol version*; the version
-in the frame header is what says so.
+- **The wire tolerates growth.** Adapter and core speak JSON inside the v1
+  frames; a missing key is defaulted, an unknown one ignored, an enum crosses
+  as a number. The protocol number in the frame header (`kProtocolVersion`) is
+  the one switch for a wire break that is meant.
+- **The C++ boundary hides its layout.** Data types that are worth centralising
+  carry a d-pointer and are read through exported accessors, so a type grows
+  by an accessor and never by `sizeof`. The virtuals of `AdapterFactory`,
+  `AdapterInstance` and `InstanceExecutionBackend` are frozen: nothing is
+  inserted, removed or re-signed. New requests arrive as a registration (one
+  typed setter per request class); a request nobody registered for is answered
+  `NotSupported`. Small value types that do not change (`Color`, `Value`, the
+  enums, `FrameHeader`) stay plain. Copies are deep, not shared.
+- **The version travels, and the rules are checked.** `PHI_ADAPTER_SDK_VERSION`
+  (`phi/adapter/v1/sdk_version.h`, generated) is read where the adapter
+  compiles and goes out in the descriptor as `sdkVersion`; core holds a minimum
+  and refuses older adapters with a log line. `sdkLibraryVersion()` is the
+  library's own number. `scripts/abi-check.sh` runs in every package build
+  against the committed baseline in `abi/` (written by `scripts/abi-baseline.sh`
+  at a release, on purpose); `debian/phi-adapter-sdk.symbols` makes
+  `dpkg-shlibdeps` give each adapter the `>=` it needs.
 
-- SDK ABI/API changes are intentional in v1 cleanup; compatibility shims are not provided.
-- Do not implement legacy aliases for schema keys, action ids, channel ids, or enum names.
-- Do not add implicit key mapping (`port` -> `iscpPort`, etc.) in adapter handlers.
-- Treat missing required keys as `InvalidArgument`.
-- Keep adapter schema and handler keys identical and explicit.
-- Any rename/removal of public schema/action/channel keys is a breaking v1 change and must be migrated explicitly.
+New capabilities take the generic path first: an action id announced in the
+descriptor, `cmd.adapter.action.invoke` with JSON in, `ActionResponse Data`
+with JSON out. The ids are conventions, documented here as they appear:
+
+| Action id | Params | Answer | Who |
+|---|---|---|---|
+| `media.search` | `{query, kinds?}` | `Data`: matches with a playable `mediaId`, `mediaType`, `mimeType`, `metadata` | a media source such as phi-adapter-plex |
+
+What stays strict, because it is about meaning and not layout:
+
+- No legacy aliases for schema keys, action ids, channel ids or enum names.
+- No implicit key mapping (`port` -> `iscpPort`, etc.) in adapter handlers.
+- A missing required key is `InvalidArgument`.
+- Adapter schema and handler keys stay identical and explicit.
+- A rename or removal of a public schema, action or channel key is a breaking
+  change and is migrated explicitly.
 - This applies across the full stack: adapter sidecars, phi-core, phi-ui, and automation runtime/editor.
 
 ## Value Normalization And Comparison (v1)

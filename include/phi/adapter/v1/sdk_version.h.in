@@ -1,0 +1,25 @@
+// The SDK version an adapter was compiled against. Generated from the project
+// version at configure time; never edited by hand.
+//
+// This is the adapter's number, not the library's: the macros are baked into
+// the adapter binary, and the inline constructors of SidecarHost and
+// SidecarDispatcher hand it to the shared library, which puts it in the
+// descriptor as `sdkVersion`. The library's own number is sdkLibraryVersion().
+// Core holds a minimum and refuses an adapter below it.
+#pragma once
+
+#define PHI_ADAPTER_SDK_VERSION "@PROJECT_VERSION@"
+#define PHI_ADAPTER_SDK_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define PHI_ADAPTER_SDK_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define PHI_ADAPTER_SDK_VERSION_PATCH @PROJECT_VERSION_PATCH@
+
+/// A single number to compare against: PHI_ADAPTER_SDK_VERSION_NUMBER >= PHI_ADAPTER_SDK_VERSION_CHECK(0, 27, 0)
+#define PHI_ADAPTER_SDK_VERSION_CHECK(major, minor, patch) (((major) << 16) | ((minor) << 8) | (patch))
+#define PHI_ADAPTER_SDK_VERSION_NUMBER \
+    PHI_ADAPTER_SDK_VERSION_CHECK(PHI_ADAPTER_SDK_VERSION_MAJOR, PHI_ADAPTER_SDK_VERSION_MINOR, PHI_ADAPTER_SDK_VERSION_PATCH)
+
+namespace phicore::adapter::v1 {
+
+inline constexpr const char *kSdkVersion = PHI_ADAPTER_SDK_VERSION;
+
+} // namespace phicore::adapter::v1

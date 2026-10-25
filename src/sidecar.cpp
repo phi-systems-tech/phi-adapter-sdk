@@ -1851,6 +1851,8 @@ std::string descriptorToJson(const AdapterDescriptor &descriptor)
     out += jsonQuoted(descriptor.description);
     appendFieldPrefix(out, first, "apiVersion");
     out += jsonQuoted(descriptor.apiVersion);
+    appendFieldPrefix(out, first, "sdkVersion");
+    out += jsonQuoted(descriptor.sdkVersion);
     appendFieldPrefix(out, first, "iconSvg");
     out += jsonQuoted(descriptor.iconSvg);
     appendFieldPrefix(out, first, "imageBase64");
@@ -2037,12 +2039,15 @@ phicore::adapter::v1::JsonText fieldChoicesToJson(const phicore::adapter::v1::Ad
 }
 
 struct SidecarDispatcher::Impl {
-    explicit Impl(phicore::adapter::v1::Utf8String socketPath)
+    Impl(phicore::adapter::v1::Utf8String socketPath, const char *builtAgainstSdkVersion)
         : runtime(std::make_unique<SidecarRuntime>(std::move(socketPath)))
+        , builtAgainst(builtAgainstSdkVersion ? builtAgainstSdkVersion : "")
     {
     }
 
     std::unique_ptr<SidecarRuntime> runtime;
+    // What the adapter was compiled against; a string literal from its binary.
+    const char *builtAgainst;
     SidecarHandlers handlers;
     std::mutex runtimeMutex;
     std::mutex sendQueueMutex;
@@ -2074,8 +2079,10 @@ struct SidecarDispatcher::Impl {
 #define m_lastQueueOverflowTsMs m_impl->lastQueueOverflowTsMs
 #define m_pollingThread m_impl->pollingThread
 
-SidecarDispatcher::SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath)
-    : m_impl(std::make_unique<Impl>(std::move(socketPath)))
+const char *SidecarDispatcher::builtAgainstSdkVersion() const noexcept { return m_impl->builtAgainst; }
+
+SidecarDispatcher::SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath, const char *builtAgainstSdkVersion)
+    : m_impl(std::make_unique<Impl>(std::move(socketPath), builtAgainstSdkVersion))
 {
     RuntimeCallbacks callbacks;
     callbacks.onConnected = [this]() {
@@ -2910,7 +2917,9 @@ bool SidecarDispatcher::sendAdapterDescriptor(const phicore::adapter::v1::Extern
     appendFieldPrefix(body, first, "externalId");
     body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "descriptor");
-    body += descriptorToJson(descriptor);
+    AdapterDescriptor stamped = descriptor;
+    stamped.sdkVersion = m_impl->builtAgainst;
+    body += descriptorToJson(stamped);
     closeEnvelope(body);
     return sendJson(MessageType::Response, correlationId, body, error);
 }
@@ -2925,7 +2934,9 @@ bool SidecarDispatcher::sendAdapterDescriptorUpdated(const phicore::adapter::v1:
     appendFieldPrefix(body, first, "externalId");
     body += jsonQuoted(externalId);
     appendFieldPrefix(body, first, "descriptor");
-    body += descriptorToJson(descriptor);
+    AdapterDescriptor stamped = descriptor;
+    stamped.sdkVersion = m_impl->builtAgainst;
+    body += descriptorToJson(stamped);
     closeEnvelope(body);
     return sendJson(MessageType::Event, 0, body, error);
 }
@@ -4079,8 +4090,8 @@ struct SidecarHost::InstanceRuntime {
 };
 
 struct SidecarHost::Impl {
-    explicit Impl(phicore::adapter::v1::Utf8String socketPath)
-        : dispatcher(std::move(socketPath))
+    Impl(phicore::adapter::v1::Utf8String socketPath, const char *builtAgainstSdkVersion)
+        : dispatcher(std::move(socketPath), builtAgainstSdkVersion)
     {
     }
 
@@ -4098,8 +4109,9 @@ struct SidecarHost::Impl {
     std::deque<DeferredResult> resultQueue;
 };
 
-SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory)
-    : m_impl(std::make_unique<Impl>(std::move(socketPath)))
+SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory,
+                         const char *builtAgainstSdkVersion)
+    : m_impl(std::make_unique<Impl>(std::move(socketPath), builtAgainstSdkVersion))
 {
     m_impl->ownedFactory = std::move(factory);
     m_impl->factory = m_impl->ownedFactory.get();
@@ -4112,8 +4124,9 @@ SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::uniqu
     wireHandlers();
 }
 
-SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory)
-    : m_impl(std::make_unique<Impl>(std::move(socketPath)))
+SidecarHost::SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory,
+                         const char *builtAgainstSdkVersion)
+    : m_impl(std::make_unique<Impl>(std::move(socketPath), builtAgainstSdkVersion))
 {
     m_impl->factory = &factory;
     m_impl->factory->bindDispatcher(&m_impl->dispatcher);
@@ -5041,5 +5054,9 @@ void SidecarHost::wireHandlers()
 #undef m_factory
 #undef m_ownedFactory
 #undef m_dispatcher
+
+// Compiled into the library, so this is the library's number; the macro in an
+// adapter's translation units is the adapter's.
+const char *sdkLibraryVersion() noexcept { return PHI_ADAPTER_SDK_VERSION; }
 
 } // namespace phicore::adapter::sdk

@@ -15,6 +15,7 @@
 #include <variant>
 
 #include "phi/adapter/v1/contract.h"
+#include "phi/adapter/v1/sdk_version.h"
 #include "phi/adapter/sdk/schema_json.h"
 
 namespace phicore::adapter::sdk {
@@ -321,6 +322,10 @@ struct AdapterDescriptor {
     phicore::adapter::v1::Utf8String description;
     /// Adapter API version label.
     phicore::adapter::v1::Utf8String apiVersion;
+    /// The SDK version the adapter was compiled against. Filled by the
+    /// dispatcher when the descriptor goes out, never by the adapter: it is
+    /// PHI_ADAPTER_SDK_VERSION as the inline constructors captured it.
+    phicore::adapter::v1::Utf8String sdkVersion;
     /// Inline icon SVG markup.
     phicore::adapter::v1::Utf8String iconSvg;
     /// Optional image payload (base64 text).
@@ -495,8 +500,19 @@ public:
     /**
      * @brief Create dispatcher bound to a Unix domain socket path.
      * @param socketPath Filesystem path used by sidecar server socket.
+     *
+     * Inline on purpose: PHI_ADAPTER_SDK_VERSION is read where the adapter is
+     * compiled, so the library learns what the adapter was built against.
      */
-    explicit SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath);
+    explicit SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath)
+        : SidecarDispatcher(std::move(socketPath), PHI_ADAPTER_SDK_VERSION)
+    {
+    }
+    /// The same, for a host that is not the adapter itself (tests pin a fixed string).
+    SidecarDispatcher(phicore::adapter::v1::Utf8String socketPath, const char *builtAgainstSdkVersion);
+
+    /// What the adapter was compiled against; goes out as the descriptor's `sdkVersion`.
+    const char *builtAgainstSdkVersion() const noexcept;
 
     /**
      * @brief Replace active callback set.
@@ -1179,8 +1195,20 @@ constexpr auto kShutdownBudget = std::chrono::milliseconds(2000);
 class SidecarHost
 {
 public:
-    explicit SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory);
-    SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory);
+    /// Inline on purpose, like SidecarDispatcher's: the adapter's
+    /// PHI_ADAPTER_SDK_VERSION is captured here and travels in the descriptor.
+    explicit SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory)
+        : SidecarHost(std::move(socketPath), std::move(factory), PHI_ADAPTER_SDK_VERSION)
+    {
+    }
+    SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory)
+        : SidecarHost(std::move(socketPath), factory, PHI_ADAPTER_SDK_VERSION)
+    {
+    }
+    SidecarHost(phicore::adapter::v1::Utf8String socketPath, std::unique_ptr<AdapterFactory> factory,
+                const char *builtAgainstSdkVersion);
+    SidecarHost(phicore::adapter::v1::Utf8String socketPath, AdapterFactory &factory,
+                const char *builtAgainstSdkVersion);
     ~SidecarHost();
 
     /**
@@ -1317,6 +1345,16 @@ std::size_t reapAbandonedExecutionThreads(
  * @return `0` after a clean shutdown, `1` when the host failed to start.
  */
 int runSidecarMain(SidecarHost &host, const SidecarMainOptions &options = {});
+
+/**
+ * @brief The version of the shared library itself.
+ *
+ * PHI_ADAPTER_SDK_VERSION is the adapter's number, fixed when it was compiled;
+ * this is the library's, fixed when the library was. The two differ on a box
+ * that updated the SDK without rebuilding the adapter, which is the case the
+ * binary boundary exists for.
+ */
+const char *sdkLibraryVersion() noexcept;
 
 } // namespace phicore::adapter::sdk
 

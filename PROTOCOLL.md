@@ -129,6 +129,7 @@ Notes:
 
 Notes:
 - `ResponseFactoryDescriptor` is host-managed bootstrap descriptor emission returned as a correlated `Response` frame.
+- `descriptor.sdkVersion:string` is the SDK version the adapter was compiled against (`PHI_ADAPTER_SDK_VERSION`, captured by the inline constructors of `SidecarHost`/`SidecarDispatcher`, stamped by the dispatcher). Core holds a minimum and refuses an adapter below it; `apiVersion` stays the adapter's own free label.
 - `EventFactoryDescriptorUpdated` is used when static descriptor data changes at runtime.
 - topology events are instance-scoped only.
 - entity objects use `externalId` as their identifier field consistently
