@@ -351,6 +351,26 @@ enum class ChannelKind : std::uint16_t {
     Mute = 31,
     HdmiInput = 32,
     PlayPause = 33,
+    // What a player is playing, read-only. Each is its own kind so a client can
+    // lay a player out (title over artist, a countdown) without guessing from
+    // channel names, and an automation can ask for "the title" of any player.
+    // String: the title of what plays now; empty when nothing does
+    MediaTitle = 34,
+    // String: its artist
+    MediaArtist = 35,
+    // String: its album
+    MediaAlbum = 36,
+    // Int seconds: where it stands. A client counts on from the channel's
+    // update time while the player plays, so the value is written at a start,
+    // a pause, a seek - not every second
+    MediaPosition = 37,
+    // Int seconds: how long it is; 0 when unknown (a stream)
+    MediaDuration = 38,
+    // Int: how many streams a media server is serving now
+    MediaSessions = 39,
+    // String: where it plays, for a server reporting what its players play
+    // ("Wohnzimmer TV")
+    MediaPlayedOn = 40,
     // Celsius
     Temperature = 50,
     // [0..100] percent

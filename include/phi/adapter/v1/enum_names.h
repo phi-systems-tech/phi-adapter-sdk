@@ -376,7 +376,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 57> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 64> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -388,6 +388,13 @@ inline constexpr std::array<EnumValueName, 57> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Mute), "Mute" },
     { static_cast<int>(ChannelKind::HdmiInput), "HdmiInput" },
     { static_cast<int>(ChannelKind::PlayPause), "PlayPause" },
+    { static_cast<int>(ChannelKind::MediaTitle), "MediaTitle" },
+    { static_cast<int>(ChannelKind::MediaArtist), "MediaArtist" },
+    { static_cast<int>(ChannelKind::MediaAlbum), "MediaAlbum" },
+    { static_cast<int>(ChannelKind::MediaPosition), "MediaPosition" },
+    { static_cast<int>(ChannelKind::MediaDuration), "MediaDuration" },
+    { static_cast<int>(ChannelKind::MediaSessions), "MediaSessions" },
+    { static_cast<int>(ChannelKind::MediaPlayedOn), "MediaPlayedOn" },
     { static_cast<int>(ChannelKind::Temperature), "Temperature" },
     { static_cast<int>(ChannelKind::Humidity), "Humidity" },
     { static_cast<int>(ChannelKind::Illuminance), "Illuminance" },
