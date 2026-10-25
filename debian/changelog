@@ -1,3 +1,11 @@
+phi-adapter-sdk (0.26.0-3) trixie; urgency=medium
+
+  * Fetch::setBody(body, contentType) sets the Content-Type like Call::setBody
+  * The ABI check runs on the build step, so a nocheck package build still
+    runs it
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 25 Oct 2026 13:42:58 +0100
+
 phi-adapter-sdk (0.26.0-2) trixie; urgency=medium
 
   * What the first ports asked for: Channel(externalId, name, kind, dataType,
