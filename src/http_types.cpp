@@ -175,6 +175,7 @@ PHI_NET_FIELD(HttpClient::Result, const std::string &, error, setError)
 PHI_NET_FIELD(HttpClient::Result, bool, unauthorized, setUnauthorized)
 
 std::string HttpClient::Result::header(std::string_view name) const { return firstHeader(p().headers, name); }
+std::string HttpClient::Result::takeBody() { return std::move(m().body); }
 
 // --- HttpClient::StreamHandlers ----------------------------------------------
 
@@ -263,6 +264,7 @@ PHI_NET_FIELD(FetchResult, const std::vector<Header> &, headers, setHeaders)
 PHI_NET_FIELD(FetchResult, const std::string &, error, setError)
 
 std::string FetchResult::header(std::string_view name) const { return firstHeader(p().headers, name); }
+std::string FetchResult::takeBody() { return std::move(m().body); }
 
 #undef PHI_NET_FIELD
 #undef PHI_NET_MEMBERS

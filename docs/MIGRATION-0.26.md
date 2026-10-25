@@ -100,6 +100,7 @@ record, then `.externalId()`, `.host()`, `.user()`, `.password()`, ...),
 | `call.tls.enabled = true;` | `call.tls().setEnabled(true);` |
 | `result.ok`, `result.status`, `result.body`, `result.error` | `result.ok()`, `result.status()`, `result.body()`, `result.error()` |
 | looping `result.headers` for one name | `result.header("Content-Type")` |
+| `std::move(result.body)` | `result.takeBody()` |
 | `HttpClient::StreamHandlers h; h.head = ...; h.chunk = ...; h.done = ...;` | `HttpClient::StreamHandlers h(head, chunk, done);` or `h.setHead(...)...` |
 | `net::Fetch f; f.url = u;` `fetch(f).body` | `net::Fetch f(u);` `fetch(f).body()` |
 | `v1::TlsSettings t; t.enabled = true; t.caFile = path;` | `t.setEnabled(true).setCaFile(path);` |

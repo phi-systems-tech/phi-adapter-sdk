@@ -104,6 +104,8 @@ public:
         int status() const noexcept;
         Result &setStatus(int status);
         const std::string &body() const noexcept;
+        /// Moves the body out, for a large one that is parsed once.
+        std::string takeBody();
         Result &setBody(std::string body);
         const std::vector<Header> &headers() const noexcept;
         Result &setHeaders(std::vector<Header> headers);

@@ -72,6 +72,8 @@ public:
     int status() const noexcept;
     FetchResult &setStatus(int status);
     const std::string &body() const noexcept;
+    /// Moves the body out, for a large one that is parsed once.
+    std::string takeBody();
     FetchResult &setBody(std::string body);
     const std::vector<Header> &headers() const noexcept;
     FetchResult &setHeaders(std::vector<Header> headers);

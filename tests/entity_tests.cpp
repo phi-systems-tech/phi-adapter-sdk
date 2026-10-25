@@ -168,6 +168,9 @@ void testHttpAndTlsTypesFollowTheSameRules()
     result.setOk(true).setStatus(200).setHeaders({{"Content-Type", "text/html"}, {"X-Two", "2"}});
     PHI_CHECK(result.ok() && result.status() == 200 && result.header("content-type") == "text/html");
     PHI_CHECK(result.header("missing").empty() && !result.unauthorized());
+    result.setBody("payload");
+    const std::string taken = result.takeBody();
+    PHI_CHECK(taken == "payload" && result.body().empty());
 
     const net::Fetch fetch("https://example.org/");
     PHI_CHECK(fetch.maxRedirects() == 5 && fetch.timeout() == std::chrono::milliseconds(10000));
