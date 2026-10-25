@@ -103,6 +103,7 @@ record, then `.externalId()`, `.host()`, `.user()`, `.password()`, ...),
 | `std::move(result.body)` | `result.takeBody()` |
 | `HttpClient::StreamHandlers h; h.head = ...; h.chunk = ...; h.done = ...;` | `HttpClient::StreamHandlers h(head, chunk, done);` or `h.setHead(...)...` |
 | `net::Fetch f; f.url = u;` `fetch(f).body` | `net::Fetch f(u);` `fetch(f).body()` |
+| `f.body = b; f.headers.push_back({"Content-Type", ct});` | `f.setBody(b, ct);` |
 | `v1::TlsSettings t; t.enabled = true; t.caFile = path;` | `t.setEnabled(true).setCaFile(path);` |
 | `#include "phi/adapter/net/http_message.h"` / `http_auth.h` | gone from the public headers; `Header` and `Credentials` are in `http_types.h` |
 

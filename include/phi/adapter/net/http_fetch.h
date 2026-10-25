@@ -39,6 +39,8 @@ public:
     Fetch &setHeader(std::string name, std::string value);
     const std::string &body() const noexcept;
     Fetch &setBody(std::string body);
+    /// Body and its Content-Type in one call; an earlier Content-Type is replaced.
+    Fetch &setBody(std::string body, std::string contentType);
     /// The whole exchange, redirects included; 10 s by default.
     std::chrono::milliseconds timeout() const noexcept;
     Fetch &setTimeout(std::chrono::milliseconds timeout);

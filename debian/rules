@@ -10,10 +10,10 @@ override_dh_auto_configure:
 		-DCMAKE_INSTALL_PREFIX=/usr
 
 # The binary boundary is checked at every package build: the library against
-# the committed baseline (abi/, see scripts/abi-check.sh). Until the first
-# release of the d-pointer shape there is no baseline and the check says so.
-override_dh_auto_test:
-	dh_auto_test
+# the committed baseline (abi/, see scripts/abi-check.sh). It rides on the
+# build step, not the test step, because the packaging builds with nocheck.
+override_dh_auto_build:
+	dh_auto_build
 	dh_auto_build -- abi-check
 
 # Every adapter built against this library gets "phi-adapter-sdk (>= <this

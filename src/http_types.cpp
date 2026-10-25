@@ -213,7 +213,22 @@ PHI_NET_MEMBERS(Fetch, Fetch)
 PHI_NET_FIELD(Fetch, const std::string &, url, setUrl)
 PHI_NET_FIELD(Fetch, const std::string &, method, setMethod)
 PHI_NET_FIELD(Fetch, const std::vector<Header> &, headers, setHeaders)
-PHI_NET_FIELD(Fetch, const std::string &, body, setBody)
+const std::string &Fetch::body() const noexcept { return p().body; }
+
+Fetch &Fetch::setBody(std::string body)
+{
+    m().body = std::move(body);
+    return *this;
+}
+
+Fetch &Fetch::setBody(std::string body, std::string contentType)
+{
+    Private &priv = m();
+    priv.body = std::move(body);
+    std::erase_if(priv.headers, [](const Header &h) { return sameHeaderName(h.first, "Content-Type"); });
+    priv.headers.emplace_back("Content-Type", std::move(contentType));
+    return *this;
+}
 PHI_NET_FIELD(Fetch, std::chrono::milliseconds, timeout, setTimeout)
 PHI_NET_FIELD(Fetch, int, maxRedirects, setMaxRedirects)
 PHI_NET_FIELD(Fetch, const v1::TlsSettings &, tls, setTls)

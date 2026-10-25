@@ -172,7 +172,9 @@ void testHttpAndTlsTypesFollowTheSameRules()
     const std::string taken = result.takeBody();
     PHI_CHECK(taken == "payload" && result.body().empty());
 
-    const net::Fetch fetch("https://example.org/");
+    net::Fetch fetch("https://example.org/");
+    fetch.setBody("{}", "application/json").setBody("[]", "text/plain");
+    PHI_CHECK(fetch.body() == "[]" && fetch.headers().size() == 1 && fetch.headers()[0].second == "text/plain");
     PHI_CHECK(fetch.maxRedirects() == 5 && fetch.timeout() == std::chrono::milliseconds(10000));
 
     sdk::SidecarMainOptions options;
