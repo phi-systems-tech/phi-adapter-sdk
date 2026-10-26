@@ -386,6 +386,10 @@ struct AdapterCapabilities::Private {
     AdapterRequirements required = AdapterRequirement::None;
     AdapterRequirements optional = AdapterRequirement::None;
     AdapterCapabilityFlags flags = AdapterCapability::None;
+    Topologies topologies = Topology::None;
+    StandInRedirect standInRedirect = StandInRedirect::None;
+    PairingStyles pairingStyles = PairingStyle::None;
+    SetupCodeSchemes setupCodeSchemes = SetupCodeScheme::None;
     AdapterActionDescriptorList factoryActions;
     AdapterActionDescriptorList instanceActions;
 };
@@ -394,6 +398,10 @@ PHI_V1_ENTITY_MEMBERS(AdapterCapabilities)
 PHI_V1_FIELD(AdapterCapabilities, AdapterRequirements, required, setRequired)
 PHI_V1_FIELD(AdapterCapabilities, AdapterRequirements, optional, setOptional)
 PHI_V1_FIELD(AdapterCapabilities, AdapterCapabilityFlags, flags, setFlags)
+PHI_V1_FIELD(AdapterCapabilities, Topologies, topologies, setTopologies)
+PHI_V1_FIELD(AdapterCapabilities, StandInRedirect, standInRedirect, setStandInRedirect)
+PHI_V1_FIELD(AdapterCapabilities, PairingStyles, pairingStyles, setPairingStyles)
+PHI_V1_FIELD(AdapterCapabilities, SetupCodeSchemes, setupCodeSchemes, setSetupCodeSchemes)
 PHI_V1_PART(AdapterCapabilities, AdapterActionDescriptorList, factoryActions, setFactoryActions)
 PHI_V1_PART(AdapterCapabilities, AdapterActionDescriptorList, instanceActions, setInstanceActions)
 

@@ -30,6 +30,16 @@ enum class IpcCommand : std::uint16_t {
     /// Ask for where a camera's picture comes from (`camera.live`); answered
     /// with an ActionResponse of type Data, see StreamSourceRequest.
     CmdStreamSourceRequest = 0x020A,
+    /// Open the network for joining / start looking for candidates, for
+    /// `durationS`; answered at once, the window reports by PairingState.
+    CmdPairingStart = 0x020B,
+    CmdPairingStop = 0x020C,
+    /// Pair one reported candidate. Answered when the pairing has started;
+    /// how it goes follows as PairingProgress under `pairingId`.
+    CmdPairCandidate = 0x020D,
+    /// Pair the device behind a setup code no candidate was seen for; like
+    /// CmdPairCandidate otherwise.
+    CmdSetupCode = 0x020E,
 
     // Response/Event (adapter -> core)
     ResponseFactoryDescriptor = 0x1001,
@@ -37,6 +47,9 @@ enum class IpcCommand : std::uint16_t {
     EventAdapterMetaUpdated = 0x1003,
     EventConnectionStateChanged = 0x1004,
     EventLog = 0x1005,
+    /// Whether the instance's chosen topology works ("local chosen, the
+    /// redirect is missing"); core keeps it in memory and shows it.
+    EventTopologyState = 0x1006,
 
     EventDeviceUpdated = 0x1101,
     EventDeviceRemoved = 0x1102,
@@ -56,6 +69,11 @@ enum class IpcCommand : std::uint16_t {
     EventStreamData = 0x1602,
     EventStreamError = 0x1603,
     EventStreamEnd = 0x1604,
+
+    EventDeviceCandidateUpdated = 0x1701,
+    EventDeviceCandidateRemoved = 0x1702,
+    EventPairingState = 0x1703,
+    EventPairingProgress = 0x1704,
 
     // Result (adapter -> core, correlated response to Cmd*)
     ResultCmd = 0x2001,

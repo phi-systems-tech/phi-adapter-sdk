@@ -1,4 +1,6 @@
 #include "phi/adapter/sdk/sidecar.h"
+
+#include "net_address.h"
 #include "logfilter.h"
 #include "runtime_internal.h"
 #include "abandoned_threads.h"
@@ -48,6 +50,13 @@ using phicore::adapter::v1::IpcCommand;
 using phicore::adapter::v1::MessageType;
 using phicore::adapter::v1::MediaPlayerAction;
 using phicore::adapter::v1::MediaPlayerEnqueue;
+using phicore::adapter::v1::PairingNeed;
+using phicore::adapter::v1::PairingStage;
+using phicore::adapter::v1::PairingStyle;
+using phicore::adapter::v1::Radio;
+using phicore::adapter::v1::SetupCodeScheme;
+using phicore::adapter::v1::StandInRedirect;
+using phicore::adapter::v1::Topology;
 using phicore::adapter::v1::Room;
 using phicore::adapter::v1::ScalarList;
 using phicore::adapter::v1::ScalarValue;
@@ -1350,6 +1359,56 @@ void appendArrayOfStrings(std::string &out, const std::vector<std::string> &valu
     out.push_back(']');
 }
 
+std::string candidateToJson(const phicore::adapter::v1::DeviceCandidate &candidate)
+{
+    std::string out;
+    out.push_back('{');
+    bool first = true;
+    appendFieldPrefix(out, first, "id");
+    out += jsonQuoted(candidate.id());
+    appendFieldPrefix(out, first, "name");
+    out += jsonQuoted(candidate.name());
+    appendFieldPrefix(out, first, "deviceClass");
+    out += std::to_string(static_cast<int>(candidate.deviceClass()));
+    appendFieldPrefix(out, first, "manufacturer");
+    out += jsonQuoted(candidate.manufacturer());
+    appendFieldPrefix(out, first, "model");
+    out += jsonQuoted(candidate.model());
+    appendFieldPrefix(out, first, "radio");
+    out += std::to_string(static_cast<int>(candidate.radio()));
+    appendFieldPrefix(out, first, "rssi");
+    out += std::to_string(candidate.rssi());
+    appendFieldPrefix(out, first, "roomExternalId");
+    out += jsonQuoted(candidate.roomExternalId());
+    appendFieldPrefix(out, first, "needs");
+    out += std::to_string(static_cast<int>(candidate.needs()));
+    appendFieldPrefix(out, first, "setupCodeScheme");
+    out += std::to_string(static_cast<int>(candidate.setupCodeScheme()));
+    appendFieldPrefix(out, first, "instruction");
+    out += jsonQuoted(candidate.instruction());
+    appendFieldPrefix(out, first, "expiresInMs");
+    out += std::to_string(candidate.expiresInMs());
+    appendFieldPrefix(out, first, "meta");
+    appendMetaJson(out, candidate.metaJson());
+    out.push_back('}');
+    return out;
+}
+
+// A device address the setters could not normalise; empty when all are fine.
+std::string deviceAddressProblem(const Device &device)
+{
+    using namespace phicore::adapter::v1::detail;
+    if (!device.ipv4().empty() && !isIp(device.ipv4(), AF_INET))
+        return "Device " + device.externalId() + ": not an IPv4 address: " + device.ipv4();
+    if (!device.ipv6().empty() && !isIp(device.ipv6(), AF_INET6))
+        return "Device " + device.externalId() + ": not an IPv6 address: " + device.ipv6();
+    if (!device.mac().empty() && !isNormalizedMac(device.mac()))
+        return "Device " + device.externalId() + ": not a MAC address: " + device.mac();
+    if (!device.bleAddress().empty() && !isNormalizedMac(device.bleAddress()))
+        return "Device " + device.externalId() + ": not a Bluetooth address: " + device.bleAddress();
+    return {};
+}
+
 std::string deviceToJson(const Device &device)
 {
     std::string out;
@@ -1371,6 +1430,16 @@ std::string deviceToJson(const Device &device)
     out += jsonQuoted(device.model());
     appendFieldPrefix(out, first, "meta");
     appendMetaJson(out, device.metaJson());
+    appendFieldPrefix(out, first, "ipv4");
+    out += jsonQuoted(device.ipv4());
+    appendFieldPrefix(out, first, "ipv6");
+    out += jsonQuoted(device.ipv6());
+    appendFieldPrefix(out, first, "host");
+    out += jsonQuoted(device.host());
+    appendFieldPrefix(out, first, "mac");
+    out += jsonQuoted(device.mac());
+    appendFieldPrefix(out, first, "bleAddress");
+    out += jsonQuoted(device.bleAddress());
     appendFieldPrefix(out, first, "mediaPlayerFeatures");
     out += std::to_string(static_cast<int>(device.mediaPlayerFeatures()));
     appendFieldPrefix(out, first, "cameraFeatures");
@@ -1833,6 +1902,14 @@ std::string capabilitiesToJson(const AdapterCapabilities &caps)
     out += std::to_string(static_cast<int>(caps.optional()));
     appendFieldPrefix(out, first, "flags");
     out += std::to_string(static_cast<int>(caps.flags()));
+    appendFieldPrefix(out, first, "topologies");
+    out += std::to_string(static_cast<int>(caps.topologies()));
+    appendFieldPrefix(out, first, "standInRedirect");
+    out += std::to_string(static_cast<int>(caps.standInRedirect()));
+    appendFieldPrefix(out, first, "pairingStyles");
+    out += std::to_string(static_cast<int>(caps.pairingStyles()));
+    appendFieldPrefix(out, first, "setupCodeSchemes");
+    out += std::to_string(static_cast<int>(caps.setupCodeSchemes()));
     appendFieldPrefix(out, first, "factoryActions");
     out += actionListToJson(caps.factoryActions());
     appendFieldPrefix(out, first, "instanceActions");
@@ -1935,6 +2012,24 @@ AdapterDescriptor &AdapterDescriptor::clearConfigSchema()
 }
 
 namespace {
+
+// What makes a descriptor unfit to go out. The topology is the plugin's word
+// on where a vendor's cloud is in the loop, so there is no default for it: a
+// plugin that says nothing is refused here, before core has to.
+std::string descriptorProblem(const AdapterDescriptor &descriptor)
+{
+    using phicore::adapter::v1::hasFlag;
+    const auto &caps = descriptor.capabilities();
+    if (caps.topologies() == Topology::None)
+        return "Descriptor declares no topology (AdapterCapabilities::setTopologies)";
+    const bool standIn = hasFlag(caps.topologies(), Topology::CloudStandIn);
+    if (standIn != (caps.standInRedirect() != StandInRedirect::None))
+        return "Descriptor: a stand-in redirect goes with Topology::CloudStandIn and only with it";
+    const bool codes = hasFlag(caps.pairingStyles(), PairingStyle::SetupCode);
+    if (codes != (caps.setupCodeSchemes() != SetupCodeScheme::None))
+        return "Descriptor: setup code schemes go with PairingStyle::SetupCode and only with it";
+    return {};
+}
 
 std::string descriptorToJson(const AdapterDescriptor &descriptor)
 {
@@ -2535,6 +2630,69 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return sendActionResult(response, nullptr);
     }
 
+    if (command == IpcCommand::CmdPairingStart) {
+        PairingStartRequest request;
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setDurationS(static_cast<int>(parseIntOrDefault(member(payloadMap, "durationS"), 0)));
+        if (request.durationS() <= 0)
+            return sendCmdResult(invalidArgumentCmdResponse(cmdId, "Pairing needs a positive durationS"), nullptr);
+        if (m_handlers.onPairingStart) {
+            m_handlers.onPairingStart(request);
+            return true;
+        }
+        return sendCmdResult(defaultCmdResponse(cmdId, "Pairing start handler not registered"), nullptr);
+    }
+
+    if (command == IpcCommand::CmdPairingStop) {
+        PairingStopRequest request;
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        if (m_handlers.onPairingStop) {
+            m_handlers.onPairingStop(request);
+            return true;
+        }
+        return sendCmdResult(defaultCmdResponse(cmdId, "Pairing stop handler not registered"), nullptr);
+    }
+
+    if (command == IpcCommand::CmdPairCandidate) {
+        PairCandidateRequest request;
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setPairingId(decodeStringOrDefault(member(payloadMap, "pairingId")));
+        request.setCandidateId(decodeStringOrDefault(member(payloadMap, "candidateId")));
+        request.setSetupCode(decodeStringOrDefault(member(payloadMap, "setupCode")));
+        request.setName(decodeStringOrDefault(member(payloadMap, "name")));
+        request.setWifiSsid(decodeStringOrDefault(member(payloadMap, "wifiSsid")));
+        request.setWifiPassphrase(decodeStringOrDefault(member(payloadMap, "wifiPassphrase")));
+        if (request.pairingId().empty() || request.candidateId().empty())
+            return sendCmdResult(invalidArgumentCmdResponse(cmdId, "Pairing needs pairingId and candidateId"), nullptr);
+        if (m_handlers.onPairCandidate) {
+            m_handlers.onPairCandidate(request);
+            return true;
+        }
+        return sendCmdResult(defaultCmdResponse(cmdId, "Pair candidate handler not registered"), nullptr);
+    }
+
+    if (command == IpcCommand::CmdSetupCode) {
+        SetupCodeRequest request;
+        request.setCmdId(cmdId);
+        request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+        request.setPairingId(decodeStringOrDefault(member(payloadMap, "pairingId")));
+        request.setScheme(static_cast<SetupCodeScheme>(parseIntOrDefault(member(payloadMap, "scheme"), 0)));
+        request.setCode(decodeStringOrDefault(member(payloadMap, "code")));
+        request.setName(decodeStringOrDefault(member(payloadMap, "name")));
+        request.setWifiSsid(decodeStringOrDefault(member(payloadMap, "wifiSsid")));
+        request.setWifiPassphrase(decodeStringOrDefault(member(payloadMap, "wifiPassphrase")));
+        if (request.pairingId().empty() || request.code().empty() || request.scheme() == SetupCodeScheme::None)
+            return sendCmdResult(invalidArgumentCmdResponse(cmdId, "Setup code needs pairingId, scheme and code"), nullptr);
+        if (m_handlers.onSetupCode) {
+            m_handlers.onSetupCode(request);
+            return true;
+        }
+        return sendCmdResult(defaultCmdResponse(cmdId, "Setup code handler not registered"), nullptr);
+    }
+
     if (command == IpcCommand::CmdSceneInvoke) {
         SceneInvokeRequest request;
         request.setCmdId(cmdId);
@@ -2881,6 +3039,109 @@ bool SidecarDispatcher::sendConnectionStateChanged(const phicore::adapter::v1::E
     return sendJson(MessageType::Event, 0, body, error);
 }
 
+bool SidecarDispatcher::sendTopologyState(const phicore::adapter::v1::ExternalId &externalId,
+                                          bool works,
+                                          const phicore::adapter::v1::Utf8String &reason,
+                                          phicore::adapter::v1::Utf8String *error)
+{
+    std::string body;
+    bool first = true;
+    openEnvelope(body, IpcCommand::EventTopologyState, first);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "works");
+    body += (works ? "true" : "false");
+    appendFieldPrefix(body, first, "reason");
+    body += jsonQuoted(reason);
+    closeEnvelope(body);
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
+bool SidecarDispatcher::sendDeviceCandidateUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                                   const phicore::adapter::v1::DeviceCandidate &candidate,
+                                                   phicore::adapter::v1::Utf8String *error)
+{
+    if (candidate.id().empty()) {
+        if (error)
+            *error = "Device candidate without id";
+        return false;
+    }
+    std::string body;
+    bool first = true;
+    openEnvelope(body, IpcCommand::EventDeviceCandidateUpdated, first);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "candidate");
+    body += candidateToJson(candidate);
+    closeEnvelope(body);
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
+bool SidecarDispatcher::sendDeviceCandidateRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                                                   const phicore::adapter::v1::Utf8String &candidateId,
+                                                   phicore::adapter::v1::Utf8String *error)
+{
+    std::string body;
+    bool first = true;
+    openEnvelope(body, IpcCommand::EventDeviceCandidateRemoved, first);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "candidateId");
+    body += jsonQuoted(candidateId);
+    closeEnvelope(body);
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
+bool SidecarDispatcher::sendPairingState(const phicore::adapter::v1::ExternalId &externalId,
+                                         bool open,
+                                         int remainingS,
+                                         phicore::adapter::v1::Utf8String *error)
+{
+    std::string body;
+    bool first = true;
+    openEnvelope(body, IpcCommand::EventPairingState, first);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "open");
+    body += (open ? "true" : "false");
+    appendFieldPrefix(body, first, "remainingS");
+    body += std::to_string(open ? remainingS : 0);
+    closeEnvelope(body);
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
+bool SidecarDispatcher::sendPairingProgress(const phicore::adapter::v1::ExternalId &externalId,
+                                            const phicore::adapter::v1::Utf8String &pairingId,
+                                            PairingStage stage,
+                                            int percent,
+                                            const phicore::adapter::v1::Utf8String &message,
+                                            const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                            phicore::adapter::v1::Utf8String *error)
+{
+    if (stage == PairingStage::Done && deviceExternalId.empty()) {
+        if (error)
+            *error = "Pairing done without the new device's external id";
+        return false;
+    }
+    std::string body;
+    bool first = true;
+    openEnvelope(body, IpcCommand::EventPairingProgress, first);
+    appendFieldPrefix(body, first, "externalId");
+    body += jsonQuoted(externalId);
+    appendFieldPrefix(body, first, "pairingId");
+    body += jsonQuoted(pairingId);
+    appendFieldPrefix(body, first, "stage");
+    body += std::to_string(static_cast<int>(stage));
+    appendFieldPrefix(body, first, "percent");
+    body += std::to_string(std::clamp(percent, 0, 100));
+    appendFieldPrefix(body, first, "message");
+    body += jsonQuoted(message);
+    appendFieldPrefix(body, first, "deviceExternalId");
+    body += jsonQuoted(deviceExternalId);
+    closeEnvelope(body);
+    return sendJson(MessageType::Event, 0, body, error);
+}
+
 bool SidecarDispatcher::sendError(const phicore::adapter::v1::ExternalId &externalId,
                                   const phicore::adapter::v1::Utf8String &plugin,
                                   LogCategory category,
@@ -2987,6 +3248,11 @@ bool SidecarDispatcher::sendAdapterDescriptor(const phicore::adapter::v1::Extern
                                               CorrelationId correlationId,
                                               phicore::adapter::v1::Utf8String *error)
 {
+    if (const std::string problem = descriptorProblem(descriptor); !problem.empty()) {
+        if (error)
+            *error = problem;
+        return false;
+    }
     std::string body;
     bool first = true;
     openEnvelope(body, IpcCommand::ResponseFactoryDescriptor, first);
@@ -3004,6 +3270,11 @@ bool SidecarDispatcher::sendAdapterDescriptorUpdated(const phicore::adapter::v1:
                                                      const AdapterDescriptor &descriptor,
                                                      phicore::adapter::v1::Utf8String *error)
 {
+    if (const std::string problem = descriptorProblem(descriptor); !problem.empty()) {
+        if (error)
+            *error = problem;
+        return false;
+    }
     std::string body;
     bool first = true;
     openEnvelope(body, IpcCommand::EventFactoryDescriptorUpdated, first);
@@ -3121,6 +3392,11 @@ bool SidecarDispatcher::sendDeviceUpdated(const phicore::adapter::v1::ExternalId
                                           const ChannelList &channels,
                                           phicore::adapter::v1::Utf8String *error)
 {
+    if (const std::string problem = deviceAddressProblem(device); !problem.empty()) {
+        if (error)
+            *error = problem;
+        return false;
+    }
     std::string body;
     bool first = true;
     openEnvelope(body, IpcCommand::EventDeviceUpdated, first);
@@ -3791,6 +4067,34 @@ void AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
     if (!err.empty())
         onProtocolError("Failed to send default scene invoke result: " + err);
 }
+void AdapterInstance::onPairingStart(const PairingStartRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId(), "Pairing start handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default pairing start result: " + err);
+}
+void AdapterInstance::onPairingStop(const PairingStopRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId(), "Pairing stop handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default pairing stop result: " + err);
+}
+void AdapterInstance::onPairCandidate(const PairCandidateRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId(), "Pair candidate handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default pair candidate result: " + err);
+}
+void AdapterInstance::onSetupCode(const SetupCodeRequest &request)
+{
+    phicore::adapter::v1::Utf8String err;
+    sendResult(defaultCmdResponse(request.cmdId(), "Setup code handler not implemented"), &err);
+    if (!err.empty())
+        onProtocolError("Failed to send default setup code result: " + err);
+}
 void AdapterInstance::onAdaptersStreamStart(const AdaptersStreamStartRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
@@ -3810,6 +4114,37 @@ void AdapterInstance::onUnknownRequest(const UnknownRequest &request) { (void)re
 bool AdapterInstance::sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error)
 {
     return m_dispatcher ? m_dispatcher->sendConnectionStateChanged(m_externalId, connected, error) : false;
+}
+bool AdapterInstance::sendTopologyState(bool works,
+                                        const phicore::adapter::v1::Utf8String &reason,
+                                        phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendTopologyState(m_externalId, works, reason, error) : false;
+}
+bool AdapterInstance::sendDeviceCandidateUpdated(const phicore::adapter::v1::DeviceCandidate &candidate,
+                                                 phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendDeviceCandidateUpdated(m_externalId, candidate, error) : false;
+}
+bool AdapterInstance::sendDeviceCandidateRemoved(const phicore::adapter::v1::Utf8String &candidateId,
+                                                 phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendDeviceCandidateRemoved(m_externalId, candidateId, error) : false;
+}
+bool AdapterInstance::sendPairingState(bool open, int remainingS, phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher ? m_dispatcher->sendPairingState(m_externalId, open, remainingS, error) : false;
+}
+bool AdapterInstance::sendPairingProgress(const phicore::adapter::v1::Utf8String &pairingId,
+                                          PairingStage stage,
+                                          int percent,
+                                          const phicore::adapter::v1::Utf8String &message,
+                                          const phicore::adapter::v1::ExternalId &deviceExternalId,
+                                          phicore::adapter::v1::Utf8String *error)
+{
+    return m_dispatcher
+        ? m_dispatcher->sendPairingProgress(m_externalId, pairingId, stage, percent, message, deviceExternalId, error)
+        : false;
 }
 bool AdapterInstance::sendError(LogCategory category,
                                 const phicore::adapter::v1::Utf8String &message,
@@ -4143,6 +4478,10 @@ void AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &
 void AdapterInstance::hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &request) { onMediaPlayerInvoke(request); }
 void AdapterInstance::hostOnStreamSourceRequest(const StreamSourceRequest &request) { onStreamSourceRequest(request); }
 void AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { onSceneInvoke(request); }
+void AdapterInstance::hostOnPairingStart(const PairingStartRequest &request) { onPairingStart(request); }
+void AdapterInstance::hostOnPairingStop(const PairingStopRequest &request) { onPairingStop(request); }
+void AdapterInstance::hostOnPairCandidate(const PairCandidateRequest &request) { onPairCandidate(request); }
+void AdapterInstance::hostOnSetupCode(const SetupCodeRequest &request) { onSetupCode(request); }
 void AdapterInstance::hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request) { onAdaptersStreamStart(request); }
 void AdapterInstance::hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request) { onAdaptersStreamStop(request); }
 void AdapterInstance::hostOnUnknownRequest(const UnknownRequest &request) { onUnknownRequest(request); }
@@ -5035,6 +5374,44 @@ void SidecarHost::wireHandlers()
             response.setError("Failed to dispatch stream source request: " + dispatchError);
             m_dispatcher.sendActionResult(response, nullptr);
         }
+    };
+    // The four pairing requests route alike: an instance's, answered by it.
+    const auto routePairing = [this](const auto &request, const char *what, auto hostCall) {
+        phicore::adapter::v1::Utf8String dispatchError;
+        CmdResponse response;
+        response.setId(request.cmdId());
+        response.setTsMs(nowMs());
+        response.setStatus(CmdStatus::InvalidArgument);
+        if (request.externalId().empty()) {
+            response.setError(std::string("externalId is required for ") + what);
+            m_dispatcher.sendCmdResult(response, nullptr);
+            return;
+        }
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request, hostCall]() {
+                                  if (instance)
+                                      hostCall(*instance, request);
+                              },
+                              &dispatchError)) {
+            response.setError(std::string("Failed to dispatch ") + what + ": " + dispatchError);
+            m_dispatcher.sendCmdResult(response, nullptr);
+        }
+    };
+    handlers.onPairingStart = [routePairing](const PairingStartRequest &request) {
+        routePairing(request, "CmdPairingStart",
+                     [](AdapterInstance &i, const PairingStartRequest &r) { i.hostOnPairingStart(r); });
+    };
+    handlers.onPairingStop = [routePairing](const PairingStopRequest &request) {
+        routePairing(request, "CmdPairingStop",
+                     [](AdapterInstance &i, const PairingStopRequest &r) { i.hostOnPairingStop(r); });
+    };
+    handlers.onPairCandidate = [routePairing](const PairCandidateRequest &request) {
+        routePairing(request, "CmdPairCandidate",
+                     [](AdapterInstance &i, const PairCandidateRequest &r) { i.hostOnPairCandidate(r); });
+    };
+    handlers.onSetupCode = [routePairing](const SetupCodeRequest &request) {
+        routePairing(request, "CmdSetupCode",
+                     [](AdapterInstance &i, const SetupCodeRequest &r) { i.hostOnSetupCode(r); });
     };
     handlers.onSceneInvoke = [this](const SceneInvokeRequest &request) {
         CmdResponse response;

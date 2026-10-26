@@ -505,6 +505,20 @@ public:
     AdapterCapabilities &setOptional(AdapterRequirements optional);
     AdapterCapabilityFlags flags() const noexcept;
     AdapterCapabilities &setFlags(AdapterCapabilityFlags flags);
+    /// The ways the plugin can reach its devices; at least one, or the
+    /// descriptor is refused (see Topology).
+    Topologies topologies() const noexcept;
+    AdapterCapabilities &setTopologies(Topologies topologies);
+    /// What a CloudStandIn needs; None exactly when CloudStandIn is not declared.
+    StandInRedirect standInRedirect() const noexcept;
+    AdapterCapabilities &setStandInRedirect(StandInRedirect redirect);
+    /// How devices join; None for a plugin whose devices are not paired (a
+    /// router listing its clients). See PairingStyle.
+    PairingStyles pairingStyles() const noexcept;
+    AdapterCapabilities &setPairingStyles(PairingStyles styles);
+    /// The setup codes the plugin takes; set exactly when PairingStyle::SetupCode is.
+    SetupCodeSchemes setupCodeSchemes() const noexcept;
+    AdapterCapabilities &setSetupCodeSchemes(SetupCodeSchemes schemes);
     const AdapterActionDescriptorList &factoryActions() const noexcept;
     AdapterActionDescriptorList &factoryActions();
     AdapterCapabilities &setFactoryActions(AdapterActionDescriptorList actions);

@@ -531,9 +531,8 @@ inline constexpr std::array<EnumValueName, 4> kSceneFlagNames = {{
     { static_cast<int>(SceneFlag::SupportsDeactivate), "SupportsDeactivate" },
 }};
 
-inline constexpr std::array<EnumValueName, 9> kAdapterCapabilityNames = {{
+inline constexpr std::array<EnumValueName, 8> kAdapterCapabilityNames = {{
     { static_cast<int>(AdapterCapability::None), "None" },
-    { static_cast<int>(AdapterCapability::CloudServices), "CloudServices" },
     { static_cast<int>(AdapterCapability::RequiresPolling), "RequiresPolling" },
     { static_cast<int>(AdapterCapability::SupportsDiscovery), "SupportsDiscovery" },
     { static_cast<int>(AdapterCapability::SupportsProbe), "SupportsProbe" },
@@ -543,10 +542,62 @@ inline constexpr std::array<EnumValueName, 9> kAdapterCapabilityNames = {{
     { static_cast<int>(AdapterCapability::SupportsSceneRename), "SupportsSceneRename" },
 }};
 
-inline constexpr std::array<EnumValueName, 3> kAdapterOptionNames = {{
+inline constexpr std::array<EnumValueName, 5> kAdapterOptionNames = {{
     { static_cast<int>(AdapterOption::None), "None" },
     { static_cast<int>(AdapterOption::UseTls), "UseTls" },
     { static_cast<int>(AdapterOption::EnableLogs), "EnableLogs" },
+    { static_cast<int>(AdapterOption::CloudControl), "CloudControl" },
+    { static_cast<int>(AdapterOption::VendorCloudAllowed), "VendorCloudAllowed" },
+}};
+
+inline constexpr std::array<EnumValueName, 5> kTopologyNames = {{
+    { static_cast<int>(Topology::None), "None" },
+    { static_cast<int>(Topology::Local), "Local" },
+    { static_cast<int>(Topology::LocalCloudSetup), "LocalCloudSetup" },
+    { static_cast<int>(Topology::CloudStandIn), "CloudStandIn" },
+    { static_cast<int>(Topology::CloudOnly), "CloudOnly" },
+}};
+
+inline constexpr std::array<EnumValueName, 3> kStandInRedirectNames = {{
+    { static_cast<int>(StandInRedirect::None), "None" },
+    { static_cast<int>(StandInRedirect::Dns), "Dns" },
+    { static_cast<int>(StandInRedirect::Gateway), "Gateway" },
+}};
+
+inline constexpr std::array<EnumValueName, 4> kPairingStyleNames = {{
+    { static_cast<int>(PairingStyle::None), "None" },
+    { static_cast<int>(PairingStyle::JoinWindow), "JoinWindow" },
+    { static_cast<int>(PairingStyle::Candidates), "Candidates" },
+    { static_cast<int>(PairingStyle::SetupCode), "SetupCode" },
+}};
+
+inline constexpr std::array<EnumValueName, 3> kSetupCodeSchemeNames = {{
+    { static_cast<int>(SetupCodeScheme::None), "None" },
+    { static_cast<int>(SetupCodeScheme::MatterQr), "MatterQr" },
+    { static_cast<int>(SetupCodeScheme::MatterManual), "MatterManual" },
+}};
+
+inline constexpr std::array<EnumValueName, 6> kRadioNames = {{
+    { static_cast<int>(Radio::Unknown), "Unknown" },
+    { static_cast<int>(Radio::Lan), "Lan" },
+    { static_cast<int>(Radio::Wifi), "Wifi" },
+    { static_cast<int>(Radio::Ble), "Ble" },
+    { static_cast<int>(Radio::Zigbee), "Zigbee" },
+    { static_cast<int>(Radio::Thread), "Thread" },
+}};
+
+inline constexpr std::array<EnumValueName, 5> kPairingNeedNames = {{
+    { static_cast<int>(PairingNeed::None), "None" },
+    { static_cast<int>(PairingNeed::SetupCode), "SetupCode" },
+    { static_cast<int>(PairingNeed::Pin), "Pin" },
+    { static_cast<int>(PairingNeed::PressButton), "PressButton" },
+    { static_cast<int>(PairingNeed::VendorApp), "VendorApp" },
+}};
+
+inline constexpr std::array<EnumValueName, 3> kPairingStageNames = {{
+    { static_cast<int>(PairingStage::Running), "Running" },
+    { static_cast<int>(PairingStage::Done), "Done" },
+    { static_cast<int>(PairingStage::Failed), "Failed" },
 }};
 
 inline constexpr std::array<EnumValueName, 3> kNamedEntityKindNames = {{
@@ -662,6 +713,20 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kAdapterCapabilityNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterOption"))
         return valueToName(kAdapterOptionNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "Topology"))
+        return valueToName(kTopologyNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "StandInRedirect"))
+        return valueToName(kStandInRedirectNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PairingStyle"))
+        return valueToName(kPairingStyleNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "SetupCodeScheme"))
+        return valueToName(kSetupCodeSchemeNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "Radio"))
+        return valueToName(kRadioNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PairingNeed"))
+        return valueToName(kPairingNeedNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PairingStage"))
+        return valueToName(kPairingStageNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFlag"))
         return valueToName(kDeviceFlagNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))
@@ -693,6 +758,12 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return maskToNames(kAdapterCapabilityNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterOption"))
         return maskToNames(kAdapterOptionNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "Topology"))
+        return maskToNames(kTopologyNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PairingStyle"))
+        return maskToNames(kPairingStyleNames, mask);
+    if (equalsIgnoreCaseAscii(enumTypeName, "SetupCodeScheme"))
+        return maskToNames(kSetupCodeSchemeNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterConfigFieldFlag"))
         return maskToNames(kAdapterConfigFieldFlagNames, mask);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterRequirement"))
@@ -773,6 +844,20 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kAdapterCapabilityNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "AdapterOption"))
         return parseNameToValue(kAdapterOptionNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "Topology"))
+        return parseNameToValue(kTopologyNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "StandInRedirect"))
+        return parseNameToValue(kStandInRedirectNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PairingStyle"))
+        return parseNameToValue(kPairingStyleNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "SetupCodeScheme"))
+        return parseNameToValue(kSetupCodeSchemeNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "Radio"))
+        return parseNameToValue(kRadioNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PairingNeed"))
+        return parseNameToValue(kPairingNeedNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "PairingStage"))
+        return parseNameToValue(kPairingStageNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFlag"))
         return parseNameToValue(kDeviceFlagNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))

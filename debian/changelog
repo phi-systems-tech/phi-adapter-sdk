@@ -1,3 +1,20 @@
+phi-adapter-sdk (0.28.0-1) trixie; urgency=medium
+
+  * Topology: every plugin declares how it reaches its devices (Local,
+    LocalCloudSetup, CloudStandIn with its redirect, CloudOnly); a descriptor
+    without one is refused. CloudServices is gone.
+  * AdapterOption CloudControl and VendorCloudAllowed, the household's cloud
+    answers per instance; EventTopologyState reports whether the choice works
+  * Device addresses: ipv4, ipv6, host, mac, bleAddress, normalised by the
+    setters, refused on send when they do not parse
+  * Pairing: pairing styles and setup code schemes in the capabilities,
+    CmdPairingStart/Stop, CmdPairCandidate, CmdSetupCode, DeviceCandidate and
+    the candidate, pairing state and progress events
+  * Before v1 the adapter virtuals may change; this release adds the pairing
+    hooks and rebuilds every adapter. ABI baseline rewritten.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 26 Oct 2026 17:49:16 +0100
+
 phi-adapter-sdk (0.27.0-1) trixie; urgency=medium
 
   * What a player plays: MediaTitle, MediaArtist, MediaAlbum, MediaPosition,

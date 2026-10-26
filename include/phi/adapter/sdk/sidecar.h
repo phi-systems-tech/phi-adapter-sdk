@@ -229,6 +229,10 @@ struct SidecarHandlers {
     std::function<void(const MediaPlayerInvokeRequest &)> onMediaPlayerInvoke;
     /// Called when core asks where a camera's picture comes from.
     std::function<void(const StreamSourceRequest &)> onStreamSourceRequest;
+    std::function<void(const PairingStartRequest &)> onPairingStart;
+    std::function<void(const PairingStopRequest &)> onPairingStop;
+    std::function<void(const PairCandidateRequest &)> onPairCandidate;
+    std::function<void(const SetupCodeRequest &)> onSetupCode;
     /// Called on `cmd.scene.invoke`.
     std::function<void(const SceneInvokeRequest &)> onSceneInvoke;
     /// Called on adapter-sidecar stream start IPC.
@@ -328,6 +332,29 @@ public:
     bool sendConnectionStateChanged(const phicore::adapter::v1::ExternalId &externalId,
                                     bool connected,
                                     phicore::adapter::v1::Utf8String *error = nullptr);
+
+    /// Whether the instance's chosen topology works (`command=EventTopologyState`).
+    bool sendTopologyState(const phicore::adapter::v1::ExternalId &externalId,
+                           bool works,
+                           const phicore::adapter::v1::Utf8String &reason,
+                           phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendDeviceCandidateUpdated(const phicore::adapter::v1::ExternalId &externalId,
+                                    const phicore::adapter::v1::DeviceCandidate &candidate,
+                                    phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendDeviceCandidateRemoved(const phicore::adapter::v1::ExternalId &externalId,
+                                    const phicore::adapter::v1::Utf8String &candidateId,
+                                    phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendPairingState(const phicore::adapter::v1::ExternalId &externalId,
+                          bool open,
+                          int remainingS,
+                          phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendPairingProgress(const phicore::adapter::v1::ExternalId &externalId,
+                             const phicore::adapter::v1::Utf8String &pairingId,
+                             phicore::adapter::v1::PairingStage stage,
+                             int percent,
+                             const phicore::adapter::v1::Utf8String &message,
+                             const phicore::adapter::v1::ExternalId &deviceExternalId,
+                             phicore::adapter::v1::Utf8String *error = nullptr);
 
     /**
      * @brief Publish adapter incident/error payload.
@@ -540,9 +567,10 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-// Frozen since 0.26.0: this virtual set does not change (nothing inserted,
-// removed or re-signed), because its table lives in the adapter. Anything new
-// arrives as a registration on the host or the instance, never as a slot here.
+// The vtable lives in the adapter, so any change here breaks every adapter
+// built before it. Before v1 that is allowed (the owner, 2026-10-26: all
+// adapters are rebuilt with every SDK that changes it); from v1 on this set
+// freezes, and anything new arrives as a registration instead of a slot.
 /**
  * @brief Optional instance execution backend (thread/event-loop abstraction).
  *
@@ -571,9 +599,10 @@ public:
 
 class AdapterInstance;
 
-// Frozen since 0.26.0: the virtuals below stay as they are. A new request from
-// core is a new request class in requests.h and a new handler setter, which an
-// adapter built before it simply never registers - and so answers NotSupported.
+// The virtuals below are the adapter's vtable: changing them breaks every
+// adapter built before. Allowed before v1 (see InstanceExecutionBackend);
+// from v1 on a new request from core is a new request class and a handler
+// setter, which an adapter built before it never registers.
 /**
  * @brief Factory base class for adapter sidecar runtimes.
  *
@@ -732,8 +761,8 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-// Frozen since 0.26.0, like AdapterFactory: no new virtuals, new requests by
-// registration.
+// Like AdapterFactory: new virtuals are allowed before v1 (0.28.0 added the
+// pairing hooks), frozen from v1 on.
 /**
  * @brief Adapter instance base class.
  *
@@ -815,11 +844,43 @@ protected:
     /// The default answers NotImplemented: the instance has no camera.
     virtual void onStreamSourceRequest(const StreamSourceRequest &request);
     virtual void onSceneInvoke(const SceneInvokeRequest &request);
+    /// Pairing (see PairingStyle). The defaults answer NotImplemented, which is
+    /// right for a plugin that declares no pairing style. Answer each with
+    /// sendResult(CmdResponse) as soon as the window is open or the pairing
+    /// has started; report the window with sendPairingState and the pairing
+    /// with sendPairingProgress under the request's pairingId.
+    virtual void onPairingStart(const PairingStartRequest &request);
+    virtual void onPairingStop(const PairingStopRequest &request);
+    virtual void onPairCandidate(const PairCandidateRequest &request);
+    virtual void onSetupCode(const SetupCodeRequest &request);
     virtual void onAdaptersStreamStart(const AdaptersStreamStartRequest &request);
     virtual void onAdaptersStreamStop(const AdaptersStreamStopRequest &request);
     virtual void onUnknownRequest(const UnknownRequest &request);
 
     bool sendConnectionStateChanged(bool connected, phicore::adapter::v1::Utf8String *error = nullptr);
+    /// Whether the topology the household chose works, after start and on
+    /// every change: false with a reason in English ("The box is not routed
+    /// through phi") when a local choice has no redirect. Never fall back into
+    /// the vendor's cloud instead.
+    bool sendTopologyState(bool works,
+                           const phicore::adapter::v1::Utf8String &reason = {},
+                           phicore::adapter::v1::Utf8String *error = nullptr);
+    /// A device seen but not paired, reported again whenever it changes or to
+    /// keep it alive (DeviceCandidate::expiresInMs).
+    bool sendDeviceCandidateUpdated(const phicore::adapter::v1::DeviceCandidate &candidate,
+                                    phicore::adapter::v1::Utf8String *error = nullptr);
+    bool sendDeviceCandidateRemoved(const phicore::adapter::v1::Utf8String &candidateId,
+                                    phicore::adapter::v1::Utf8String *error = nullptr);
+    /// The join window: open with the seconds left, or closed.
+    bool sendPairingState(bool open, int remainingS, phicore::adapter::v1::Utf8String *error = nullptr);
+    /// How a pairing goes. Done names the new device, whose sendDeviceUpdated
+    /// should come first; Failed carries the reason in `message`.
+    bool sendPairingProgress(const phicore::adapter::v1::Utf8String &pairingId,
+                             phicore::adapter::v1::PairingStage stage,
+                             int percent,
+                             const phicore::adapter::v1::Utf8String &message = {},
+                             const phicore::adapter::v1::ExternalId &deviceExternalId = {},
+                             phicore::adapter::v1::Utf8String *error = nullptr);
     bool sendError(LogCategory category,
                    const phicore::adapter::v1::Utf8String &message,
                    const phicore::adapter::v1::ScalarList &params = {},
@@ -932,6 +993,10 @@ private:
     void hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &request);
     void hostOnStreamSourceRequest(const StreamSourceRequest &request);
     void hostOnSceneInvoke(const SceneInvokeRequest &request);
+    void hostOnPairingStart(const PairingStartRequest &request);
+    void hostOnPairingStop(const PairingStopRequest &request);
+    void hostOnPairCandidate(const PairCandidateRequest &request);
+    void hostOnSetupCode(const SetupCodeRequest &request);
     void hostOnAdaptersStreamStart(const AdaptersStreamStartRequest &request);
     void hostOnAdaptersStreamStop(const AdaptersStreamStopRequest &request);
     void hostOnUnknownRequest(const UnknownRequest &request);

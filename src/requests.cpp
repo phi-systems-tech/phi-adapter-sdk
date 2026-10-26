@@ -208,6 +208,66 @@ PHI_SDK_FIELD(StreamSourceRequest, const v1::ExternalId &, deviceExternalId, set
 PHI_SDK_FIELD(StreamSourceRequest, const v1::Utf8String &, kind, setKind)
 PHI_SDK_FIELD(StreamSourceRequest, const v1::Utf8String &, profile, setProfile)
 
+// --- Pairing -----------------------------------------------------------------
+
+struct PairingStartRequest::Private {
+    v1::CmdId cmdId = 0;
+    v1::ExternalId externalId;
+    int durationS = 0;
+};
+PHI_SDK_REQUEST_IMPL(PairingStartRequest)
+PHI_SDK_FIELD(PairingStartRequest, v1::CmdId, cmdId, setCmdId)
+PHI_SDK_FIELD(PairingStartRequest, const v1::ExternalId &, externalId, setExternalId)
+PHI_SDK_FIELD(PairingStartRequest, int, durationS, setDurationS)
+
+struct PairingStopRequest::Private {
+    v1::CmdId cmdId = 0;
+    v1::ExternalId externalId;
+};
+PHI_SDK_REQUEST_IMPL(PairingStopRequest)
+PHI_SDK_FIELD(PairingStopRequest, v1::CmdId, cmdId, setCmdId)
+PHI_SDK_FIELD(PairingStopRequest, const v1::ExternalId &, externalId, setExternalId)
+
+struct PairCandidateRequest::Private {
+    v1::CmdId cmdId = 0;
+    v1::ExternalId externalId;
+    v1::Utf8String pairingId;
+    v1::Utf8String candidateId;
+    v1::Utf8String setupCode;
+    v1::Utf8String name;
+    v1::Utf8String wifiSsid;
+    v1::Utf8String wifiPassphrase;
+};
+PHI_SDK_REQUEST_IMPL(PairCandidateRequest)
+PHI_SDK_FIELD(PairCandidateRequest, v1::CmdId, cmdId, setCmdId)
+PHI_SDK_FIELD(PairCandidateRequest, const v1::ExternalId &, externalId, setExternalId)
+PHI_SDK_FIELD(PairCandidateRequest, const v1::Utf8String &, pairingId, setPairingId)
+PHI_SDK_FIELD(PairCandidateRequest, const v1::Utf8String &, candidateId, setCandidateId)
+PHI_SDK_FIELD(PairCandidateRequest, const v1::Utf8String &, setupCode, setSetupCode)
+PHI_SDK_FIELD(PairCandidateRequest, const v1::Utf8String &, name, setName)
+PHI_SDK_FIELD(PairCandidateRequest, const v1::Utf8String &, wifiSsid, setWifiSsid)
+PHI_SDK_FIELD(PairCandidateRequest, const v1::Utf8String &, wifiPassphrase, setWifiPassphrase)
+
+struct SetupCodeRequest::Private {
+    v1::CmdId cmdId = 0;
+    v1::ExternalId externalId;
+    v1::Utf8String pairingId;
+    v1::SetupCodeScheme scheme = v1::SetupCodeScheme::None;
+    v1::Utf8String code;
+    v1::Utf8String name;
+    v1::Utf8String wifiSsid;
+    v1::Utf8String wifiPassphrase;
+};
+PHI_SDK_REQUEST_IMPL(SetupCodeRequest)
+PHI_SDK_FIELD(SetupCodeRequest, v1::CmdId, cmdId, setCmdId)
+PHI_SDK_FIELD(SetupCodeRequest, const v1::ExternalId &, externalId, setExternalId)
+PHI_SDK_FIELD(SetupCodeRequest, const v1::Utf8String &, pairingId, setPairingId)
+PHI_SDK_FIELD(SetupCodeRequest, v1::SetupCodeScheme, scheme, setScheme)
+PHI_SDK_FIELD(SetupCodeRequest, const v1::Utf8String &, code, setCode)
+PHI_SDK_FIELD(SetupCodeRequest, const v1::Utf8String &, name, setName)
+PHI_SDK_FIELD(SetupCodeRequest, const v1::Utf8String &, wifiSsid, setWifiSsid)
+PHI_SDK_FIELD(SetupCodeRequest, const v1::Utf8String &, wifiPassphrase, setWifiPassphrase)
+
 // --- MediaPlayerInvokeRequest ------------------------------------------------
 
 struct MediaPlayerInvokeRequest::Private {

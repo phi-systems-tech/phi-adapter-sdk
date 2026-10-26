@@ -72,6 +72,28 @@ public:
     Device &setModel(Utf8String model);
     const JsonText &metaJson() const noexcept;
     Device &setMetaJson(JsonText metaJson);
+    /// Where the device is on the network, one spelling each so core,
+    /// phi-hostd (firewall, redirects) and the cloud light can rely on them.
+    /// Set what the adapter knows, leave the rest empty; every report
+    /// overwrites them. The setters normalise (a MAC in any separator style
+    /// becomes `aa:bb:cc:dd:ee:ff`, an IPv6 address its canonical form); a
+    /// value that does not parse makes sendDeviceUpdated fail with it named.
+    const Utf8String &ipv4() const noexcept;
+    Device &setIpv4(Utf8String ipv4);
+    /// One address, the one phi should use: global or ULA before link-local.
+    const Utf8String &ipv6() const noexcept;
+    Device &setIpv6(Utf8String ipv6);
+    /// A name the device answers to (`smartbox.local`), not an address.
+    const Utf8String &host() const noexcept;
+    Device &setHost(Utf8String host);
+    /// The LAN (Wi-Fi or Ethernet) MAC.
+    const Utf8String &mac() const noexcept;
+    Device &setMac(Utf8String mac);
+    /// The Bluetooth LE address, for matching proxy sightings to the device.
+    /// A device that rotates resolvable private addresses has none stable;
+    /// leave it empty, its IRK stays with the adapter.
+    const Utf8String &bleAddress() const noexcept;
+    Device &setBleAddress(Utf8String bleAddress);
     MediaPlayerFeatures mediaPlayerFeatures() const noexcept;
     Device &setMediaPlayerFeatures(MediaPlayerFeatures features);
     Device &addMediaPlayerFeatures(MediaPlayerFeatures features);

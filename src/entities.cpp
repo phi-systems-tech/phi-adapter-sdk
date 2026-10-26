@@ -5,11 +5,14 @@
 // Copies are deep. A moved-from object has no Private and reads as empty
 // through a shared null instance; the first setter gives it one again.
 
+#include "phi/adapter/v1/candidate.h"
 #include "phi/adapter/v1/channel.h"
 #include "phi/adapter/v1/device.h"
 #include "phi/adapter/v1/group.h"
 #include "phi/adapter/v1/room.h"
 #include "phi/adapter/v1/scene.h"
+
+#include "net_address.h"
 
 #include <type_traits>
 #include <utility>
@@ -170,6 +173,11 @@ struct Device::Private {
     Utf8String firmware;
     Utf8String model;
     JsonText metaJson;
+    Utf8String ipv4;
+    Utf8String ipv6;
+    Utf8String host;
+    Utf8String mac;
+    Utf8String bleAddress;
     MediaPlayerFeatures mediaPlayerFeatures = MediaPlayerFeature::None;
     CameraFeatures cameraFeatures = CameraFeature::None;
     DeviceEffectDescriptorList effects;
@@ -187,6 +195,37 @@ PHI_V1_FIELD(Device, const JsonText &, metaJson, setMetaJson)
 PHI_V1_FIELD(Device, MediaPlayerFeatures, mediaPlayerFeatures, setMediaPlayerFeatures)
 PHI_V1_FIELD(Device, CameraFeatures, cameraFeatures, setCameraFeatures)
 PHI_V1_FIELD(Device, const DeviceEffectDescriptorList &, effects, setEffects)
+
+const Utf8String &Device::ipv4() const noexcept { return p().ipv4; }
+Device &Device::setIpv4(Utf8String ipv4)
+{
+    m().ipv4 = detail::normalizedIp(ipv4, AF_INET);
+    return *this;
+}
+const Utf8String &Device::ipv6() const noexcept { return p().ipv6; }
+Device &Device::setIpv6(Utf8String ipv6)
+{
+    m().ipv6 = detail::normalizedIp(ipv6, AF_INET6);
+    return *this;
+}
+const Utf8String &Device::host() const noexcept { return p().host; }
+Device &Device::setHost(Utf8String host)
+{
+    m().host = detail::trimmedAscii(host);
+    return *this;
+}
+const Utf8String &Device::mac() const noexcept { return p().mac; }
+Device &Device::setMac(Utf8String mac)
+{
+    m().mac = detail::normalizedMac(mac);
+    return *this;
+}
+const Utf8String &Device::bleAddress() const noexcept { return p().bleAddress; }
+Device &Device::setBleAddress(Utf8String bleAddress)
+{
+    m().bleAddress = detail::normalizedMac(bleAddress);
+    return *this;
+}
 
 Device &Device::addEffect(DeviceEffectDescriptor effect)
 {
@@ -214,6 +253,39 @@ Device &Device::addCameraFeatures(CameraFeatures features)
     priv.cameraFeatures = priv.cameraFeatures | features;
     return *this;
 }
+
+// --- DeviceCandidate ---------------------------------------------------------
+
+struct DeviceCandidate::Private {
+    Utf8String id;
+    Utf8String name;
+    DeviceClass deviceClass = DeviceClass::Unknown;
+    Utf8String manufacturer;
+    Utf8String model;
+    Radio radio = Radio::Unknown;
+    int rssi = 0;
+    ExternalId roomExternalId;
+    PairingNeed needs = PairingNeed::None;
+    SetupCodeScheme setupCodeScheme = SetupCodeScheme::None;
+    Utf8String instruction;
+    std::int64_t expiresInMs = 0;
+    JsonText metaJson;
+};
+
+PHI_V1_ENTITY_MEMBERS(DeviceCandidate)
+PHI_V1_FIELD(DeviceCandidate, const Utf8String &, id, setId)
+PHI_V1_FIELD(DeviceCandidate, const Utf8String &, name, setName)
+PHI_V1_FIELD(DeviceCandidate, DeviceClass, deviceClass, setDeviceClass)
+PHI_V1_FIELD(DeviceCandidate, const Utf8String &, manufacturer, setManufacturer)
+PHI_V1_FIELD(DeviceCandidate, const Utf8String &, model, setModel)
+PHI_V1_FIELD(DeviceCandidate, Radio, radio, setRadio)
+PHI_V1_FIELD(DeviceCandidate, int, rssi, setRssi)
+PHI_V1_FIELD(DeviceCandidate, const ExternalId &, roomExternalId, setRoomExternalId)
+PHI_V1_FIELD(DeviceCandidate, PairingNeed, needs, setNeeds)
+PHI_V1_FIELD(DeviceCandidate, SetupCodeScheme, setupCodeScheme, setSetupCodeScheme)
+PHI_V1_FIELD(DeviceCandidate, const Utf8String &, instruction, setInstruction)
+PHI_V1_FIELD(DeviceCandidate, std::int64_t, expiresInMs, setExpiresInMs)
+PHI_V1_FIELD(DeviceCandidate, const JsonText &, metaJson, setMetaJson)
 
 // --- Room --------------------------------------------------------------------
 

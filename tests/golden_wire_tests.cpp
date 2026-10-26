@@ -75,7 +75,12 @@ v1::Device fixtureDevice()
         .setManufacturer("Acme")
         .setFirmware("1.2.3")
         .setModel("LTG-002")
-        .setMetaJson("{\"vendorId\":7}");
+        .setMetaJson("{\"vendorId\":7}")
+        .setIpv4(" 192.168.18.23 ")
+        .setIpv6("FE80:0000::0001")
+        .setHost("smartbox.local")
+        .setMac("30-C6-F7-18-C7-BF")
+        .setBleAddress("30c6f718c7c1");
     v1::DeviceEffectDescriptor effect;
     effect.setEffect(v1::DeviceEffect::ColorLoop)
         .setId("vendor-loop")
@@ -154,6 +159,10 @@ sdk::AdapterDescriptor fixtureDescriptor()
         .setRequired(v1::AdapterRequirement::Host)
         .setOptional(v1::AdapterRequirement::Port)
         .setFlags(v1::AdapterCapability::SupportsDiscovery)
+        .setTopologies(v1::Topology::CloudStandIn | v1::Topology::CloudOnly)
+        .setStandInRedirect(v1::StandInRedirect::Gateway)
+        .setPairingStyles(v1::PairingStyle::Candidates | v1::PairingStyle::SetupCode)
+        .setSetupCodeSchemes(v1::SetupCodeScheme::MatterQr)
         .addFactoryAction(v1::AdapterActionDescriptor("probe", "Probe", "Connectivity probe")
                               .setPlacement(v1::AdapterActionPlacement::Device)
                               .setTimeoutMs(5000));
@@ -208,13 +217,16 @@ struct InboundCapture {
     std::optional<sdk::SceneInvokeRequest> sceneInvoke;
     std::optional<sdk::AdaptersStreamStartRequest> streamStart;
     std::optional<sdk::AdaptersStreamStopRequest> streamStop;
+    std::optional<sdk::PairingStartRequest> pairingStart;
+    std::optional<sdk::PairCandidateRequest> pairCandidate;
+    std::optional<sdk::SetupCodeRequest> setupCode;
 
     void clear() { *this = InboundCapture{}; }
     bool any() const
     {
         return bootstrap || configChanged || instanceRemoved || channelInvoke || actionInvoke
             || nameUpdate || entityNameUpdate || effectInvoke || mediaPlayerInvoke || sceneInvoke || streamStart
-            || streamStop;
+            || streamStop || pairingStart || pairCandidate || setupCode;
     }
 };
 
@@ -316,6 +328,35 @@ void runOutboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client, bo
          }},
         {"device_updated", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
              return d.sendDeviceUpdated("inst-1", fixtureDevice(), {fixtureChannel()}, nullptr);
+         }},
+        {"topology_state", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
+             return d.sendTopologyState("inst-1", false, "The box is not routed through phi", nullptr);
+         }},
+        {"device_candidate_updated", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
+             v1::DeviceCandidate candidate;
+             candidate.setId("matter-3840")
+                 .setName("Smart Plug")
+                 .setDeviceClass(v1::DeviceClass::Plug)
+                 .setManufacturer("Acme")
+                 .setModel("SP-1")
+                 .setRadio(v1::Radio::Ble)
+                 .setRssi(-58)
+                 .setRoomExternalId("room-4")
+                 .setNeeds(v1::PairingNeed::SetupCode)
+                 .setSetupCodeScheme(v1::SetupCodeScheme::MatterQr)
+                 .setInstruction("Scan the code on the plug")
+                 .setExpiresInMs(30000);
+             return d.sendDeviceCandidateUpdated("inst-1", candidate, nullptr);
+         }},
+        {"device_candidate_removed", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
+             return d.sendDeviceCandidateRemoved("inst-1", "matter-3840", nullptr);
+         }},
+        {"pairing_state", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
+             return d.sendPairingState("inst-1", true, 117, nullptr);
+         }},
+        {"pairing_progress", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
+             return d.sendPairingProgress("inst-1", "pair-7", v1::PairingStage::Done, 100, "Commissioned",
+                                          "node-12", nullptr);
          }},
         {"device_removed", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
              return d.sendDeviceRemoved("inst-1", "dev-9", nullptr);
@@ -500,6 +541,28 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
              CHECK(c.streamStart->kind() == "adapter.log");
              CHECK(phitest::contains(c.streamStart->paramsJson(), "\"tail\""));
          }},
+        {"cmd_pairing_start", 20, [](const InboundCapture &c) {
+             REQUIRE(c.pairingStart.has_value());
+             CHECK(c.pairingStart->cmdId() == 20);
+             CHECK(c.pairingStart->externalId() == "inst-1");
+             CHECK(c.pairingStart->durationS() == 180);
+         }},
+        {"cmd_pair_candidate", 21, [](const InboundCapture &c) {
+             REQUIRE(c.pairCandidate.has_value());
+             CHECK(c.pairCandidate->cmdId() == 21);
+             CHECK(c.pairCandidate->pairingId() == "pair-7");
+             CHECK(c.pairCandidate->candidateId() == "matter-3840");
+             CHECK(c.pairCandidate->setupCode() == "MT:Y.K9042C00KA0648G00");
+             CHECK(c.pairCandidate->name() == "Desk Lamp");
+             CHECK(c.pairCandidate->wifiSsid() == "phimagic-18C7BF");
+             CHECK(c.pairCandidate->wifiPassphrase() == "not-a-real-one");
+         }},
+        {"cmd_setup_code", 22, [](const InboundCapture &c) {
+             REQUIRE(c.setupCode.has_value());
+             CHECK(c.setupCode->pairingId() == "pair-8");
+             CHECK(c.setupCode->scheme() == v1::SetupCodeScheme::MatterManual);
+             CHECK(c.setupCode->code() == "34970112332");
+         }},
         {"cmd_adapters_stream_stop", 17, [](const InboundCapture &c) {
              REQUIRE(c.streamStop.has_value());
              CHECK(c.streamStop->cmdId() == 17);
@@ -555,6 +618,9 @@ int main()
     handlers.onSceneInvoke = [&capture](const sdk::SceneInvokeRequest &r) { capture.sceneInvoke = r; };
     handlers.onAdaptersStreamStart = [&capture](const sdk::AdaptersStreamStartRequest &r) { capture.streamStart = r; };
     handlers.onAdaptersStreamStop = [&capture](const sdk::AdaptersStreamStopRequest &r) { capture.streamStop = r; };
+    handlers.onPairingStart = [&capture](const sdk::PairingStartRequest &r) { capture.pairingStart = r; };
+    handlers.onPairCandidate = [&capture](const sdk::PairCandidateRequest &r) { capture.pairCandidate = r; };
+    handlers.onSetupCode = [&capture](const sdk::SetupCodeRequest &r) { capture.setupCode = r; };
     dispatcher.setHandlers(std::move(handlers));
 
     v1::Utf8String err;
@@ -576,6 +642,23 @@ int main()
 
     runOutboundCases(dispatcher, client, updateMode);
     runInboundCases(dispatcher, client, capture);
+
+    // What must never reach the wire: an address the setters could not
+    // normalise, and a descriptor without a topology.
+    {
+        v1::Utf8String refused;
+        v1::Device bad = fixtureDevice();
+        bad.setMac("30:c6:f7");
+        CHECK(!dispatcher.sendDeviceUpdated("inst-1", bad, {}, &refused));
+        CHECK(phitest::contains(refused, "not a MAC address"));
+        sdk::AdapterDescriptor silent = fixtureDescriptor();
+        silent.capabilities().setTopologies(v1::Topology::None);
+        CHECK(!dispatcher.sendAdapterDescriptorUpdated("", silent, &refused));
+        CHECK(phitest::contains(refused, "no topology"));
+        sdk::AdapterDescriptor unrouted = fixtureDescriptor();
+        unrouted.capabilities().setStandInRedirect(v1::StandInRedirect::None);
+        CHECK(!dispatcher.sendAdapterDescriptorUpdated("", unrouted, &refused));
+    }
 
     dispatcher.stop();
 

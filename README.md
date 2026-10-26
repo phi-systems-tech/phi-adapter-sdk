@@ -84,9 +84,11 @@ library. That promise rests on three things, none of them good intentions:
   parts have a const and a mutable reader (`field.layout().setCells(2)`); the
   answers have makers (`ActionResponse::success(id).setData(json)`). The
   virtuals of `AdapterFactory`, `AdapterInstance` and `InstanceExecutionBackend`
-  are frozen: nothing is inserted, removed or re-signed. New requests arrive as
-  a registration (one typed setter per request class); a request nobody
-  registered for is answered `NotSupported`. Small value types that do not
+  are the adapter's vtable. **Before v1 they may change** (the owner,
+  2026-10-26): such a release rebuilds every adapter, as 0.28.0 did for its
+  pairing hooks. From v1 on they freeze, and a new request arrives as a
+  registration (one typed setter per request class) that an adapter built
+  before it never makes, so it is answered `NotSupported`. Small value types that do not
   change (`Color`, `Value`, the enums, `FrameHeader`) stay plain, and so do the
   library's own wiring types no adapter sees (`SidecarHandlers`, `LogEntry`).
   The HTTP framing and authentication internals left the public headers
@@ -827,6 +829,78 @@ host.stop();
 ../build/phi-adapter-sdk/release-ninja/phi_adapter_sidecar_example /tmp/phi-adapter-example.sock
 ```
 
+## Topology And The Vendor Cloud (v1, from 0.28.0)
+
+Every plugin says how it reaches its devices, and core refuses a descriptor
+that says nothing - the dispatcher already does, so a plugin without it fails
+at start with the reason in its log:
+
+```cpp
+caps.setTopologies(v1::Topology::CloudStandIn | v1::Topology::CloudOnly)
+    .setStandInRedirect(v1::StandInRedirect::Gateway);
+```
+
+- `Local`: the device has a local API (it may keep a cloud link of its own).
+- `LocalCloudSetup`: local in operation, the vendor's cloud once for setup.
+- `CloudStandIn`: phi poses as the vendor's cloud; name the redirect it needs,
+  `Dns` (the device resolves the cloud's name) or `Gateway` (it dials an address
+  baked into its firmware, so phi has to be its route). A redirect is set
+  exactly when `CloudStandIn` is.
+- `CloudOnly`: control only through the vendor's cloud. Clients warn before
+  such a plugin is added and show a cloud icon on its instances.
+
+The household answers per instance with two `AdapterOption`s in
+`Adapter::options()`: `CloudControl` (control through the vendor's cloud;
+offered only when the plugin declares `CloudOnly` beside a local topology) and
+`VendorCloudAllowed` (a stand-in mirrors the devices' session to the real cloud
+so the vendor's app keeps working; a local device keeps its internet). Unset
+means blocked. The adapter follows the choice and reports with
+`sendTopologyState(works, reason)` whether it works - after start and on every
+change. A local choice without a redirect is `false` with a reason; it never
+falls back into the cloud.
+
+## Device Addresses (v1, from 0.28.0)
+
+`Device::setIpv4`, `setIpv6` (one, the preferred reachable one), `setHost` (a
+name), `setMac` and `setBleAddress` carry where a device is; core stores them
+in columns of their own, and phi-hostd and the clients read them from there.
+Set what you know. The setters normalise (a MAC becomes `aa:bb:cc:dd:ee:ff`
+whatever its separators, an IPv6 address its canonical form); a value that does
+not parse makes `sendDeviceUpdated` fail with the value named. Do not put
+addresses into the device meta.
+
+## Pairing (v1, from 0.28.0)
+
+The household has one "Add" button: core sends `CmdPairingStart` to every
+instance that pairs, and lists what they report in one place. A plugin
+declares how its devices join:
+
+```cpp
+caps.setPairingStyles(v1::PairingStyle::Candidates | v1::PairingStyle::SetupCode)
+    .setSetupCodeSchemes(v1::SetupCodeScheme::MatterQr | v1::SetupCodeScheme::MatterManual);
+```
+
+- `JoinWindow`: `onPairingStart(durationS)` opens the network, devices join by
+  themselves and arrive as ordinary `sendDeviceUpdated`; `sendPairingState`
+  reports the window, `onPairingStop` closes it early.
+- `Candidates`: devices seen but not paired go out as
+  `sendDeviceCandidateUpdated(DeviceCandidate)` - what it probably is, the
+  radio, the RSSI, a room it is probably in, what pairing takes from the
+  household (`PairingNeed`: none, a setup code, a PIN, a button, the vendor's
+  app first) and an instruction in English. Core keeps candidates in memory
+  only; `expiresInMs` or `sendDeviceCandidateRemoved` ends one.
+  `onPairCandidate` pairs one.
+- `SetupCode`: `onSetupCode` gets a code no candidate was seen for; core
+  recognises the scheme by its format and routes it.
+
+Answer every pairing request with `sendResult(CmdResponse)` as soon as the
+window is open or the pairing has started. Report the pairing with
+`sendPairingProgress(pairingId, stage, percent, message, deviceExternalId)`:
+`Done` names the new device (send its `sendDeviceUpdated` first), `Failed`
+carries the reason. A pairing request may carry the IoT WLAN's credentials
+(`wifiSsid`, `wifiPassphrase`) for devices that need them; they are secrets,
+never logged and never echoed.
+
 ## Adapter IPC Command Model (v1)
 
 Naming rules:
@@ -859,6 +933,8 @@ Core -> Adapter (`Sync*` / `Cmd*`):
   `camera.live`; override `onStreamSourceRequest` and answer with an
   `ActionResponse` of type `Data`: `{"url", "username", "password", "codec"}`.
   The source (an RTSP URL usually carries the password) is never a channel value.
+- `CmdPairingStart` (`0x020B`), `CmdPairingStop` (`0x020C`), `CmdPairCandidate`
+  (`0x020D`), `CmdSetupCode` (`0x020E`) - see "Pairing".
 
 Adapter -> Core (`Response*` / `Event*`):
 
@@ -867,6 +943,7 @@ Adapter -> Core (`Response*` / `Event*`):
 - `EventAdapterMetaUpdated` (`0x1003`)
 - `EventConnectionStateChanged` (`0x1004`)
 - `EventLog` (`0x1005`)
+- `EventTopologyState` (`0x1006`)
 - `EventDeviceUpdated` (`0x1101`)
 - `EventDeviceRemoved` (`0x1102`)
 - `EventChannelUpdated` (`0x1201`)
@@ -881,6 +958,8 @@ Adapter -> Core (`Response*` / `Event*`):
 - `EventStreamData` (`0x1602`)
 - `EventStreamError` (`0x1603`)
 - `EventStreamEnd` (`0x1604`)
+- `EventDeviceCandidateUpdated` (`0x1701`), `EventDeviceCandidateRemoved` (`0x1702`),
+  `EventPairingState` (`0x1703`), `EventPairingProgress` (`0x1704`)
 
 Adapter -> Core (`Result*`):
 

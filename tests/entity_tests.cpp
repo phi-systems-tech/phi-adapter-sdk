@@ -252,6 +252,21 @@ void testFormAndAnswerTypesFollowTheSameRules()
 
 } // namespace
 
+// One spelling per address whatever the vendor hands over; what does not
+// parse stays as given, so the send can refuse it with the value named.
+void testDeviceAddressesAreNormalised()
+{
+    v1::Device device;
+    device.setMac("30C6.F718.C7BF").setBleAddress("aa-bb-cc-dd-ee-ff").setIpv6("2001:DB8:0:0:0:0:0:1").setIpv4("10.0.0.7");
+    PHI_CHECK(device.mac() == "30:c6:f7:18:c7:bf");
+    PHI_CHECK(device.bleAddress() == "aa:bb:cc:dd:ee:ff");
+    PHI_CHECK(device.ipv6() == "2001:db8::1");
+    PHI_CHECK(device.ipv4() == "10.0.0.7");
+    device.setMac("not a mac").setIpv4("10.0.0.300");
+    PHI_CHECK(device.mac() == "not a mac");
+    PHI_CHECK(device.ipv4() == "10.0.0.300");
+}
+
 int main()
 {
     testHttpAndTlsTypesFollowTheSameRules();
@@ -262,6 +277,7 @@ int main()
     testSettersChainAndRead();
     testTheValueKeepsHasValueHonest();
     testCopiesAreDeep();
+    testDeviceAddressesAreNormalised();
     testAMovedFromObjectIsEmptyAndAlive();
     return phi::testing::report("sdk_entity_tests");
 }

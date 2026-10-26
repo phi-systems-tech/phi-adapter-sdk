@@ -225,6 +225,12 @@ public:
 
 protected:
     v1::Utf8String pluginType() const override { return "test.blocking.probe"; }
+    v1::AdapterCapabilities capabilities() const override
+    {
+        v1::AdapterCapabilities caps;
+        caps.setTopologies(v1::Topology::Local);
+        return caps;
+    }
 
     std::unique_ptr<sdk::InstanceExecutionBackend> createFactoryExecutionBackend() override
     {
@@ -346,6 +352,12 @@ void testFactoryBackendDefaultsToInline()
 
     protected:
         v1::Utf8String pluginType() const override { return "test.inline"; }
+        v1::AdapterCapabilities capabilities() const override
+        {
+            v1::AdapterCapabilities caps;
+            caps.setTopologies(v1::Topology::Local);
+            return caps;
+        }
         std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
         {
             return nullptr;
@@ -402,6 +414,12 @@ class BlockingStopFactory final : public sdk::AdapterFactory
 {
 protected:
     v1::Utf8String pluginType() const override { return "test.blocking.stop"; }
+    v1::AdapterCapabilities capabilities() const override
+    {
+        v1::AdapterCapabilities caps;
+        caps.setTopologies(v1::Topology::Local);
+        return caps;
+    }
     std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
     {
         return std::make_unique<BlockingStopInstance>();
@@ -425,6 +443,12 @@ class LateStopFactory final : public sdk::AdapterFactory
 {
 protected:
     v1::Utf8String pluginType() const override { return "test.late.stop"; }
+    v1::AdapterCapabilities capabilities() const override
+    {
+        v1::AdapterCapabilities caps;
+        caps.setTopologies(v1::Topology::Local);
+        return caps;
+    }
     std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
     {
         return std::make_unique<LateStopInstance>();
@@ -455,6 +479,12 @@ public:
 
 protected:
     v1::Utf8String pluginType() const override { return "test.config.at.start"; }
+    v1::AdapterCapabilities capabilities() const override
+    {
+        v1::AdapterCapabilities caps;
+        caps.setTopologies(v1::Topology::Local);
+        return caps;
+    }
     std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
     {
         auto instance = std::make_unique<ConfigAtStartInstance>();
@@ -685,6 +715,12 @@ public:
 
 protected:
     v1::Utf8String pluginType() const override { return "test.cooperative"; }
+    v1::AdapterCapabilities capabilities() const override
+    {
+        v1::AdapterCapabilities caps;
+        caps.setTopologies(v1::Topology::Local);
+        return caps;
+    }
     std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
     {
         auto instance = std::make_unique<CooperativeInstance>();

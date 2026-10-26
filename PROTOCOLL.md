@@ -90,6 +90,10 @@ Hard rules:
 | `CmdEntityNameUpdate` | `0x0208` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `kind:int`, `entityExternalId:string`, `name:string` | none |
 | `CmdMediaPlayerInvoke` | `0x0209` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `action:int` | `mediaId:string`, `mediaType:string`, `mimeType:string`, `positionMs:int64`, `enqueue:int`, `metadata:object` |
 | `CmdStreamSourceRequest` | `0x020A` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `kind:string` (`live`/`snapshot`) | `profile:string` (`main` default, `sub`); answered with `ResultAction`, `resultType` Data, `dataJson` `{url, username?, password?, codec?}` - core passes it to the media transport and never stores or shows it |
+| `CmdPairingStart` | `0x020B` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `durationS:int` (> 0) | none; answered with `ResultCmd` once the window is open |
+| `CmdPairingStop` | `0x020C` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string` | none |
+| `CmdPairCandidate` | `0x020D` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `pairingId:string`, `candidateId:string` | `setupCode:string`, `name:string`, `wifiSsid:string`, `wifiPassphrase:string` (secret, never logged); answered with `ResultCmd` once started, then `EventPairingProgress` |
+| `CmdSetupCode` | `0x020E` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `pairingId:string`, `scheme:int` (`SetupCodeScheme`), `code:string` | `name:string`, `wifiSsid:string`, `wifiPassphrase:string`; like `CmdPairCandidate` |
 
 Notes:
 - `cmdId` is an envelope field (see Framing); `Sync*` requests carry it only as
@@ -112,6 +116,7 @@ Notes:
 | `EventAdapterMetaUpdated` | `0x1003` | `Event` | instance | `externalId:string`, `metaPatch:object` | none |
 | `EventConnectionStateChanged` | `0x1004` | `Event` | instance | `externalId:string`, `connected:bool` | none |
 | `EventLog` | `0x1005` | `Event` | factory or instance | `externalId:string`, `plugin:string`, `level:uint8`, `category:uint8`, `message:string`, `ctx:string`, `params:array`, `fields:object`, `tsMs:int64` | none |
+| `EventTopologyState` | `0x1006` | `Event` | instance | `externalId:string`, `works:bool`, `reason:string` | none |
 | `EventDeviceUpdated` | `0x1101` | `Event` | instance | `externalId:string`, `device:object`, `channels:array` | none |
 | `EventDeviceRemoved` | `0x1102` | `Event` | instance | `externalId:string`, `deviceExternalId:string` | none |
 | `EventChannelUpdated` | `0x1201` | `Event` | instance | `externalId:string`, `deviceExternalId:string`, `channel:object` | none |
@@ -126,12 +131,21 @@ Notes:
 | `EventStreamData` | `0x1602` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `seq:int64`, `tsMs:int64`, `data:object` | none |
 | `EventStreamError` | `0x1603` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `error:object` (`message:string`; optional `code:string`, `ctx:string`, `params:array`) | none |
 | `EventStreamEnd` | `0x1604` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `reason:string` | none |
+| `EventDeviceCandidateUpdated` | `0x1701` | `Event` | instance | `externalId:string`, `candidate:object` (`id`, `name`, `deviceClass:int`, `manufacturer`, `model`, `radio:int`, `rssi:int`, `roomExternalId`, `needs:int`, `setupCodeScheme:int`, `instruction`, `expiresInMs:int64`, `meta:object`) | none |
+| `EventDeviceCandidateRemoved` | `0x1702` | `Event` | instance | `externalId:string`, `candidateId:string` | none |
+| `EventPairingState` | `0x1703` | `Event` | instance | `externalId:string`, `open:bool`, `remainingS:int` | none |
+| `EventPairingProgress` | `0x1704` | `Event` | instance | `externalId:string`, `pairingId:string`, `stage:int` (`PairingStage`), `percent:int`, `message:string`, `deviceExternalId:string` (set on Done) | none |
 
 Notes:
 - `ResponseFactoryDescriptor` is host-managed bootstrap descriptor emission returned as a correlated `Response` frame.
 - `descriptor.sdkVersion:string` is the SDK version the adapter was compiled against (`PHI_ADAPTER_SDK_VERSION`, captured by the inline constructors of `SidecarHost`/`SidecarDispatcher`, stamped by the dispatcher). Core holds a minimum and refuses an adapter below it; `apiVersion` stays the adapter's own free label.
 - `EventFactoryDescriptorUpdated` is used when static descriptor data changes at runtime.
 - topology events are instance-scoped only.
+- `descriptor.capabilities` carries `topologies:int`, `standInRedirect:int`,
+  `pairingStyles:int`, `setupCodeSchemes:int` (0.28.0). The SDK refuses to send a
+  descriptor without a topology; core refuses one too.
+- `device` objects carry `ipv4`, `ipv6`, `host`, `mac`, `bleAddress` (0.28.0),
+  normalised by the SDK; empty when unknown.
 - entity objects use `externalId` as their identifier field consistently
   (`room`, `group`, and `scene` alike); `scene` uses `scopeExternalId` for its scope.
 

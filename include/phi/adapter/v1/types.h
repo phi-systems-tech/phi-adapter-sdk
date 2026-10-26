@@ -606,12 +606,12 @@ enum class SceneFlag : std::uint32_t {
 /// rename - says so for itself with `fixedName` in its meta, the way a device
 /// behind a bridge already does.
 ///
-/// The bit values have gaps where AdapterOption's two used to sit. They are
-/// left there on purpose: the numbers are on the wire and in logs, and moving
-/// them would buy nothing but tidiness.
+/// The bit values have gaps where AdapterOption's two used to sit, and where
+/// CloudServices sat until Topology below said it better (0x02). They are left
+/// there on purpose: the numbers are on the wire and in logs, and moving them
+/// would buy nothing but tidiness.
 enum class AdapterCapability : std::uint32_t {
     None = 0x00000000,
-    CloudServices = 0x00000002,
     RequiresPolling = 0x00000008,
     SupportsDiscovery = 0x00000010,
     SupportsProbe = 0x00000020,
@@ -629,10 +629,96 @@ enum class AdapterCapability : std::uint32_t {
 /// both, nothing refreshed the capability half, and the first build that grew
 /// a capability refused every room, group and scene rename on boxes whose
 /// adapters predated it.
+///
+/// The two cloud answers sit above every bit AdapterCapability ever had, so a
+/// row written before the two enums parted can never carry them by accident.
+/// CloudControl: control this instance through the vendor's cloud - offered
+/// only when the plugin declares CloudOnly beside a local topology. It implies
+/// VendorCloudAllowed. VendorCloudAllowed: the devices may talk to the vendor's
+/// cloud - for a stand-in, phi mirrors their session to the real cloud so the
+/// vendor's app keeps working; for a local device, phi leaves its internet
+/// open. Unset is the default: blocked.
 enum class AdapterOption : std::uint32_t {
     None = 0x00000000,
     UseTls = 0x00000001,
     EnableLogs = 0x00000004,
+    CloudControl = 0x00000400,
+    VendorCloudAllowed = 0x00000800,
+};
+
+/// How a plugin reaches its devices (ROADMAP "Cloud binding and network
+/// roles"). Every plugin declares the set it can run - core refuses one that
+/// declares none - and the household picks per instance with the cloud
+/// options above. Static like AdapterCapability, never stored.
+enum class Topology : std::uint32_t {
+    None = 0x00000000,
+    /// The device has a local API; it may keep a cloud link of its own.
+    Local = 0x00000001,
+    /// Local in operation, the vendor's cloud once for setup (keys).
+    LocalCloudSetup = 0x00000002,
+    /// phi poses as the vendor's cloud; needs the redirect the plugin names.
+    CloudStandIn = 0x00000004,
+    /// Control only through the vendor's cloud.
+    CloudOnly = 0x00000008,
+};
+
+/// How a stand-in's devices reach phi instead of the vendor's cloud: by name
+/// (phi answers DNS for them), or by route (phi is their gateway, for devices
+/// that ignore DNS and dial an address baked into their firmware).
+enum class StandInRedirect : std::uint8_t {
+    None = 0,
+    Dns = 1,
+    Gateway = 2,
+};
+
+/// How devices join through a plugin. JoinWindow: phi opens the network, the
+/// device joins by itself (Zigbee, a Hue search). Candidates: the adapter sees
+/// devices not yet paired and reports them; the household confirms one.
+/// SetupCode: a code typed or scanned without a candidate seen first.
+enum class PairingStyle : std::uint32_t {
+    None = 0x00000000,
+    JoinWindow = 0x00000001,
+    Candidates = 0x00000002,
+    SetupCode = 0x00000004,
+};
+
+/// The setup codes core can tell apart by their format and route to the
+/// instances that take them.
+enum class SetupCodeScheme : std::uint32_t {
+    None = 0x00000000,
+    /// `MT:` followed by base-38.
+    MatterQr = 0x00000001,
+    /// 11 or 21 digits.
+    MatterManual = 0x00000002,
+};
+
+/// The radio a candidate was seen on.
+enum class Radio : std::uint8_t {
+    Unknown = 0,
+    Lan = 1,
+    Wifi = 2,
+    Ble = 3,
+    Zigbee = 4,
+    Thread = 5,
+};
+
+/// What pairing a candidate takes from the household.
+enum class PairingNeed : std::uint8_t {
+    None = 0,
+    /// A setup code; DeviceCandidate::setupCodeScheme says which.
+    SetupCode = 1,
+    Pin = 2,
+    /// A button on the device; the instruction says which and how long.
+    PressButton = 3,
+    /// The vendor's app has to bring it into the network first.
+    VendorApp = 4,
+};
+
+/// Where a pairing stands, in a PairingProgress event.
+enum class PairingStage : std::uint8_t {
+    Running = 0,
+    Done = 1,
+    Failed = 2,
 };
 
 /// The things `CmdEntityNameUpdate` can address. Devices are not among them:
@@ -776,6 +862,12 @@ struct EnableBitMaskOperators<AdapterOption> : std::true_type {};
 template <>
 struct EnableBitMaskOperators<AdapterConfigFieldFlag> : std::true_type {};
 template <>
+struct EnableBitMaskOperators<Topology> : std::true_type {};
+template <>
+struct EnableBitMaskOperators<PairingStyle> : std::true_type {};
+template <>
+struct EnableBitMaskOperators<SetupCodeScheme> : std::true_type {};
+template <>
 struct EnableBitMaskOperators<AdapterRequirement> : std::true_type {};
 
 using ChannelFlags = ChannelFlag;
@@ -787,6 +879,9 @@ using AdapterCapabilityFlags = AdapterCapability;
 using AdapterOptions = AdapterOption;
 using AdapterConfigFieldFlags = AdapterConfigFieldFlag;
 using AdapterRequirements = AdapterRequirement;
+using Topologies = Topology;
+using PairingStyles = PairingStyle;
+using SetupCodeSchemes = SetupCodeScheme;
 
 inline constexpr ChannelFlags kChannelFlagDefaultWrite =
     ChannelFlag::Readable | ChannelFlag::Writable | ChannelFlag::Reportable | ChannelFlag::Retained;

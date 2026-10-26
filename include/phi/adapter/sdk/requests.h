@@ -197,6 +197,81 @@ class StreamSourceRequest
     StreamSourceRequest &setProfile(phicore::adapter::v1::Utf8String profile);
 };
 
+/// Open the network for joining, or start looking for candidates, for a while.
+/// Core sends it to every instance that pairs when the household taps "Add".
+class PairingStartRequest
+{
+    PHI_SDK_REQUEST_MEMBERS(PairingStartRequest)
+    phicore::adapter::v1::CmdId cmdId() const noexcept;
+    PairingStartRequest &setCmdId(phicore::adapter::v1::CmdId cmdId);
+    const phicore::adapter::v1::ExternalId &externalId() const noexcept;
+    PairingStartRequest &setExternalId(phicore::adapter::v1::ExternalId externalId);
+    /// How long the window stays open; the adapter closes it by itself after.
+    int durationS() const noexcept;
+    PairingStartRequest &setDurationS(int durationS);
+};
+
+/// Close the window early.
+class PairingStopRequest
+{
+    PHI_SDK_REQUEST_MEMBERS(PairingStopRequest)
+    phicore::adapter::v1::CmdId cmdId() const noexcept;
+    PairingStopRequest &setCmdId(phicore::adapter::v1::CmdId cmdId);
+    const phicore::adapter::v1::ExternalId &externalId() const noexcept;
+    PairingStopRequest &setExternalId(phicore::adapter::v1::ExternalId externalId);
+};
+
+/// Pair one candidate the adapter reported. The Wi-Fi credentials are the IoT
+/// WLAN's, for devices that need them (Matter over Wi-Fi, Improv); they are
+/// secrets: never log them, never echo them in a response.
+class PairCandidateRequest
+{
+    PHI_SDK_REQUEST_MEMBERS(PairCandidateRequest)
+    phicore::adapter::v1::CmdId cmdId() const noexcept;
+    PairCandidateRequest &setCmdId(phicore::adapter::v1::CmdId cmdId);
+    const phicore::adapter::v1::ExternalId &externalId() const noexcept;
+    PairCandidateRequest &setExternalId(phicore::adapter::v1::ExternalId externalId);
+    /// Core's handle for this pairing; every PairingProgress for it names it.
+    const phicore::adapter::v1::Utf8String &pairingId() const noexcept;
+    PairCandidateRequest &setPairingId(phicore::adapter::v1::Utf8String pairingId);
+    const phicore::adapter::v1::Utf8String &candidateId() const noexcept;
+    PairCandidateRequest &setCandidateId(phicore::adapter::v1::Utf8String candidateId);
+    /// The code or PIN, when the candidate needs one.
+    const phicore::adapter::v1::Utf8String &setupCode() const noexcept;
+    PairCandidateRequest &setSetupCode(phicore::adapter::v1::Utf8String setupCode);
+    /// The name the household gave it; put it on the device where the device
+    /// keeps one (the rename rule), else leave it to core.
+    const phicore::adapter::v1::Utf8String &name() const noexcept;
+    PairCandidateRequest &setName(phicore::adapter::v1::Utf8String name);
+    const phicore::adapter::v1::Utf8String &wifiSsid() const noexcept;
+    PairCandidateRequest &setWifiSsid(phicore::adapter::v1::Utf8String wifiSsid);
+    const phicore::adapter::v1::Utf8String &wifiPassphrase() const noexcept;
+    PairCandidateRequest &setWifiPassphrase(phicore::adapter::v1::Utf8String wifiPassphrase);
+};
+
+/// Pair the device behind a setup code, with no candidate seen first.
+class SetupCodeRequest
+{
+    PHI_SDK_REQUEST_MEMBERS(SetupCodeRequest)
+    phicore::adapter::v1::CmdId cmdId() const noexcept;
+    SetupCodeRequest &setCmdId(phicore::adapter::v1::CmdId cmdId);
+    const phicore::adapter::v1::ExternalId &externalId() const noexcept;
+    SetupCodeRequest &setExternalId(phicore::adapter::v1::ExternalId externalId);
+    const phicore::adapter::v1::Utf8String &pairingId() const noexcept;
+    SetupCodeRequest &setPairingId(phicore::adapter::v1::Utf8String pairingId);
+    /// Which scheme core recognised the code as.
+    phicore::adapter::v1::SetupCodeScheme scheme() const noexcept;
+    SetupCodeRequest &setScheme(phicore::adapter::v1::SetupCodeScheme scheme);
+    const phicore::adapter::v1::Utf8String &code() const noexcept;
+    SetupCodeRequest &setCode(phicore::adapter::v1::Utf8String code);
+    const phicore::adapter::v1::Utf8String &name() const noexcept;
+    SetupCodeRequest &setName(phicore::adapter::v1::Utf8String name);
+    const phicore::adapter::v1::Utf8String &wifiSsid() const noexcept;
+    SetupCodeRequest &setWifiSsid(phicore::adapter::v1::Utf8String wifiSsid);
+    const phicore::adapter::v1::Utf8String &wifiPassphrase() const noexcept;
+    SetupCodeRequest &setWifiPassphrase(phicore::adapter::v1::Utf8String wifiPassphrase);
+};
+
 /// A media player command, PlayMedia with what to play.
 class MediaPlayerInvokeRequest
 {
