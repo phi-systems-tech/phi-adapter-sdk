@@ -1,5 +1,7 @@
 #include "phi/adapter/sdk/network_clients.h"
 
+#include <phi/runtime/str.h>
+
 #include <algorithm>
 #include <cctype>
 #include <charconv>
@@ -521,23 +523,13 @@ bool ClientTracker::isPrivateMac(std::string_view mac)
 
 std::string ClientTracker::normalizedMac(std::string_view mac)
 {
-    std::string hex;
-    for (const char c : mac) {
-        if (c == ':' || c == '-' || c == '.' || c == ' ')
-            continue;
-        if (!std::isxdigit(static_cast<unsigned char>(c)))
-            return {};
-        hex.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    }
-    if (hex.size() != 12)
-        return {};
-    std::string out;
-    for (std::size_t i = 0; i < 12; i += 2) {
-        if (!out.empty())
-            out.push_back(':');
-        out.append(hex, i, 2);
-    }
-    return out;
+    // Some sources print "00 11 22 aa bb cc"; phi::str takes no inner spaces.
+    std::string compact;
+    for (const char c : mac)
+        if (c != ' ')
+            compact.push_back(c);
+    const std::string key = phi::str::macKey(compact);
+    return key.empty() ? std::string() : phi::str::normalizedMac(key);
 }
 
 std::vector<v1::AdapterConfigField> ClientTracker::configFields()

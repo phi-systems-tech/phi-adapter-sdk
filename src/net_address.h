@@ -4,6 +4,8 @@
 // with the value in the message instead of a silent blank.
 #pragma once
 
+#include <phi/runtime/str.h>
+
 #include <arpa/inet.h>
 
 #include <cctype>
@@ -26,24 +28,7 @@ inline std::string trimmedAscii(const std::string &value)
 /// that is not twelve hex digits comes back trimmed and unchanged.
 inline std::string normalizedMac(const std::string &value)
 {
-    const std::string text = trimmedAscii(value);
-    std::string hex;
-    for (char c : text) {
-        if (c == ':' || c == '-' || c == '.')
-            continue;
-        if (!std::isxdigit(static_cast<unsigned char>(c)))
-            return text;
-        hex.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    }
-    if (hex.size() != 12)
-        return text;
-    std::string out;
-    for (std::size_t i = 0; i < hex.size(); i += 2) {
-        if (!out.empty())
-            out.push_back(':');
-        out.append(hex, i, 2);
-    }
-    return out;
+    return phi::str::normalizedMac(value);
 }
 
 inline bool isNormalizedMac(const std::string &value)
