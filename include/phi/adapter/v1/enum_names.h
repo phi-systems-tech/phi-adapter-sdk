@@ -536,7 +536,7 @@ inline constexpr std::array<EnumValueName, 4> kSceneFlagNames = {{
     { static_cast<int>(SceneFlag::SupportsDeactivate), "SupportsDeactivate" },
 }};
 
-inline constexpr std::array<EnumValueName, 10> kAdapterCapabilityNames = {{
+inline constexpr std::array<EnumValueName, 9> kAdapterCapabilityNames = {{
     { static_cast<int>(AdapterCapability::None), "None" },
     { static_cast<int>(AdapterCapability::RequiresPolling), "RequiresPolling" },
     { static_cast<int>(AdapterCapability::SupportsDiscovery), "SupportsDiscovery" },
@@ -546,7 +546,6 @@ inline constexpr std::array<EnumValueName, 10> kAdapterCapabilityNames = {{
     { static_cast<int>(AdapterCapability::SupportsGroupRename), "SupportsGroupRename" },
     { static_cast<int>(AdapterCapability::SupportsSceneRename), "SupportsSceneRename" },
     { static_cast<int>(AdapterCapability::NetworkClients), "NetworkClients" },
-    { static_cast<int>(AdapterCapability::VendorCloudLink), "VendorCloudLink" },
 }};
 
 inline constexpr std::array<EnumValueName, 5> kAdapterOptionNames = {{

@@ -853,10 +853,8 @@ The household answers per instance with two `AdapterOption`s in
 `Adapter::options()`: `CloudControl` (control through the vendor's cloud;
 offered only when the plugin declares `CloudOnly` beside a local topology) and
 `VendorCloudAllowed` (a stand-in mirrors the devices' session to the real cloud
-so the vendor's app keeps working; a local device keeps its internet; offered
-only when the plugin declares `AdapterCapability::VendorCloudLink`, from 0.29.1 -
-its devices or bridge keep a cloud link of their own, which a Zigbee
-coordinator or a router read locally do not). Unset means blocked. The adapter follows the choice and reports with
+so the vendor's app keeps working; a local device keeps its internet). Unset
+means blocked. The adapter follows the choice and reports with
 `sendTopologyState(works, reason)` whether it works - after start and on every
 change. A local choice without a redirect is `false` with a reason; it never
 falls back into the cloud.
