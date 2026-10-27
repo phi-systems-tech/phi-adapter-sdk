@@ -1142,9 +1142,12 @@ Threading checklist for adapter authors:
 
 Supported discovery object fields:
 
-- `kind`: discovery backend kind (`"mdns"`, `"ssdp"`, `"netscan"`, `"manual"`).
+- `kind`: discovery backend kind (`"mdns"`, `"ssdp"`, `"tdp"`, `"netscan"`, `"manual"`).
 - `mdnsServiceType`: required for `kind="mdns"`.
 - `ssdpSt`: required for `kind="ssdp"`.
+- `tdpDeviceType`: required for `kind="tdp"` (core 2026-10-27): TP-Link's discovery
+  protocol, one broadcast to UDP 20002; the answer's `device_type` that is this
+  plugin's (`HOMEWIFISYSTEM` for a Deco). `tdpRole` optional (`master`: one per mesh).
 - `defaultPort`: optional default port used when provider response has no usable port.
 - `hints`: optional JSON object passed through to core discovery logic.
   - Example: `portOverride`, `portOverrideOnlyIfDiscoveredPortIn`.
