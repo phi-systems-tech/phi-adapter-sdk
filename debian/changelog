@@ -1,3 +1,12 @@
+phi-adapter-sdk (0.30.0-1) trixie; urgency=medium
+
+  * DeviceCandidate::setRedirect(port, localPort, protocol): what a stand-in
+    needs for the device (ROADMAP "Cloud binding and network roles"). When
+    the household adds the candidate, core has the host redirect the
+    device's connection to the instance's port; wire field `redirect`.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Tue, 27 Oct 2026 14:16:20 +0100
+
 phi-adapter-sdk (0.29.0-1) trixie; urgency=medium
 
   * Network clients (ROADMAP "SDK 0.29: network clients"): DeviceClass

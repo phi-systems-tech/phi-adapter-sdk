@@ -66,6 +66,16 @@ public:
     DeviceCandidate &setIpv4(Utf8String ipv4);
     const JsonText &metaJson() const noexcept;
     DeviceCandidate &setMetaJson(JsonText metaJson);
+    /// What a stand-in needs for this device (ROADMAP "Cloud binding and
+    /// network roles"): the device dials `port` over `protocol` and has to land
+    /// on this instance's `localPort` (1024-65535). Set it on the candidate,
+    /// together with the MAC: when the household adds the device, core has the
+    /// host redirect it - never before, and never on the adapter's say-so
+    /// alone. Port 0 (the default) asks for nothing.
+    const Utf8String &redirectProtocol() const noexcept;
+    int redirectPort() const noexcept;
+    int redirectLocalPort() const noexcept;
+    DeviceCandidate &setRedirect(int port, int localPort, Utf8String protocol = "tcp");
 
 private:
     struct Private;

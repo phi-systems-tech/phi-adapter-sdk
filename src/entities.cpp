@@ -272,6 +272,9 @@ struct DeviceCandidate::Private {
     Utf8String mac;
     Utf8String ipv4;
     JsonText metaJson;
+    Utf8String redirectProtocol = "tcp";
+    int redirectPort = 0;
+    int redirectLocalPort = 0;
 };
 
 PHI_V1_ENTITY_MEMBERS(DeviceCandidate)
@@ -288,6 +291,16 @@ PHI_V1_FIELD(DeviceCandidate, SetupCodeScheme, setupCodeScheme, setSetupCodeSche
 PHI_V1_FIELD(DeviceCandidate, const Utf8String &, instruction, setInstruction)
 PHI_V1_FIELD(DeviceCandidate, std::int64_t, expiresInMs, setExpiresInMs)
 PHI_V1_FIELD(DeviceCandidate, const JsonText &, metaJson, setMetaJson)
+const Utf8String &DeviceCandidate::redirectProtocol() const noexcept { return p().redirectProtocol; }
+int DeviceCandidate::redirectPort() const noexcept { return p().redirectPort; }
+int DeviceCandidate::redirectLocalPort() const noexcept { return p().redirectLocalPort; }
+DeviceCandidate &DeviceCandidate::setRedirect(int port, int localPort, Utf8String protocol)
+{
+    m().redirectPort = port;
+    m().redirectLocalPort = localPort;
+    m().redirectProtocol = std::move(protocol);
+    return *this;
+}
 const Utf8String &DeviceCandidate::mac() const noexcept { return p().mac; }
 DeviceCandidate &DeviceCandidate::setMac(Utf8String mac)
 {

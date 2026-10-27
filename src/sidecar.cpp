@@ -1394,6 +1394,12 @@ std::string candidateToJson(const phicore::adapter::v1::DeviceCandidate &candida
     out += jsonQuoted(candidate.ipv4());
     appendFieldPrefix(out, first, "meta");
     appendMetaJson(out, candidate.metaJson());
+    if (candidate.redirectPort() > 0) {
+        appendFieldPrefix(out, first, "redirect");
+        out += "{\"protocol\":" + jsonQuoted(candidate.redirectProtocol())
+            + ",\"port\":" + std::to_string(candidate.redirectPort())
+            + ",\"localPort\":" + std::to_string(candidate.redirectLocalPort()) + "}";
+    }
     out.push_back('}');
     return out;
 }

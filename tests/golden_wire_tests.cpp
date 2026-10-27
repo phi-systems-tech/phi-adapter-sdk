@@ -351,6 +351,19 @@ void runOutboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client, bo
                  .setIpv4("192.168.18.70");
              return d.sendDeviceCandidateUpdated("inst-1", candidate, nullptr);
          }},
+        {"device_candidate_redirect", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
+             // A stand-in's candidate: the household adding it has the host
+             // redirect the device's HTTPS to the instance's port.
+             v1::DeviceCandidate candidate;
+             candidate.setId("fc6b873fcca6087118")
+                 .setName("Ducasa smartbox")
+                 .setDeviceClass(v1::DeviceClass::Heater)
+                 .setRadio(v1::Radio::Wifi)
+                 .setMac("30:c6:f7:18:c7:bf")
+                 .setIpv4("192.168.18.23")
+                 .setRedirect(443, 8443);
+             return d.sendDeviceCandidateUpdated("inst-1", candidate, nullptr);
+         }},
         {"device_candidate_removed", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
              return d.sendDeviceCandidateRemoved("inst-1", "matter-3840", nullptr);
          }},
