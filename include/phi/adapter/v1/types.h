@@ -659,6 +659,12 @@ enum class AdapterCapability : std::uint32_t {
     /// style Listing (a router, a mesh). Above AdapterOption's two bits, which
     /// a capability never takes.
     NetworkClients = 0x00001000,
+    /// The plugin's devices or its bridge keep a link of their own to the
+    /// vendor's cloud (a Hue bridge, Tuya plugs, an LG appliance through the
+    /// stand-in) - so "vendor cloud allowed" is a real choice for its
+    /// instances. Without it the switch is not offered (a Zigbee coordinator,
+    /// a router read locally).
+    VendorCloudLink = 0x00002000,
 };
 
 /// What a household answers for one instance of a plugin. No plugin ever
