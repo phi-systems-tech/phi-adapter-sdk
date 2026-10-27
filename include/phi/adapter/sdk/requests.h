@@ -92,6 +92,17 @@ class InstanceRemovedRequest
     InstanceRemovedRequest &setExternalId(phicore::adapter::v1::ExternalId externalId);
 };
 
+/// The household deleted one of this instance's devices in phi. Core has
+/// already dropped it; nothing is answered.
+class DeviceRemovedRequest
+{
+    PHI_SDK_REQUEST_MEMBERS(DeviceRemovedRequest)
+    const phicore::adapter::v1::ExternalId &externalId() const noexcept;
+    DeviceRemovedRequest &setExternalId(phicore::adapter::v1::ExternalId externalId);
+    const phicore::adapter::v1::ExternalId &deviceExternalId() const noexcept;
+    DeviceRemovedRequest &setDeviceExternalId(phicore::adapter::v1::ExternalId deviceExternalId);
+};
+
 /// A write to a channel.
 class ChannelInvokeRequest
 {

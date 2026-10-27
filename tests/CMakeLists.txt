@@ -95,3 +95,8 @@ add_test(NAME sdk_golden_wire_tests COMMAND sdk_golden_wire_tests)
 set_tests_properties(sdk_runtime_tests sdk_protocol_tests sdk_golden_wire_tests
     sdk_loop_execution_backend_tests sdk_http_client_tests sdk_http_fetch_tests
     PROPERTIES TIMEOUT 120)
+
+# A network's clients: offered, tracked, and gone only after the away delay.
+add_executable(sdk_network_clients_tests network_clients_tests.cpp)
+target_link_libraries(sdk_network_clients_tests PRIVATE phi::adapter-sdk)
+add_test(NAME sdk_network_clients_tests COMMAND sdk_network_clients_tests)

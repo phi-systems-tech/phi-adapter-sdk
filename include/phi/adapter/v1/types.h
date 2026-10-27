@@ -62,6 +62,10 @@ enum class DeviceClass : std::uint8_t {
     Camera = 13,
     /// A doorbell, with or without a camera of its own (cameraFeatures says).
     Doorbell = 14,
+    /// A phone, a laptop, any client a router or mesh sees in the network
+    /// (ROADMAP "SDK 0.29: network clients"); the router or its nodes are
+    /// Gateway.
+    NetworkClient = 15,
 };
 
 /// What a room is, as far as a household speaks of it. The name stays the
@@ -463,6 +467,38 @@ enum class ChannelKind : std::uint16_t {
     PrivacyMode = 427,
     // Bool, writable
     Siren = 428,
+    // --- network clients, the same set from every router and mesh adapter
+    // Bool: in the network (true) or gone; gone only after the away delay
+    Presence = 440,
+    // String: the access point or mesh node the client is on; empty while gone
+    AccessPoint = 441,
+    // enum WifiBand
+    WifiBand = 442,
+    // Bool, writable where the adapter can block: may use the network (true)
+    NetworkAccess = 443,
+};
+
+/// How a network client is attached (ChannelKind::WifiBand).
+enum class WifiBand : std::uint8_t {
+    Unknown = 0,
+    Band24 = 1,
+    Band5 = 2,
+    Band6 = 3,
+    Wired = 4,
+};
+
+/// What a network client probably is, as the router or mesh guesses it; sorts
+/// the list (phones first) and fills a candidate's class guess.
+enum class NetworkClientType : std::uint8_t {
+    Unknown = 0,
+    Phone = 1,
+    Tablet = 2,
+    Computer = 3,
+    Tv = 4,
+    MediaPlayer = 5,
+    Console = 6,
+    Iot = 7,
+    Other = 8,
 };
 
 /**
@@ -619,6 +655,10 @@ enum class AdapterCapability : std::uint32_t {
     SupportsRoomRename = 0x00000080,
     SupportsGroupRename = 0x00000100,
     SupportsSceneRename = 0x00000200,
+    /// The plugin sees a network's clients and offers them with the pairing
+    /// style Listing (a router, a mesh). Above AdapterOption's two bits, which
+    /// a capability never takes.
+    NetworkClients = 0x00001000,
 };
 
 /// What a household answers for one instance of a plugin. No plugin ever
@@ -680,6 +720,10 @@ enum class PairingStyle : std::uint32_t {
     JoinWindow = 0x00000001,
     Candidates = 0x00000002,
     SetupCode = 0x00000004,
+    /// Listing: the instance lists what it sees (a router's network clients)
+    /// as candidates on PairingStart and opens nothing; core asks these
+    /// instances only for its own sub-category, never with the others.
+    Listing = 0x00000008,
 };
 
 /// The setup codes core can tell apart by their format and route to the

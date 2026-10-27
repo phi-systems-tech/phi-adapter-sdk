@@ -1388,6 +1388,10 @@ std::string candidateToJson(const phicore::adapter::v1::DeviceCandidate &candida
     out += jsonQuoted(candidate.instruction());
     appendFieldPrefix(out, first, "expiresInMs");
     out += std::to_string(candidate.expiresInMs());
+    appendFieldPrefix(out, first, "mac");
+    out += jsonQuoted(candidate.mac());
+    appendFieldPrefix(out, first, "ipv4");
+    out += jsonQuoted(candidate.ipv4());
     appendFieldPrefix(out, first, "meta");
     appendMetaJson(out, candidate.metaJson());
     out.push_back('}');
@@ -2476,6 +2480,16 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return true;
     }
 
+    if (command == IpcCommand::SyncDeviceRemoved) {
+        if (m_handlers.onDeviceRemoved) {
+            DeviceRemovedRequest request;
+            request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+            request.setDeviceExternalId(decodeStringOrDefault(member(payloadMap, "deviceExternalId")));
+            m_handlers.onDeviceRemoved(request);
+        }
+        return true;
+    }
+
     if (command == IpcCommand::CmdChannelInvoke) {
         ChannelInvokeRequest request;
         request.setCmdId(cmdId);
@@ -3064,6 +3078,11 @@ bool SidecarDispatcher::sendDeviceCandidateUpdated(const phicore::adapter::v1::E
     if (candidate.id().empty()) {
         if (error)
             *error = "Device candidate without id";
+        return false;
+    }
+    if (!candidate.mac().empty() && !phicore::adapter::v1::detail::isNormalizedMac(candidate.mac())) {
+        if (error)
+            *error = "Device candidate mac is not a MAC: " + candidate.mac();
         return false;
     }
     std::string body;
@@ -4067,6 +4086,10 @@ void AdapterInstance::onSceneInvoke(const SceneInvokeRequest &request)
     if (!err.empty())
         onProtocolError("Failed to send default scene invoke result: " + err);
 }
+void AdapterInstance::onDeviceRemoved(const DeviceRemovedRequest &request)
+{
+    (void)request;
+}
 void AdapterInstance::onPairingStart(const PairingStartRequest &request)
 {
     phicore::adapter::v1::Utf8String err;
@@ -4478,6 +4501,7 @@ void AdapterInstance::hostOnDeviceEffectInvoke(const DeviceEffectInvokeRequest &
 void AdapterInstance::hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &request) { onMediaPlayerInvoke(request); }
 void AdapterInstance::hostOnStreamSourceRequest(const StreamSourceRequest &request) { onStreamSourceRequest(request); }
 void AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { onSceneInvoke(request); }
+void AdapterInstance::hostOnDeviceRemoved(const DeviceRemovedRequest &request) { onDeviceRemoved(request); }
 void AdapterInstance::hostOnPairingStart(const PairingStartRequest &request) { onPairingStart(request); }
 void AdapterInstance::hostOnPairingStop(const PairingStopRequest &request) { onPairingStop(request); }
 void AdapterInstance::hostOnPairCandidate(const PairCandidateRequest &request) { onPairCandidate(request); }
@@ -5207,6 +5231,21 @@ void SidecarHost::wireHandlers()
         // Runtime removal of a single instance: the whole budget is available
         // because nothing else is being torn down alongside it.
         stopAndDestroyInstance(request.externalId(), kShutdownBudget);
+    };
+    handlers.onDeviceRemoved = [this](const DeviceRemovedRequest &request) {
+        if (request.externalId().empty() || request.deviceExternalId().empty()) {
+            reportProtocolError("DeviceRemoved needs externalId and deviceExternalId");
+            return;
+        }
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
+                                  if (instance)
+                                      instance->hostOnDeviceRemoved(request);
+                              },
+                              &dispatchError))
+            reportProtocolError("Failed to dispatch device.removed for externalId='"
+                                + request.externalId() + "': " + dispatchError);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {
         CmdResponse response;

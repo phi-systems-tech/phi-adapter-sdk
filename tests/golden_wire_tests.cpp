@@ -208,6 +208,7 @@ struct InboundCapture {
     std::optional<sdk::BootstrapRequest> bootstrap;
     std::optional<sdk::ConfigChangedRequest> configChanged;
     std::optional<sdk::InstanceRemovedRequest> instanceRemoved;
+    std::optional<sdk::DeviceRemovedRequest> deviceRemoved;
     std::optional<sdk::ChannelInvokeRequest> channelInvoke;
     std::optional<sdk::AdapterActionInvokeRequest> actionInvoke;
     std::optional<sdk::DeviceNameUpdateRequest> nameUpdate;
@@ -224,7 +225,7 @@ struct InboundCapture {
     void clear() { *this = InboundCapture{}; }
     bool any() const
     {
-        return bootstrap || configChanged || instanceRemoved || channelInvoke || actionInvoke
+        return bootstrap || configChanged || instanceRemoved || deviceRemoved || channelInvoke || actionInvoke
             || nameUpdate || entityNameUpdate || effectInvoke || mediaPlayerInvoke || sceneInvoke || streamStart
             || streamStop || pairingStart || pairCandidate || setupCode;
     }
@@ -345,7 +346,9 @@ void runOutboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client, bo
                  .setNeeds(v1::PairingNeed::SetupCode)
                  .setSetupCodeScheme(v1::SetupCodeScheme::MatterQr)
                  .setInstruction("Scan the code on the plug")
-                 .setExpiresInMs(30000);
+                 .setExpiresInMs(30000)
+                 .setMac("D8-C8-0C-02-22-44")
+                 .setIpv4("192.168.18.70");
              return d.sendDeviceCandidateUpdated("inst-1", candidate, nullptr);
          }},
         {"device_candidate_removed", v1::MessageType::Event, [](sdk::SidecarDispatcher &d) {
@@ -473,6 +476,11 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
              CHECK(c.instanceRemoved->adapterId() == 42);
              CHECK(c.instanceRemoved->pluginType() == "demo");
              CHECK(c.instanceRemoved->externalId() == "inst-1");
+         }},
+        {"sync_device_removed", 10, [](const InboundCapture &c) {
+             REQUIRE(c.deviceRemoved.has_value());
+             CHECK(c.deviceRemoved->externalId() == "inst-1");
+             CHECK(c.deviceRemoved->deviceExternalId() == "d8:c8:0c:02:22:44");
          }},
         {"cmd_channel_invoke", 11, [](const InboundCapture &c) {
              REQUIRE(c.channelInvoke.has_value());
@@ -609,6 +617,7 @@ int main()
     handlers.onBootstrap = [&capture](const sdk::BootstrapRequest &r) { capture.bootstrap = r; };
     handlers.onConfigChanged = [&capture](const sdk::ConfigChangedRequest &r) { capture.configChanged = r; };
     handlers.onInstanceRemoved = [&capture](const sdk::InstanceRemovedRequest &r) { capture.instanceRemoved = r; };
+    handlers.onDeviceRemoved = [&capture](const sdk::DeviceRemovedRequest &r) { capture.deviceRemoved = r; };
     handlers.onChannelInvoke = [&capture](const sdk::ChannelInvokeRequest &r) { capture.channelInvoke = r; };
     handlers.onAdapterActionInvoke = [&capture](const sdk::AdapterActionInvokeRequest &r) { capture.actionInvoke = r; };
     handlers.onDeviceNameUpdate = [&capture](const sdk::DeviceNameUpdateRequest &r) { capture.nameUpdate = r; };

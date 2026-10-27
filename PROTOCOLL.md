@@ -80,6 +80,7 @@ Hard rules:
 | `SyncAdapterBootstrap` | `0x0101` | `Request` | factory | `adapterId:int`, `adapter:object` | `externalId:string`, `pluginType:string`, `staticConfig:json` |
 | `SyncAdapterConfigChanged` | `0x0102` | `Request` | factory or instance | `adapterId:int`, `adapter:object` | `externalId:string`, `pluginType:string`, `staticConfig:json` |
 | `SyncAdapterInstanceRemoved` | `0x0103` | `Request` | instance | `adapterId:int`, `pluginType:string`, `externalId:string` | none |
+| `SyncDeviceRemoved` | `0x0104` | `Request` | instance | `externalId:string`, `deviceExternalId:string` | none |
 | `CmdChannelInvoke` | `0x0201` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `channelExternalId:string`, `value:any-json` | none |
 | `CmdAdapterActionInvoke` | `0x0202` | `Request` | factory or instance | envelope `cmdId:uint64`; payload: `externalId:string`, `actionId:string` | `params:object` |
 | `CmdDeviceNameUpdate` | `0x0203` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `name:string` | none |
@@ -131,7 +132,7 @@ Notes:
 | `EventStreamData` | `0x1602` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `seq:int64`, `tsMs:int64`, `data:object` | none |
 | `EventStreamError` | `0x1603` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `error:object` (`message:string`; optional `code:string`, `ctx:string`, `params:array`) | none |
 | `EventStreamEnd` | `0x1604` | `Event` | instance | `externalId:string`, `streamId:string`, `cmd:string`, `reason:string` | none |
-| `EventDeviceCandidateUpdated` | `0x1701` | `Event` | instance | `externalId:string`, `candidate:object` (`id`, `name`, `deviceClass:int`, `manufacturer`, `model`, `radio:int`, `rssi:int`, `roomExternalId`, `needs:int`, `setupCodeScheme:int`, `instruction`, `expiresInMs:int64`, `meta:object`) | none |
+| `EventDeviceCandidateUpdated` | `0x1701` | `Event` | instance | `externalId:string`, `candidate:object` (`id`, `name`, `deviceClass:int`, `manufacturer`, `model`, `radio:int`, `rssi:int`, `roomExternalId`, `needs:int`, `setupCodeScheme:int`, `instruction`, `expiresInMs:int64`, `mac` (normalised, may be empty), `ipv4`, `meta:object`) | none |
 | `EventDeviceCandidateRemoved` | `0x1702` | `Event` | instance | `externalId:string`, `candidateId:string` | none |
 | `EventPairingState` | `0x1703` | `Event` | instance | `externalId:string`, `open:bool`, `remainingS:int` | none |
 | `EventPairingProgress` | `0x1704` | `Event` | instance | `externalId:string`, `pairingId:string`, `stage:int` (`PairingStage`), `percent:int`, `message:string`, `deviceExternalId:string` (set on Done) | none |

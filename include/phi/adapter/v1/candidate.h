@@ -57,6 +57,13 @@ public:
     /// keeps it until CandidateRemoved.
     std::int64_t expiresInMs() const noexcept;
     DeviceCandidate &setExpiresInMs(std::int64_t expiresInMs);
+    /// The LAN MAC, normalised like Device::setMac: core folds candidates of
+    /// one MAC from several instances (a router and a mesh) into one row and
+    /// hides one that already belongs to a device.
+    const Utf8String &mac() const noexcept;
+    DeviceCandidate &setMac(Utf8String mac);
+    const Utf8String &ipv4() const noexcept;
+    DeviceCandidate &setIpv4(Utf8String ipv4);
     const JsonText &metaJson() const noexcept;
     DeviceCandidate &setMetaJson(JsonText metaJson);
 

@@ -143,7 +143,7 @@ inline constexpr std::array<EnumValueName, 9> kActionResultTypeNames = {{
     { static_cast<int>(ActionResultType::Data), "Data" },
 }};
 
-inline constexpr std::array<EnumValueName, 15> kDeviceClassNames = {{
+inline constexpr std::array<EnumValueName, 16> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Unknown), "Unknown" },
     { static_cast<int>(DeviceClass::Light), "Light" },
     { static_cast<int>(DeviceClass::Switch), "Switch" },
@@ -159,6 +159,7 @@ inline constexpr std::array<EnumValueName, 15> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Valve), "Valve" },
     { static_cast<int>(DeviceClass::Camera), "Camera" },
     { static_cast<int>(DeviceClass::Doorbell), "Doorbell" },
+    { static_cast<int>(DeviceClass::NetworkClient), "NetworkClient" },
 }};
 
 inline constexpr std::array<EnumValueName, 33> kRoomClassNames = {{
@@ -376,7 +377,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 64> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 68> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -441,6 +442,10 @@ inline constexpr std::array<EnumValueName, 64> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::NightVision), "NightVision" },
     { static_cast<int>(ChannelKind::PrivacyMode), "PrivacyMode" },
     { static_cast<int>(ChannelKind::Siren), "Siren" },
+    { static_cast<int>(ChannelKind::Presence), "Presence" },
+    { static_cast<int>(ChannelKind::AccessPoint), "AccessPoint" },
+    { static_cast<int>(ChannelKind::WifiBand), "WifiBand" },
+    { static_cast<int>(ChannelKind::NetworkAccess), "NetworkAccess" },
 }};
 
 inline constexpr std::array<EnumValueName, 9> kChannelDataTypeNames = {{
@@ -531,7 +536,7 @@ inline constexpr std::array<EnumValueName, 4> kSceneFlagNames = {{
     { static_cast<int>(SceneFlag::SupportsDeactivate), "SupportsDeactivate" },
 }};
 
-inline constexpr std::array<EnumValueName, 8> kAdapterCapabilityNames = {{
+inline constexpr std::array<EnumValueName, 9> kAdapterCapabilityNames = {{
     { static_cast<int>(AdapterCapability::None), "None" },
     { static_cast<int>(AdapterCapability::RequiresPolling), "RequiresPolling" },
     { static_cast<int>(AdapterCapability::SupportsDiscovery), "SupportsDiscovery" },
@@ -540,6 +545,7 @@ inline constexpr std::array<EnumValueName, 8> kAdapterCapabilityNames = {{
     { static_cast<int>(AdapterCapability::SupportsRoomRename), "SupportsRoomRename" },
     { static_cast<int>(AdapterCapability::SupportsGroupRename), "SupportsGroupRename" },
     { static_cast<int>(AdapterCapability::SupportsSceneRename), "SupportsSceneRename" },
+    { static_cast<int>(AdapterCapability::NetworkClients), "NetworkClients" },
 }};
 
 inline constexpr std::array<EnumValueName, 5> kAdapterOptionNames = {{
@@ -564,11 +570,12 @@ inline constexpr std::array<EnumValueName, 3> kStandInRedirectNames = {{
     { static_cast<int>(StandInRedirect::Gateway), "Gateway" },
 }};
 
-inline constexpr std::array<EnumValueName, 4> kPairingStyleNames = {{
+inline constexpr std::array<EnumValueName, 5> kPairingStyleNames = {{
     { static_cast<int>(PairingStyle::None), "None" },
     { static_cast<int>(PairingStyle::JoinWindow), "JoinWindow" },
     { static_cast<int>(PairingStyle::Candidates), "Candidates" },
     { static_cast<int>(PairingStyle::SetupCode), "SetupCode" },
+    { static_cast<int>(PairingStyle::Listing), "Listing" },
 }};
 
 inline constexpr std::array<EnumValueName, 3> kSetupCodeSchemeNames = {{
@@ -592,6 +599,26 @@ inline constexpr std::array<EnumValueName, 5> kPairingNeedNames = {{
     { static_cast<int>(PairingNeed::Pin), "Pin" },
     { static_cast<int>(PairingNeed::PressButton), "PressButton" },
     { static_cast<int>(PairingNeed::VendorApp), "VendorApp" },
+}};
+
+inline constexpr std::array<EnumValueName, 5> kWifiBandNames = {{
+    { static_cast<int>(WifiBand::Unknown), "Unknown" },
+    { static_cast<int>(WifiBand::Band24), "Band24" },
+    { static_cast<int>(WifiBand::Band5), "Band5" },
+    { static_cast<int>(WifiBand::Band6), "Band6" },
+    { static_cast<int>(WifiBand::Wired), "Wired" },
+}};
+
+inline constexpr std::array<EnumValueName, 9> kNetworkClientTypeNames = {{
+    { static_cast<int>(NetworkClientType::Unknown), "Unknown" },
+    { static_cast<int>(NetworkClientType::Phone), "Phone" },
+    { static_cast<int>(NetworkClientType::Tablet), "Tablet" },
+    { static_cast<int>(NetworkClientType::Computer), "Computer" },
+    { static_cast<int>(NetworkClientType::Tv), "Tv" },
+    { static_cast<int>(NetworkClientType::MediaPlayer), "MediaPlayer" },
+    { static_cast<int>(NetworkClientType::Console), "Console" },
+    { static_cast<int>(NetworkClientType::Iot), "Iot" },
+    { static_cast<int>(NetworkClientType::Other), "Other" },
 }};
 
 inline constexpr std::array<EnumValueName, 3> kPairingStageNames = {{
@@ -727,6 +754,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return valueToName(kPairingNeedNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "PairingStage"))
         return valueToName(kPairingStageNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "WifiBand"))
+        return valueToName(kWifiBandNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "NetworkClientType"))
+        return valueToName(kNetworkClientTypeNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFlag"))
         return valueToName(kDeviceFlagNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))
@@ -858,6 +889,10 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
         return parseNameToValue(kPairingNeedNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "PairingStage"))
         return parseNameToValue(kPairingStageNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "WifiBand"))
+        return parseNameToValue(kWifiBandNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "NetworkClientType"))
+        return parseNameToValue(kNetworkClientTypeNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "DeviceFlag"))
         return parseNameToValue(kDeviceFlagNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "SceneFlag"))

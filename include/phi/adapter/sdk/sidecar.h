@@ -216,6 +216,8 @@ struct SidecarHandlers {
     std::function<void(const ConfigChangedRequest &)> onConfigChanged;
     /// Called on `sync.adapter.instance.removed`.
     std::function<void(const InstanceRemovedRequest &)> onInstanceRemoved;
+    /// Called on `sync.device.removed`.
+    std::function<void(const DeviceRemovedRequest &)> onDeviceRemoved;
     /// Called on `cmd.channel.invoke`.
     std::function<void(const ChannelInvokeRequest &)> onChannelInvoke;
     /// Called on `cmd.adapter.action.invoke`.
@@ -849,6 +851,10 @@ protected:
     /// sendResult(CmdResponse) as soon as the window is open or the pairing
     /// has started; report the window with sendPairingState and the pairing
     /// with sendPairingProgress under the request's pairingId.
+    /// The household deleted one of this instance's devices. Default: nothing.
+    /// An adapter that announces devices from its own list (a router's tracked
+    /// clients) takes the device off that list here.
+    virtual void onDeviceRemoved(const DeviceRemovedRequest &request);
     virtual void onPairingStart(const PairingStartRequest &request);
     virtual void onPairingStop(const PairingStopRequest &request);
     virtual void onPairCandidate(const PairCandidateRequest &request);
@@ -993,6 +999,7 @@ private:
     void hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &request);
     void hostOnStreamSourceRequest(const StreamSourceRequest &request);
     void hostOnSceneInvoke(const SceneInvokeRequest &request);
+    void hostOnDeviceRemoved(const DeviceRemovedRequest &request);
     void hostOnPairingStart(const PairingStartRequest &request);
     void hostOnPairingStop(const PairingStopRequest &request);
     void hostOnPairCandidate(const PairCandidateRequest &request);

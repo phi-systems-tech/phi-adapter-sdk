@@ -269,6 +269,8 @@ struct DeviceCandidate::Private {
     SetupCodeScheme setupCodeScheme = SetupCodeScheme::None;
     Utf8String instruction;
     std::int64_t expiresInMs = 0;
+    Utf8String mac;
+    Utf8String ipv4;
     JsonText metaJson;
 };
 
@@ -286,6 +288,18 @@ PHI_V1_FIELD(DeviceCandidate, SetupCodeScheme, setupCodeScheme, setSetupCodeSche
 PHI_V1_FIELD(DeviceCandidate, const Utf8String &, instruction, setInstruction)
 PHI_V1_FIELD(DeviceCandidate, std::int64_t, expiresInMs, setExpiresInMs)
 PHI_V1_FIELD(DeviceCandidate, const JsonText &, metaJson, setMetaJson)
+const Utf8String &DeviceCandidate::mac() const noexcept { return p().mac; }
+DeviceCandidate &DeviceCandidate::setMac(Utf8String mac)
+{
+    m().mac = detail::normalizedMac(mac);
+    return *this;
+}
+const Utf8String &DeviceCandidate::ipv4() const noexcept { return p().ipv4; }
+DeviceCandidate &DeviceCandidate::setIpv4(Utf8String ipv4)
+{
+    m().ipv4 = detail::normalizedIp(ipv4, AF_INET);
+    return *this;
+}
 
 // --- Room --------------------------------------------------------------------
 

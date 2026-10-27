@@ -12,6 +12,10 @@ enum class IpcCommand : std::uint16_t {
     //   externalId != ""  -> instance scope
     SyncAdapterConfigChanged = 0x0102,
     SyncAdapterInstanceRemoved = 0x0103,
+    /// The household deleted one of the instance's devices; the adapter
+    /// forgets it (a router drops the client from its tracked list) so the
+    /// next report does not bring it back.
+    SyncDeviceRemoved = 0x0104,
 
     // Cmd (core -> adapter, always followed by Result*)
     CmdChannelInvoke = 0x0201,

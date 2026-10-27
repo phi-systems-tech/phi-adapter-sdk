@@ -901,6 +901,47 @@ carries the reason. A pairing request may carry the IoT WLAN's credentials
 (`wifiSsid`, `wifiPassphrase`) for devices that need them; they are secrets,
 never logged and never echoed.
 
+## Network Clients (v1, from 0.29.0)
+
+A router or mesh adapter (FRITZ!Box, Deco, ...) offers the network's clients
+the same way as every other: `AdapterCapability::NetworkClients` and the
+pairing style `Listing`. Core sends `CmdPairingStart` to these instances only
+for the "Network clients" sub-category of Add device, never with the "Add" that
+opens the radios; the instance lists what it sees as candidates (id = the MAC,
+`needs = None`, `mac` set, so core folds one client seen by two routers into
+one row and hides one that already is a device) and opens nothing.
+
+`sdk::ClientTracker` (`phi/adapter/sdk/network_clients.h`) does all of it but
+the router talk:
+
+```cpp
+m_tracker.setSink({/* device */ [this](auto &d, auto &c) { sendDeviceUpdated(d, c); },
+                   /* value */  [this](auto &dev, auto &ch, auto &v) { sendChannelStateUpdated(dev, ch, v, nowMs()); },
+                   /* candidate */ [this](auto &c) { sendDeviceCandidateUpdated(c); },
+                   /* removed */ [this](auto &id) { sendDeviceCandidateRemoved(id); },
+                   /* save */ [this](auto &text) { writeStateFile("clients.txt", text); }});
+m_tracker.restore(readStateFile("clients.txt").value_or(""));
+m_tracker.setTracked(/* adapter meta trackedClients */);
+// every successful poll - a failed one hands over nothing:
+m_tracker.update(snapshot, nowMs());
+// onPairingStart:  m_tracker.listCandidates(request.durationS() * 1000LL, nowMs());
+// onPairCandidate: m_tracker.track(request.candidateId(), nowMs()), then write
+//                  tracked() to the meta (sendAdapterMetaUpdated)
+// onDeviceRemoved: m_tracker.untrack(request.deviceExternalId()), same
+```
+
+A tracked client is a device of class `NetworkClient` (external id = its MAC)
+with the fixed channels `presence` (`Presence`, Bool), `access_point`
+(`AccessPoint`, String), `band` (`WifiBand`), `rssi` (`SignalStrength`, dBm)
+and, where the router can block (`Settings::canBlock`), `network_access`
+(`NetworkAccess`, Bool, writable - the adapter handles the write). Presence
+goes true at once and false only after the away delay (default 5 min).
+`ClientTracker::configFields()` gives the instance form its three settings
+(`awayDelayS`, `showGuestClients`, `ignorePrivateMacs`).
+
+`SyncDeviceRemoved` tells an instance that the household deleted one of its
+devices; `onDeviceRemoved` is the hook (default: nothing).
+
 ## Adapter IPC Command Model (v1)
 
 Naming rules:
@@ -920,6 +961,7 @@ Core -> Adapter (`Sync*` / `Cmd*`):
 - `SyncAdapterBootstrap` (`0x0101`)
 - `SyncAdapterConfigChanged` (`0x0102`)
 - `SyncAdapterInstanceRemoved` (`0x0103`)
+- `SyncDeviceRemoved` (`0x0104`)
 - `CmdChannelInvoke` (`0x0201`)
 - `CmdAdapterActionInvoke` (`0x0202`)
 - `CmdDeviceNameUpdate` (`0x0203`)

@@ -1,3 +1,20 @@
+phi-adapter-sdk (0.29.0-1) trixie; urgency=medium
+
+  * Network clients (ROADMAP "SDK 0.29: network clients"): DeviceClass
+    NetworkClient, channel kinds Presence, AccessPoint, WifiBand and
+    NetworkAccess, enums WifiBand and NetworkClientType, capability
+    NetworkClients and pairing style Listing.
+  * sdk::ClientTracker: tracked clients, what was seen (state file),
+    candidates for Listing, presence with an away delay, the device and its
+    fixed channel set, the instance-form fields.
+  * DeviceCandidate carries mac and ipv4, so core can fold and filter by MAC.
+  * SyncDeviceRemoved and AdapterInstance::onDeviceRemoved: the household
+    deleted one of the instance's devices.
+  * New virtual and enum values: every adapter is rebuilt. ABI baseline
+    rewritten.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Tue, 27 Oct 2026 10:06:05 +0100
+
 phi-adapter-sdk (0.28.0-1) trixie; urgency=medium
 
   * Topology: every plugin declares how it reaches its devices (Local,
