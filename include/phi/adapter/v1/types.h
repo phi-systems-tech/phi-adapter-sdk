@@ -408,6 +408,8 @@ enum class ChannelKind : std::uint16_t {
     LinkQuality = 64,
     // seconds
     Duration = 65,
+    // bool, true = open (a door, window or gate contact; Matter and Zigbee report
+    // the contact made, i.e. closed, as true - adapters invert)
     Contact = 66,
     Tamper = 67,
     // enum ambient light bucket (dark/dim/bright/...)
