@@ -1,3 +1,15 @@
+phi-adapter-sdk (0.33.0-1) trixie; urgency=medium
+
+  * AdapterRequirement::HouseFacts and ConfigChangedRequest::houseJson(): a
+    plugin declares that it needs the house's location, elevation and
+    clock, and core sends them only to plugins it granted them to (the phi
+    adapter first). Additions only. abi-check flags the inline template
+    instance valueToName<11> as removed: it was only ever instantiated for
+    the 11-entry requirement names, and every adapter carries its own copy
+    from the header, so nothing that links the library loses it.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 01 Nov 2026 23:30:00 +0100
+
 phi-adapter-sdk (0.32.0-1) trixie; urgency=medium
 
   * ChannelKind CpuLoad, MemoryUsage, StorageUsage (percent): a machine's

@@ -78,6 +78,7 @@ struct ConfigChangedRequest::Private {
     v1::CorrelationId correlationId = 0;
     v1::Adapter adapter;
     v1::JsonText staticConfigJson;
+    v1::JsonText houseJson;
 };
 PHI_SDK_REQUEST_IMPL(ConfigChangedRequest)
 PHI_SDK_FIELD(ConfigChangedRequest, int, adapterId, setAdapterId)
@@ -85,6 +86,7 @@ PHI_SDK_FIELD(ConfigChangedRequest, v1::CmdId, cmdId, setCmdId)
 PHI_SDK_FIELD(ConfigChangedRequest, v1::CorrelationId, correlationId, setCorrelationId)
 PHI_SDK_ADAPTER_PART(ConfigChangedRequest)
 PHI_SDK_FIELD(ConfigChangedRequest, const v1::JsonText &, staticConfigJson, setStaticConfigJson)
+PHI_SDK_FIELD(ConfigChangedRequest, const v1::JsonText &, houseJson, setHouseJson)
 
 // --- InstanceRemovedRequest --------------------------------------------------
 

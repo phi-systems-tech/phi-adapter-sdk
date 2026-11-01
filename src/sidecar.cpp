@@ -2454,6 +2454,9 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
             request.setCorrelationId(header.correlationId);
             request.setAdapterId(static_cast<int>(parseIntOrDefault(member(payloadMap, "adapterId"), 0)));
             request.setStaticConfigJson(std::string(member(payloadMap, "staticConfig")));
+            // Only present for a plugin core granted the house facts to.
+            if (const std::string_view house = member(payloadMap, "house"); !house.empty() && house != "null")
+                request.setHouseJson(std::string(house));
             request.adapter().setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
             request.adapter().setPluginType(decodeStringOrDefault(member(payloadMap, "pluginType")));
 

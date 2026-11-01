@@ -647,7 +647,7 @@ inline constexpr std::array<EnumValueName, 7> kAdapterConfigFieldFlagNames = {{
     { static_cast<int>(AdapterConfigFieldFlag::InstanceOnly), "InstanceOnly" },
 }};
 
-inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
+inline constexpr std::array<EnumValueName, 12> kAdapterRequirementNames = {{
     { static_cast<int>(AdapterRequirement::None), "None" },
     { static_cast<int>(AdapterRequirement::Host), "Host" },
     { static_cast<int>(AdapterRequirement::Port), "Port" },
@@ -659,6 +659,7 @@ inline constexpr std::array<EnumValueName, 11> kAdapterRequirementNames = {{
     { static_cast<int>(AdapterRequirement::SupportsTls), "SupportsTls" },
     { static_cast<int>(AdapterRequirement::ManualConfirm), "ManualConfirm" },
     { static_cast<int>(AdapterRequirement::UsesRetryInterval), "UsesRetryInterval" },
+    { static_cast<int>(AdapterRequirement::HouseFacts), "HouseFacts" },
 }};
 
 [[nodiscard]] inline std::string cmdStatusName(CmdStatus status)

@@ -862,6 +862,11 @@ enum class AdapterRequirement : std::uint32_t {
     SupportsTls = 0x00000080,
     ManualConfirm = 0x00000100,
     UsesRetryInterval = 0x00000200,
+    /// The plugin needs the house facts (location, elevation, house clock).
+    /// Core sends them only to plugins it has granted them to - the house's
+    /// location is not every adapter's business - in ConfigChangedRequest::
+    /// houseJson(). Declare it optional unless the plugin cannot work without.
+    HouseFacts = 0x00000400,
 };
 
 template <typename Enum>

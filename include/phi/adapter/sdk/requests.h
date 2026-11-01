@@ -74,6 +74,13 @@ class ConfigChangedRequest
     /// only with the bootstrap.
     const phicore::adapter::v1::JsonText &staticConfigJson() const noexcept;
     ConfigChangedRequest &setStaticConfigJson(phicore::adapter::v1::JsonText json);
+    /// The house facts, for a plugin that declared AdapterRequirement::HouseFacts
+    /// and was granted them: `{"latitude": <deg>, "longitude": <deg>,
+    /// "elevation": <m>?, "timezone": "<IANA id>"?}`. Empty when not granted or
+    /// when the household has not set a location. A change of them arrives as
+    /// a new config.changed.
+    const phicore::adapter::v1::JsonText &houseJson() const noexcept;
+    ConfigChangedRequest &setHouseJson(phicore::adapter::v1::JsonText json);
 };
 
 /// An instance is gone from core.

@@ -481,6 +481,8 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
              CHECK(c.configChanged->adapter().token() == "tok");
              CHECK(phitest::contains(c.configChanged->adapter().metaJson(), "\"logging\""));
              CHECK(v1::hasFlag(c.configChanged->adapter().options(), v1::AdapterOption::UseTls));
+             CHECK(phitest::contains(c.configChanged->houseJson(), "\"latitude\":47.5"));
+             CHECK(phitest::contains(c.configChanged->houseJson(), "Europe/Zurich"));
          }},
         {"sync_adapter_instance_removed", 9, [](const InboundCapture &c) {
              REQUIRE(c.instanceRemoved.has_value());
