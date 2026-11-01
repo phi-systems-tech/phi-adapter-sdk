@@ -123,7 +123,9 @@ struct ChannelInvokeRequest::Private {
     v1::ExternalId channelExternalId;
     v1::ScalarValue value;
     v1::JsonText valueJson;
+    v1::ChannelValueFields valueFields;
     bool hasScalarValue = false;
+    bool hasObjectValue = false;
 };
 PHI_SDK_REQUEST_IMPL(ChannelInvokeRequest)
 PHI_SDK_FIELD(ChannelInvokeRequest, v1::CmdId, cmdId, setCmdId)
@@ -139,6 +141,15 @@ ChannelInvokeRequest &ChannelInvokeRequest::setValue(v1::ScalarValue value)
     Private &priv = m();
     priv.value = std::move(value);
     priv.hasScalarValue = true;
+    return *this;
+}
+const v1::ChannelValueFields &ChannelInvokeRequest::valueFields() const noexcept { return p().valueFields; }
+bool ChannelInvokeRequest::hasObjectValue() const noexcept { return p().hasObjectValue; }
+ChannelInvokeRequest &ChannelInvokeRequest::setValueFields(v1::ChannelValueFields fields)
+{
+    Private &priv = m();
+    priv.valueFields = std::move(fields);
+    priv.hasObjectValue = true;
     return *this;
 }
 

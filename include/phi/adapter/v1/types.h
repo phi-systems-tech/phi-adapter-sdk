@@ -491,7 +491,29 @@ enum class ChannelKind : std::uint16_t {
     WifiBand = 442,
     // Bool, writable where the adapter can block: may use the network (true)
     NetworkAccess = 443,
+    // --- messages: a notification carried to a person
+    // Json {subject, body, severity}, writable: the device delivers it - a
+    // mailbox, a chat, a pager; the value is the last one delivered. The
+    // field names are kMessageField*, severity is a MessageSeverity name. The
+    // fields are the notification record's, so core hands a notification to a
+    // Message channel without a translation table (docs/mail-concept.md in
+    // phi-core). Meant with ChannelFlag::NoHistory: the text is not a reading.
+    Message = 460,
 };
+
+/// How urgent a Message is (ChannelKind::Message). The three names are core's
+/// notification severities.
+enum class MessageSeverity : std::uint8_t {
+    Unknown = 0,
+    Info = 1,
+    Warning = 2,
+    Alert = 3,
+};
+
+/// The fields of a Message channel's composite value.
+inline constexpr std::string_view kMessageFieldSubject = "subject";
+inline constexpr std::string_view kMessageFieldBody = "body";
+inline constexpr std::string_view kMessageFieldSeverity = "severity";
 
 /// How a network client is attached (ChannelKind::WifiBand).
 enum class WifiBand : std::uint8_t {
@@ -525,7 +547,7 @@ enum class NetworkClientType : std::uint8_t {
  * history, the rules and the adapter cannot disagree about what the channel
  * "is".
  *
- * Empty for every kind with no composite form, which is all but one of them.
+ * Empty for every kind with no composite form, which is all but two of them.
  */
 [[nodiscard]] constexpr std::string_view channelProjectionField(ChannelKind kind) noexcept
 {
@@ -534,6 +556,10 @@ enum class NetworkClientType : std::uint8_t {
         // status: UpToDate, UpdateAvailable, Downloading, Installing, ...
         // The versions beside it are for a person to read, not to compare.
         return "status";
+    case ChannelKind::Message:
+        // subject: the one line a list or a history row shows; body and
+        // severity ride beside it.
+        return "subject";
     default:
         return {};
     }

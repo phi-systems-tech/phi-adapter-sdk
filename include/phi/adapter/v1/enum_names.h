@@ -246,6 +246,13 @@ inline constexpr std::array<EnumValueName, 12> kCameraFeatureNames = {{
     { static_cast<int>(CameraFeature::ObjectDetection), "ObjectDetection" },
 }};
 
+inline constexpr std::array<EnumValueName, 4> kMessageSeverityNames = {{
+    { static_cast<int>(MessageSeverity::Unknown), "Unknown" },
+    { static_cast<int>(MessageSeverity::Info), "Info" },
+    { static_cast<int>(MessageSeverity::Warning), "Warning" },
+    { static_cast<int>(MessageSeverity::Alert), "Alert" },
+}};
+
 inline constexpr std::array<EnumValueName, 5> kChimePatternNames = {{
     { static_cast<int>(ChimePattern::Unknown), "Unknown" },
     { static_cast<int>(ChimePattern::Understood), "Understood" },
@@ -378,7 +385,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 73> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 74> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -452,6 +459,7 @@ inline constexpr std::array<EnumValueName, 73> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::AccessPoint), "AccessPoint" },
     { static_cast<int>(ChannelKind::WifiBand), "WifiBand" },
     { static_cast<int>(ChannelKind::NetworkAccess), "NetworkAccess" },
+    { static_cast<int>(ChannelKind::Message), "Message" },
 }};
 
 inline constexpr std::array<EnumValueName, 9> kChannelDataTypeNames = {{
@@ -697,6 +705,8 @@ inline constexpr std::array<EnumValueName, 12> kAdapterRequirementNames = {{
         return valueToName(kCameraFeatureNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "ChimePattern"))
         return valueToName(kChimePatternNames, value, fallbackNumber);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MessageSeverity"))
+        return valueToName(kMessageSeverityNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "VideoStreamState"))
         return valueToName(kVideoStreamStateNames, value, fallbackNumber);
     if (equalsIgnoreCaseAscii(enumTypeName, "NightVisionMode"))
@@ -832,6 +842,8 @@ inline constexpr std::array<EnumValueName, 12> kAdapterRequirementNames = {{
         return parseNameToValue(kCameraFeatureNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "ChimePattern"))
         return parseNameToValue(kChimePatternNames, name, outValue);
+    if (equalsIgnoreCaseAscii(enumTypeName, "MessageSeverity"))
+        return parseNameToValue(kMessageSeverityNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "VideoStreamState"))
         return parseNameToValue(kVideoStreamStateNames, name, outValue);
     if (equalsIgnoreCaseAscii(enumTypeName, "NightVisionMode"))

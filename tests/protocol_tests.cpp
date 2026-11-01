@@ -116,6 +116,32 @@ void testChannelInvokeDecodeAndResult()
     else
         CHECK_MSG(false, "value is not double");
 
+    // Object value: a composite channel's fields, nested members dropped.
+    seen.reset();
+    request = "{\"command\":" + cmd(v1::IpcCommand::CmdChannelInvoke)
+        + ",\"cmdId\":14,\"payload\":{\"externalId\":\"inst-1\","
+          "\"deviceExternalId\":\"dev-9\",\"channelExternalId\":\"ch-2\","
+          "\"value\":{\"subject\":\"Washing machine\",\"body\":\"is done\","
+          "\"severity\":\"Info\",\"count\":3,\"refs\":{\"deviceId\":5}}}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 14, request));
+    REQUIRE(poll([&seen]() { return seen.has_value(); }));
+    CHECK(!seen->hasScalarValue());
+    CHECK(seen->hasObjectValue());
+    CHECK(seen->valueFields().size() == 4);
+    {
+        std::string subject, severity;
+        std::int64_t count = 0;
+        for (const auto &[key, value] : seen->valueFields()) {
+            if (key == "subject") subject = std::get<std::string>(value);
+            if (key == "severity") severity = std::get<std::string>(value);
+            if (key == "count") count = std::get<std::int64_t>(value);
+        }
+        CHECK(subject == "Washing machine");
+        CHECK(severity == "Info");
+        CHECK(count == 3);
+    }
+    CHECK(seen->valueJson().find("refs") != std::string::npos);
+
     // Bool value.
     seen.reset();
     request = "{\"command\":" + cmd(v1::IpcCommand::CmdChannelInvoke)

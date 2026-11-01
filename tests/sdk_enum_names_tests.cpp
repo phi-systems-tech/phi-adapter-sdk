@@ -203,6 +203,29 @@ void testVoiceAndCameraEntries()
                == std::vector<std::string>{ "Person", "Package" }));
 }
 
+// The Message kind of 0.34.0: a composite a person reads, projected on its
+// subject, with core's three severities under their own enum name.
+void testMessageEntries()
+{
+    PHI_CHECK(static_cast<int>(ChannelKind::Message) == 460);
+    PHI_CHECK(enumNameFor("ChannelKind", 460, false) == "Message");
+    int parsed = -1;
+    PHI_CHECK(parseEnumValueByName("ChannelKind", "Message", &parsed) && parsed == 460);
+    PHI_CHECK(channelProjectionField(ChannelKind::Message) == "subject");
+    const std::vector<std::pair<MessageSeverity, std::string>> severities = {
+        { MessageSeverity::Unknown, "Unknown" }, { MessageSeverity::Info, "Info" },
+        { MessageSeverity::Warning, "Warning" }, { MessageSeverity::Alert, "Alert" },
+    };
+    for (const auto &[severity, name] : severities) {
+        PHI_CHECK(enumNameFor("MessageSeverity", static_cast<int>(severity), false) == name);
+        parsed = -1;
+        PHI_CHECK(parseEnumValueByName("MessageSeverity", name, &parsed));
+        PHI_CHECK(parsed == static_cast<int>(severity));
+    }
+    PHI_CHECK(kMessageFieldSubject == "subject" && kMessageFieldBody == "body"
+              && kMessageFieldSeverity == "severity");
+}
+
 void testUnknownEnumTypeNameFallsBackGracefully()
 {
     // enumNameFor falls back to the number for a type name it does not know;
@@ -224,6 +247,7 @@ int main()
     testFlagNamesForOrderAndEmptiness();
     testMediaPlayerVocabulary();
     testVoiceAndCameraEntries();
+    testMessageEntries();
     testUnknownEnumTypeNameFallsBackGracefully();
     return phi::testing::report("sdk_enum_names_tests");
 }

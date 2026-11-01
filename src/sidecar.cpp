@@ -2503,8 +2503,23 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         request.setChannelExternalId(decodeStringOrDefault(member(payloadMap, "channelExternalId")));
         const std::string_view valueToken = member(payloadMap, "value");
         request.setValueJson(std::string(valueToken));
-        if (phicore::adapter::v1::ScalarValue value; parseScalarValueToken(valueToken, &value))
+        if (phicore::adapter::v1::ScalarValue value; parseScalarValueToken(valueToken, &value)) {
             request.setValue(std::move(value));
+        } else if (const std::string_view object = trim(valueToken); !object.empty() && object.front() == '{') {
+            // A composite channel is written with an object of named scalars,
+            // the same shape it reports (ChannelValueFields). Members that are
+            // not scalars have no place in it and are dropped here, so the
+            // adapter sees only what the contract allows.
+            MemberMap members;
+            if (parseObjectMembers(object, &members, nullptr)) {
+                phicore::adapter::v1::ChannelValueFields fields;
+                for (const auto &[key, token] : members.entries) {
+                    if (phicore::adapter::v1::ScalarValue scalar; parseScalarValueToken(token, &scalar))
+                        fields.emplace_back(std::string(key), std::move(scalar));
+                }
+                request.setValueFields(std::move(fields));
+            }
+        }
 
         if (m_handlers.onChannelInvoke) {
             m_handlers.onChannelInvoke(request);

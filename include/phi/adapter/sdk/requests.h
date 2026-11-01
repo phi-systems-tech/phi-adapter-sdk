@@ -130,6 +130,12 @@ class ChannelInvokeRequest
     /// The value's JSON token as it arrived, for what is not a scalar.
     const phicore::adapter::v1::JsonText &valueJson() const noexcept;
     ChannelInvokeRequest &setValueJson(phicore::adapter::v1::JsonText json);
+    /// The value's fields, when it arrived as an object (hasObjectValue): what
+    /// a composite (`ChannelDataType::Json`) channel such as Message is
+    /// written with. Members that are not scalars are left out.
+    const phicore::adapter::v1::ChannelValueFields &valueFields() const noexcept;
+    bool hasObjectValue() const noexcept;
+    ChannelInvokeRequest &setValueFields(phicore::adapter::v1::ChannelValueFields fields);
 };
 
 /// An action from the adapter's descriptor, on the factory (empty externalId)
