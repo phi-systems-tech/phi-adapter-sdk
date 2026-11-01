@@ -7,6 +7,14 @@ phi-adapter-sdk (0.34.0-1) trixie; urgency=medium
   * ChannelInvokeRequest::valueFields()/hasObjectValue(): an object written
     to a composite channel arrives as ChannelValueFields, members that are
     not scalars dropped. Additions only.
+  * net/smtp_client.h: SmtpClient, one mail at a time to a submission server
+    on a phi::runtime loop - STARTTLS (never downgraded) or TLS from the
+    first byte, AUTH PLAIN and LOGIN, the message written by the client
+    (RFC 2047 subject, base64 UTF-8 body, optional HTML part), per-recipient
+    refusals, probe() for a form's test action. No libcurl: an own client on
+    the SDK's TLS helper, as decided in phi-core docs/mail-concept.md. The
+    socket and handshake driving sits in src/net/loop_stream.h, shared with
+    nothing yet; the HTTP client moves onto it in a later release.
 
  -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 02 Nov 2026 00:17:30 +0100
 

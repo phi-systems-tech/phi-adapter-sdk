@@ -63,6 +63,10 @@ add_library(phi_adapter_sdk SHARED
     src/http_fetch.cpp
     src/http_message.cpp
     src/net_tls.cpp
+    src/loop_stream.cpp
+    src/mime.cpp
+    src/smtp_protocol.cpp
+    src/smtp_client.cpp
     src/loop_execution_backend.cpp
     src/linux/uds_epoll_transport.cpp
 )

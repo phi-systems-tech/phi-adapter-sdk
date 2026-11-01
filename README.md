@@ -1468,6 +1468,42 @@ warning page, an adapter would connect silently while the interface said "TLS".
 An endpoint with a self-signed certificate has a correct answer already: name
 the certificate in `tlsCaFile`.
 
+## SMTP (`phi/adapter/net`, from 0.34.0)
+
+`SmtpClient` (`smtp_client.h`) hands one mail at a time to a server that
+delivers it, on a `phi::runtime::Loop` like `HttpClient`. Submission, never
+delivery: it talks to the one server the account names - port 587 with
+STARTTLS, 465 with TLS from the first byte, or a relay in the house - and
+never looks up a recipient's MX. A box on a home connection could not deliver
+that way if it tried (blocklists, port 25 shut, SPF, greylisting), and the
+server the account names does all of that already.
+
+```cpp
+SmtpClient::Account account;
+account.setHost("mx01.example.com").setSecurity(SmtpClient::Security::StartTls);
+account.setCredentials({user, password});          // empty: no AUTH
+
+SmtpClient::Message mail;
+mail.setFrom({"phi@haus.example", "phi"}).addTo({"marius@example.org", "Marius"});
+mail.setSubject("Waschmaschine").setText("ist fertig (12,4 kWh)");
+
+m_smtp.send(account, mail, [this](SmtpClient::Result r) {
+    if (!r.ok())
+        log(r.authenticationFailed() ? "password" : r.error());  // r.reply(): the server's line
+});
+m_smtp.probe(account, done);   // greets, secures, authenticates, quits: a form's "test"
+```
+
+What is decided for the caller: an account that asks for STARTTLS fails when
+the server does not offer it (there is no "try TLS"); AUTH PLAIN is preferred
+over LOGIN, and a server that offers neither is named in the error with what
+it does offer; the certificate checks are `v1::TlsSettings` as everywhere;
+the message is written by the client (Date, Message-ID, an RFC 2047 subject
+for any language, the body base64 in UTF-8, text first with an optional HTML
+alternative), so an adapter hands over text and never MIME. A recipient the
+server refuses while accepting the others ends in `rejectedRecipients()`; all
+refused is not `ok()`. The port defaults from the security (587, 465, 25).
+
 ## HTTP (`phi/adapter/net`)
 
 Two clients, one HTTP. What they share is the framing: `serializeRequest()`

@@ -53,6 +53,16 @@ target_link_libraries(sdk_http_fetch_tests PRIVATE phi::adapter-sdk OpenSSL::SSL
 add_executable(sdk_http_client_tests http_client_tests.cpp)
 target_link_libraries(sdk_http_client_tests PRIVATE phi::adapter-sdk OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
+# SMTP and MIME as text: replies in pieces, EHLO keywords, the AUTH strings
+# byte for byte, dot-stuffing, and a message with a German subject.
+add_executable(sdk_smtp_protocol_tests smtp_protocol_tests.cpp)
+target_link_libraries(sdk_smtp_protocol_tests PRIVATE phi::adapter-sdk)
+
+# The SMTP client against a stub submission server: plain, STARTTLS, TLS from
+# the first byte, the credentials checked rather than the AUTH line.
+add_executable(sdk_smtp_client_tests smtp_client_tests.cpp)
+target_link_libraries(sdk_smtp_client_tests PRIVATE phi::adapter-sdk OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+
 # What a stream of button events becomes: one thing per gesture.
 add_executable(sdk_button_presses_tests button_presses_tests.cpp)
 target_link_libraries(sdk_button_presses_tests PRIVATE phi::adapter-sdk)
@@ -83,6 +93,8 @@ add_test(NAME sdk_channel_value_tests COMMAND sdk_channel_value_tests)
 add_test(NAME sdk_http_auth_tests COMMAND sdk_http_auth_tests)
 add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
 add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
+add_test(NAME sdk_smtp_protocol_tests COMMAND sdk_smtp_protocol_tests)
+add_test(NAME sdk_smtp_client_tests COMMAND sdk_smtp_client_tests)
 add_test(NAME sdk_button_presses_tests COMMAND sdk_button_presses_tests)
 add_test(NAME sdk_reachability_tests COMMAND sdk_reachability_tests)
 add_test(NAME sdk_version_tests COMMAND sdk_version_tests)
@@ -94,6 +106,7 @@ add_test(NAME sdk_protocol_tests COMMAND sdk_protocol_tests)
 add_test(NAME sdk_golden_wire_tests COMMAND sdk_golden_wire_tests)
 set_tests_properties(sdk_runtime_tests sdk_protocol_tests sdk_golden_wire_tests
     sdk_loop_execution_backend_tests sdk_http_client_tests sdk_http_fetch_tests
+    sdk_smtp_client_tests
     PROPERTIES TIMEOUT 120)
 
 # A network's clients: offered, tracked, and gone only after the away delay.
