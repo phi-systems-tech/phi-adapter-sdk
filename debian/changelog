@@ -7,6 +7,8 @@ phi-adapter-sdk (0.33.0-1) trixie; urgency=medium
     instance valueToName<11> as removed: it was only ever instantiated for
     the 11-entry requirement names, and every adapter carries its own copy
     from the header, so nothing that links the library loses it.
+  * ChannelKind SunElevation and SunAzimuth (degrees): the phi adapter's Sun
+    device.
 
  -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 01 Nov 2026 23:30:00 +0100
 

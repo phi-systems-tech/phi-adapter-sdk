@@ -378,7 +378,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 71> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 73> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -423,6 +423,8 @@ inline constexpr std::array<EnumValueName, 71> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::CpuLoad), "CpuLoad" },
     { static_cast<int>(ChannelKind::MemoryUsage), "MemoryUsage" },
     { static_cast<int>(ChannelKind::StorageUsage), "StorageUsage" },
+    { static_cast<int>(ChannelKind::SunElevation), "SunElevation" },
+    { static_cast<int>(ChannelKind::SunAzimuth), "SunAzimuth" },
     { static_cast<int>(ChannelKind::PhValue), "PhValue" },
     { static_cast<int>(ChannelKind::OrpValue), "OrpValue" },
     { static_cast<int>(ChannelKind::SaltPpm), "SaltPpm" },

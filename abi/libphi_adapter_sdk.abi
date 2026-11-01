@@ -1998,7 +1998,7 @@
     <elf-symbol name='_ZN7phicore7adapter2v110enum_names16kPtzCommandNamesE' size='168' type='object-type' binding='gnu-unique-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='_ZN7phicore7adapter2v110enum_names16kRockerModeNamesE' size='120' type='object-type' binding='gnu-unique-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='_ZN7phicore7adapter2v110enum_names17kChannelFlagNamesE' size='216' type='object-type' binding='gnu-unique-binding' visibility='default-visibility' is-defined='yes'/>
-    <elf-symbol name='_ZN7phicore7adapter2v110enum_names17kChannelKindNamesE' size='1704' type='object-type' binding='gnu-unique-binding' visibility='default-visibility' is-defined='yes'/>
+    <elf-symbol name='_ZN7phicore7adapter2v110enum_names17kChannelKindNamesE' size='1752' type='object-type' binding='gnu-unique-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='_ZN7phicore7adapter2v110enum_names17kDeviceClassNamesE' size='384' type='object-type' binding='gnu-unique-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='_ZN7phicore7adapter2v110enum_names17kPairingNeedNamesE' size='120' type='object-type' binding='gnu-unique-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='_ZN7phicore7adapter2v110enum_names18kChimePatternNamesE' size='120' type='object-type' binding='gnu-unique-binding' visibility='default-visibility' is-defined='yes'/>
@@ -4938,7 +4938,7 @@
               </function-decl>
             </member-function>
             <member-function access='public' constructor='yes'>
-              <function-decl name='Channel' mangled-name='_ZN7phicore7adapter2v17ChannelC2ENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES8_NS1_11ChannelKindENS1_15ChannelDataTypeENS1_11ChannelFlagE' filepath='/root/projects/phi-adapter-sdk/src/entities.cpp' line='92' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v17ChannelC2ENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES8_NS1_11ChannelKindENS1_15ChannelDataTypeENS1_11ChannelFlagE' hash='5ad00ebb5a5b1ac3'>
+              <function-decl name='Channel' mangled-name='_ZN7phicore7adapter2v17ChannelC2ENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES8_NS1_11ChannelKindENS1_15ChannelDataTypeENS1_11ChannelFlagE' filepath='/root/projects/phi-adapter-sdk/src/entities.cpp' line='92' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v17ChannelC2ENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES8_NS1_11ChannelKindENS1_15ChannelDataTypeENS1_11ChannelFlagE' hash='5086fe231e1fdd42'>
                 <parameter type-id='type-id-1278' is-artificial='yes'/>
                 <parameter type-id='type-id-670'/>
                 <parameter type-id='type-id-694'/>
@@ -5053,14 +5053,14 @@
               </function-decl>
             </member-function>
             <member-function access='public'>
-              <function-decl name='setKind' mangled-name='_ZN7phicore7adapter2v17Channel7setKindENS1_11ChannelKindE' filepath='/root/projects/phi-adapter-sdk/src/entities.cpp' line='82' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v17Channel7setKindENS1_11ChannelKindE' hash='eeac03b37e6b44de#6'>
+              <function-decl name='setKind' mangled-name='_ZN7phicore7adapter2v17Channel7setKindENS1_11ChannelKindE' filepath='/root/projects/phi-adapter-sdk/src/entities.cpp' line='82' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v17Channel7setKindENS1_11ChannelKindE' hash='3ebf08c95dbbf0de#6'>
                 <parameter type-id='type-id-1278' name='this' is-artificial='yes'/>
                 <parameter type-id='type-id-1919' name='value' filepath='/root/projects/phi-adapter-sdk/src/entities.cpp' line='82' column='1'/>
                 <return type-id='type-id-1276'/>
               </function-decl>
             </member-function>
             <member-function access='public' const='yes'>
-              <function-decl name='kind' mangled-name='_ZNK7phicore7adapter2v17Channel4kindEv' filepath='/root/projects/phi-adapter-sdk/src/entities.cpp' line='82' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZNK7phicore7adapter2v17Channel4kindEv' hash='0e7a72795c2bbc7a'>
+              <function-decl name='kind' mangled-name='_ZNK7phicore7adapter2v17Channel4kindEv' filepath='/root/projects/phi-adapter-sdk/src/entities.cpp' line='82' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZNK7phicore7adapter2v17Channel4kindEv' hash='ff8729cb69fbe98f'>
                 <parameter type-id='type-id-649' is-artificial='yes'/>
                 <return type-id='type-id-1913'/>
               </function-decl>
@@ -6344,7 +6344,7 @@
             <enumerator name='TwoWayAudio' value='512'/>
             <enumerator name='ObjectDetection' value='1024'/>
           </enum-decl>
-          <enum-decl name='ChannelDataType' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='539' column='1' hash='d250e4df3c1e44b4' id='type-id-1914'>
+          <enum-decl name='ChannelDataType' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='543' column='1' hash='d250e4df3c1e44b4' id='type-id-1914'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Unknown' value='0'/>
             <enumerator name='Bool' value='1'/>
@@ -6356,7 +6356,7 @@
             <enumerator name='Json' value='7'/>
             <enumerator name='Flags' value='8'/>
           </enum-decl>
-          <enum-decl name='ChannelFlag' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='607' column='1' hash='c848672e0d747196' id='type-id-1948'>
+          <enum-decl name='ChannelFlag' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='611' column='1' hash='c848672e0d747196' id='type-id-1948'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='Readable' value='1'/>
@@ -6368,7 +6368,7 @@
             <enumerator name='Suppress' value='64'/>
             <enumerator name='NoHistory' value='128'/>
           </enum-decl>
-          <enum-decl name='ChannelKind' size-in-bits='16' alignment-in-bits='16' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='344' column='1' hash='21eb7531d183c0e8' id='type-id-1913'>
+          <enum-decl name='ChannelKind' size-in-bits='16' alignment-in-bits='16' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='344' column='1' hash='64d2458e1b8896d6' id='type-id-1913'>
             <underlying-type type-id='type-id-530'/>
             <enumerator name='Unknown' value='0'/>
             <enumerator name='PowerOnOff' value='1'/>
@@ -6414,6 +6414,8 @@
             <enumerator name='CpuLoad' value='73'/>
             <enumerator name='MemoryUsage' value='74'/>
             <enumerator name='StorageUsage' value='75'/>
+            <enumerator name='SunElevation' value='76'/>
+            <enumerator name='SunAzimuth' value='77'/>
             <enumerator name='PhValue' value='200'/>
             <enumerator name='OrpValue' value='201'/>
             <enumerator name='SaltPpm' value='202'/>
@@ -6473,7 +6475,7 @@
             <enumerator name='Concentrate' value='7'/>
             <enumerator name='CustomVendor' value='8'/>
           </enum-decl>
-          <enum-decl name='DeviceFlag' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='627' column='1' hash='a63159a51127341c' id='type-id-1949'>
+          <enum-decl name='DeviceFlag' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='631' column='1' hash='a63159a51127341c' id='type-id-1949'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='Wireless' value='1'/>
@@ -6495,7 +6497,7 @@
             <enumerator name='Enqueue' value='256'/>
             <enumerator name='Announce' value='512'/>
           </enum-decl>
-          <enum-decl name='PairingNeed' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='761' column='1' hash='a71b0808566e3b0c' id='type-id-1933'>
+          <enum-decl name='PairingNeed' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='765' column='1' hash='a71b0808566e3b0c' id='type-id-1933'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='None' value='0'/>
             <enumerator name='SetupCode' value='1'/>
@@ -6503,7 +6505,7 @@
             <enumerator name='PressButton' value='3'/>
             <enumerator name='VendorApp' value='4'/>
           </enum-decl>
-          <enum-decl name='Radio' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='751' column='1' hash='ea5b7db00394e80a' id='type-id-1936'>
+          <enum-decl name='Radio' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='755' column='1' hash='ea5b7db00394e80a' id='type-id-1936'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Unknown' value='0'/>
             <enumerator name='Lan' value='1'/>
@@ -6548,36 +6550,36 @@
             <enumerator name='Sauna' value='31'/>
             <enumerator name='Other' value='100'/>
           </enum-decl>
-          <enum-decl name='SceneFlag' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='635' column='1' hash='62392977487a274e' id='type-id-1951'>
+          <enum-decl name='SceneFlag' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='639' column='1' hash='62392977487a274e' id='type-id-1951'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='OriginAdapter' value='1'/>
             <enumerator name='SupportsDynamic' value='2'/>
             <enumerator name='SupportsDeactivate' value='4'/>
           </enum-decl>
-          <enum-decl name='SceneState' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='576' column='1' hash='84f945c67bec263e' id='type-id-1946'>
+          <enum-decl name='SceneState' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='580' column='1' hash='84f945c67bec263e' id='type-id-1946'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Unknown' value='0'/>
             <enumerator name='Inactive' value='1'/>
             <enumerator name='ActiveStatic' value='2'/>
             <enumerator name='ActiveDynamic' value='3'/>
           </enum-decl>
-          <enum-decl name='SetupCodeScheme' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='742' column='1' hash='605d99c474f0d17f' id='type-id-1931'>
+          <enum-decl name='SetupCodeScheme' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='746' column='1' hash='605d99c474f0d17f' id='type-id-1931'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='MatterQr' value='1'/>
             <enumerator name='MatterManual' value='2'/>
           </enum-decl>
           <typedef-decl name='AdapterConfigOptionList' type-id='type-id-1206' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/schema.h' line='100' column='1' id='type-id-643'/>
-          <typedef-decl name='CameraFeatures' type-id='type-id-1947' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='936' column='1' hash='eecbfc7c3e99094c' id='type-id-1920'/>
-          <typedef-decl name='ChannelFlags' type-id='type-id-1948' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='933' column='1' hash='c848672e0d747196' id='type-id-1912'/>
+          <typedef-decl name='CameraFeatures' type-id='type-id-1947' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='940' column='1' hash='eecbfc7c3e99094c' id='type-id-1920'/>
+          <typedef-decl name='ChannelFlags' type-id='type-id-1948' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='937' column='1' hash='c848672e0d747196' id='type-id-1912'/>
           <typedef-decl name='DeviceEffectDescriptorList' type-id='type-id-1222' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/device.h' line='43' column='1' id='type-id-667'/>
-          <typedef-decl name='DeviceFlags' type-id='type-id-1949' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='934' column='1' hash='a63159a51127341c' id='type-id-1922'/>
+          <typedef-decl name='DeviceFlags' type-id='type-id-1949' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='938' column='1' hash='a63159a51127341c' id='type-id-1922'/>
           <typedef-decl name='ExternalId' type-id='type-id-694' size-in-bits='256' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='14' column='1' id='type-id-670'/>
           <typedef-decl name='JsonText' type-id='type-id-694' size-in-bits='256' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/value.h' line='16' column='1' id='type-id-678'/>
-          <typedef-decl name='MediaPlayerFeatures' type-id='type-id-1950' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='935' column='1' hash='ff0f7ee5848fad7a' id='type-id-1921'/>
+          <typedef-decl name='MediaPlayerFeatures' type-id='type-id-1950' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='939' column='1' hash='ff0f7ee5848fad7a' id='type-id-1921'/>
           <typedef-decl name='ScalarValue' type-id='type-id-1201' size-in-bits='320' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/value.h' line='22' column='1' id='type-id-686'/>
-          <typedef-decl name='SceneFlags' type-id='type-id-1951' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='937' column='1' hash='62392977487a274e' id='type-id-1943'/>
+          <typedef-decl name='SceneFlags' type-id='type-id-1951' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='941' column='1' hash='62392977487a274e' id='type-id-1943'/>
           <typedef-decl name='Utf8String' type-id='type-id-448' size-in-bits='256' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/value.h' line='12' column='1' id='type-id-694'/>
           <namespace-decl name='detail'>
             <function-decl name='trimmedAscii' mangled-name='_ZN7phicore7adapter2v16detail12trimmedAsciiERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE' filepath='/root/projects/phi-adapter-sdk/src/net_address.h' line='16' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v16detail12trimmedAsciiERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE' hash='9d0a10edc355828f'>
@@ -8055,7 +8057,7 @@
       </class-decl>
       <class-decl name='remove_cvref&lt;phicore::adapter::v1::ChannelKind&gt;' is-struct='yes' visibility='default' size-in-bits='8' filepath='/usr/include/c++/14/type_traits' line='3597' column='1' hash='3ec9fedb899251c4' id='type-id-2311'>
         <member-type access='public'>
-          <typedef-decl name='type' type-id='type-id-1913' size-in-bits='16' alignment-in-bits='16' filepath='/usr/include/c++/14/type_traits' line='3598' column='1' hash='21eb7531d183c0e8' id='type-id-2312'/>
+          <typedef-decl name='type' type-id='type-id-1913' size-in-bits='16' alignment-in-bits='16' filepath='/usr/include/c++/14/type_traits' line='3598' column='1' hash='64d2458e1b8896d6' id='type-id-2312'/>
         </member-type>
       </class-decl>
       <class-decl name='remove_cvref&lt;phicore::adapter::v1::DeviceClass&gt;' is-struct='yes' visibility='default' size-in-bits='8' filepath='/usr/include/c++/14/type_traits' line='3597' column='1' hash='9112e8e67e766017' id='type-id-2313'>
@@ -8199,7 +8201,7 @@
       <typedef-decl name='remove_cvref_t' type-id='type-id-2306' size-in-bits='32' alignment-in-bits='32' filepath='/usr/include/c++/14/type_traits' line='3614' column='1' hash='eecbfc7c3e99094c#34' id='type-id-1924'/>
       <typedef-decl name='remove_cvref_t' type-id='type-id-2308' size-in-bits='8' alignment-in-bits='8' filepath='/usr/include/c++/14/type_traits' line='3614' column='1' hash='d250e4df3c1e44b4#35' id='type-id-1918'/>
       <typedef-decl name='remove_cvref_t' type-id='type-id-2310' size-in-bits='32' alignment-in-bits='32' filepath='/usr/include/c++/14/type_traits' line='3614' column='1' hash='c848672e0d747196#36' id='type-id-1917'/>
-      <typedef-decl name='remove_cvref_t' type-id='type-id-2312' size-in-bits='16' alignment-in-bits='16' filepath='/usr/include/c++/14/type_traits' line='3614' column='1' hash='21eb7531d183c0e8#37' id='type-id-1919'/>
+      <typedef-decl name='remove_cvref_t' type-id='type-id-2312' size-in-bits='16' alignment-in-bits='16' filepath='/usr/include/c++/14/type_traits' line='3614' column='1' hash='64d2458e1b8896d6#37' id='type-id-1919'/>
       <typedef-decl name='remove_cvref_t' type-id='type-id-2314' size-in-bits='8' alignment-in-bits='8' filepath='/usr/include/c++/14/type_traits' line='3614' column='1' hash='7b691425bd0b8a0c#39' id='type-id-1927'/>
       <typedef-decl name='remove_cvref_t' type-id='type-id-2316' size-in-bits='16' alignment-in-bits='16' filepath='/usr/include/c++/14/type_traits' line='3614' column='1' hash='2bd9db4963cf37db#40' id='type-id-1938'/>
       <typedef-decl name='remove_cvref_t' type-id='type-id-2318' size-in-bits='32' alignment-in-bits='32' filepath='/usr/include/c++/14/type_traits' line='3614' column='1' hash='a63159a51127341c#41' id='type-id-1926'/>
@@ -14545,7 +14547,7 @@
           <var-decl name='kClientMetaIgnorePrivateMacs' type-id='type-id-4134' mangled-name='_ZN7phicore7adapter3sdk28kClientMetaIgnorePrivateMacsE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/sdk/network_clients.h' line='51' column='1'/>
         </namespace-decl>
         <namespace-decl name='v1'>
-          <enum-decl name='NetworkClientType' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='503' column='1' hash='127b5d8ccccecaec' id='type-id-4947'>
+          <enum-decl name='NetworkClientType' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='507' column='1' hash='127b5d8ccccecaec' id='type-id-4947'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Unknown' value='0'/>
             <enumerator name='Phone' value='1'/>
@@ -14557,7 +14559,7 @@
             <enumerator name='Iot' value='7'/>
             <enumerator name='Other' value='8'/>
           </enum-decl>
-          <enum-decl name='WifiBand' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='493' column='1' hash='b8a3437bf28faa06' id='type-id-4946'>
+          <enum-decl name='WifiBand' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='497' column='1' hash='b8a3437bf28faa06' id='type-id-4946'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Unknown' value='0'/>
             <enumerator name='Band24' value='1'/>
@@ -14565,7 +14567,7 @@
             <enumerator name='Band6' value='3'/>
             <enumerator name='Wired' value='4'/>
           </enum-decl>
-          <enum-decl name='AdapterConfigFieldType' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='788' column='1' hash='47b276b8e8877425' id='type-id-4948'>
+          <enum-decl name='AdapterConfigFieldType' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='792' column='1' hash='47b276b8e8877425' id='type-id-4948'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='String' value='0'/>
             <enumerator name='Password' value='1'/>
@@ -20350,7 +20352,7 @@
             <enumerator name='Next' value='2'/>
             <enumerator name='Add' value='3'/>
           </enum-decl>
-          <enum-decl name='NamedEntityKind' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='782' column='1' hash='519155f995dec8ce' id='type-id-7180'>
+          <enum-decl name='NamedEntityKind' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='786' column='1' hash='519155f995dec8ce' id='type-id-7180'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Room' value='1'/>
             <enumerator name='Group' value='2'/>
@@ -22332,7 +22334,7 @@
     <namespace-decl name='phicore'>
       <namespace-decl name='adapter'>
         <namespace-decl name='v1'>
-          <enum-decl name='MessageType' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='601' column='1' hash='dc260eac85f5b243' id='type-id-7764'>
+          <enum-decl name='MessageType' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='605' column='1' hash='dc260eac85f5b243' id='type-id-7764'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Request' value='3'/>
             <enumerator name='Response' value='4'/>
@@ -28049,14 +28051,14 @@
             <enumerator name='Run' value='7'/>
             <enumerator name='Data' value='8'/>
           </enum-decl>
-          <enum-decl name='AdapterActionPlacement' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='827' column='1' hash='628e5079134d89b7' id='type-id-10404'>
+          <enum-decl name='AdapterActionPlacement' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='831' column='1' hash='628e5079134d89b7' id='type-id-10404'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Card' value='0'/>
             <enumerator name='Field' value='1'/>
             <enumerator name='Device' value='2'/>
             <enumerator name='Hidden' value='3'/>
           </enum-decl>
-          <enum-decl name='AdapterCapability' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='660' column='1' hash='f4a7084b97627424' id='type-id-10431'>
+          <enum-decl name='AdapterCapability' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='664' column='1' hash='f4a7084b97627424' id='type-id-10431'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='RequiresPolling' value='8'/>
@@ -28068,12 +28070,12 @@
             <enumerator name='SupportsSceneRename' value='512'/>
             <enumerator name='NetworkClients' value='4096'/>
           </enum-decl>
-          <enum-decl name='AdapterConfigActionPosition' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='821' column='1' hash='3e66634fe1e76a72' id='type-id-10422'>
+          <enum-decl name='AdapterConfigActionPosition' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='825' column='1' hash='3e66634fe1e76a72' id='type-id-10422'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Auto' value='0'/>
             <enumerator name='Below' value='1'/>
           </enum-decl>
-          <enum-decl name='AdapterConfigFieldFlag' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='843' column='1' hash='1bed549517bf2fa2' id='type-id-10432'>
+          <enum-decl name='AdapterConfigFieldFlag' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='847' column='1' hash='1bed549517bf2fa2' id='type-id-10432'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='None' value='0'/>
             <enumerator name='Required' value='1'/>
@@ -28083,24 +28085,24 @@
             <enumerator name='Multi' value='16'/>
             <enumerator name='InstanceOnly' value='32'/>
           </enum-decl>
-          <enum-decl name='AdapterConfigLabelPosition' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='813' column='1' hash='552c301f5bbfa2bb' id='type-id-10424'>
+          <enum-decl name='AdapterConfigLabelPosition' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='817' column='1' hash='552c301f5bbfa2bb' id='type-id-10424'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Auto' value='0'/>
             <enumerator name='Top' value='1'/>
             <enumerator name='None' value='2'/>
           </enum-decl>
-          <enum-decl name='AdapterConfigSize' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='805' column='1' hash='ee76ca5c3b552e5c' id='type-id-10426'>
+          <enum-decl name='AdapterConfigSize' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='809' column='1' hash='ee76ca5c3b552e5c' id='type-id-10426'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Normal' value='0'/>
             <enumerator name='Narrow' value='1'/>
             <enumerator name='Wide' value='2'/>
           </enum-decl>
-          <enum-decl name='AdapterConfigVisibilityOp' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='838' column='1' hash='3646b5cc4673b413' id='type-id-10427'>
+          <enum-decl name='AdapterConfigVisibilityOp' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='842' column='1' hash='3646b5cc4673b413' id='type-id-10427'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Equals' value='0'/>
             <enumerator name='Contains' value='1'/>
           </enum-decl>
-          <enum-decl name='AdapterOption' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='692' column='1' hash='61698684f4239aaf' id='type-id-10433'>
+          <enum-decl name='AdapterOption' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='696' column='1' hash='61698684f4239aaf' id='type-id-10433'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='UseTls' value='1'/>
@@ -28108,7 +28110,7 @@
             <enumerator name='CloudControl' value='1024'/>
             <enumerator name='VendorCloudAllowed' value='2048'/>
           </enum-decl>
-          <enum-decl name='AdapterRequirement' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='853' column='1' hash='ea6cf25c02f87b06' id='type-id-10434'>
+          <enum-decl name='AdapterRequirement' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='857' column='1' hash='ea6cf25c02f87b06' id='type-id-10434'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='Host' value='1'/>
@@ -28136,7 +28138,7 @@
             <enumerator name='NotImplemented' value='8'/>
             <enumerator name='InternalError' value='255'/>
           </enum-decl>
-          <enum-decl name='PairingStyle' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='729' column='1' hash='20a9c0da5d436347' id='type-id-10435'>
+          <enum-decl name='PairingStyle' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='733' column='1' hash='20a9c0da5d436347' id='type-id-10435'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='JoinWindow' value='1'/>
@@ -28144,13 +28146,13 @@
             <enumerator name='SetupCode' value='4'/>
             <enumerator name='Listing' value='8'/>
           </enum-decl>
-          <enum-decl name='StandInRedirect' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='719' column='1' hash='c73c303a45bf084d' id='type-id-10409'>
+          <enum-decl name='StandInRedirect' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='723' column='1' hash='c73c303a45bf084d' id='type-id-10409'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='None' value='0'/>
             <enumerator name='Dns' value='1'/>
             <enumerator name='Gateway' value='2'/>
           </enum-decl>
-          <enum-decl name='Topology' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='704' column='1' hash='fbfc7e6a5c72ab07' id='type-id-10436'>
+          <enum-decl name='Topology' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='708' column='1' hash='fbfc7e6a5c72ab07' id='type-id-10436'>
             <underlying-type type-id='type-id-392'/>
             <enumerator name='None' value='0'/>
             <enumerator name='Local' value='1'/>
@@ -28159,20 +28161,20 @@
             <enumerator name='CloudOnly' value='8'/>
           </enum-decl>
           <typedef-decl name='AdapterActionDescriptorList' type-id='type-id-9024' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/schema.h' line='488' column='1' id='type-id-8030'/>
-          <typedef-decl name='AdapterCapabilityFlags' type-id='type-id-10431' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='938' column='1' hash='f4a7084b97627424' id='type-id-10413'/>
+          <typedef-decl name='AdapterCapabilityFlags' type-id='type-id-10431' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='942' column='1' hash='f4a7084b97627424' id='type-id-10413'/>
           <typedef-decl name='AdapterConfigActionList' type-id='type-id-9040' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/schema.h' line='276' column='1' id='type-id-8044'/>
-          <typedef-decl name='AdapterConfigFieldFlags' type-id='type-id-10432' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='940' column='1' hash='1bed549517bf2fa2' id='type-id-10417'/>
+          <typedef-decl name='AdapterConfigFieldFlags' type-id='type-id-10432' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='944' column='1' hash='1bed549517bf2fa2' id='type-id-10417'/>
           <typedef-decl name='AdapterConfigFieldList' type-id='type-id-4945' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/schema.h' line='350' column='1' id='type-id-8057'/>
           <typedef-decl name='AdapterFieldChoicesList' type-id='type-id-9071' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/schema.h' line='160' column='1' id='type-id-8081'/>
           <typedef-decl name='AdapterFormValueData' type-id='type-id-9019' size-in-bits='384' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/schema.h' line='107' column='1' id='type-id-8095'/>
           <typedef-decl name='AdapterFormValues' type-id='type-id-9087' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/schema.h' line='133' column='1' id='type-id-8098'/>
-          <typedef-decl name='AdapterOptions' type-id='type-id-10433' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='939' column='1' hash='61698684f4239aaf' id='type-id-10402'/>
-          <typedef-decl name='AdapterRequirements' type-id='type-id-10434' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='941' column='1' hash='ea6cf25c02f87b06' id='type-id-10415'/>
+          <typedef-decl name='AdapterOptions' type-id='type-id-10433' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='943' column='1' hash='61698684f4239aaf' id='type-id-10402'/>
+          <typedef-decl name='AdapterRequirements' type-id='type-id-10434' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='945' column='1' hash='ea6cf25c02f87b06' id='type-id-10415'/>
           <typedef-decl name='ChannelValueFields' type-id='type-id-9103' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/value.h' line='33' column='1' id='type-id-8111'/>
-          <typedef-decl name='PairingStyles' type-id='type-id-10435' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='943' column='1' hash='20a9c0da5d436347' id='type-id-10407'/>
+          <typedef-decl name='PairingStyles' type-id='type-id-10435' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='947' column='1' hash='20a9c0da5d436347' id='type-id-10407'/>
           <typedef-decl name='ScalarList' type-id='type-id-9118' size-in-bits='192' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/value.h' line='23' column='1' id='type-id-8119'/>
-          <typedef-decl name='SetupCodeSchemes' type-id='type-id-1931' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='944' column='1' hash='605d99c474f0d17f' id='type-id-10405'/>
-          <typedef-decl name='Topologies' type-id='type-id-10436' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='942' column='1' hash='fbfc7e6a5c72ab07' id='type-id-10411'/>
+          <typedef-decl name='SetupCodeSchemes' type-id='type-id-1931' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='948' column='1' hash='605d99c474f0d17f' id='type-id-10405'/>
+          <typedef-decl name='Topologies' type-id='type-id-10436' size-in-bits='32' alignment-in-bits='32' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='946' column='1' hash='fbfc7e6a5c72ab07' id='type-id-10411'/>
         </namespace-decl>
       </namespace-decl>
     </namespace-decl>
@@ -31699,8 +31701,8 @@
     <array-type-def dimensions='1' type-id='type-id-11217' size-in-bits='1152' hash='1dec9398c3613774' id='type-id-11231'>
       <subrange length='6' lower-bound='0' upper-bound='5' type-id='type-id-3' size-in-bits='64' is-anonymous='yes' hash='1c0e592c7ffbdbf5' id='type-id-11232'/>
     </array-type-def>
-    <array-type-def dimensions='1' type-id='type-id-11217' size-in-bits='13632' hash='8a272a1ef5b99775' id='type-id-11233'>
-      <subrange length='71' lower-bound='0' upper-bound='70' type-id='type-id-3' size-in-bits='64' is-anonymous='yes' hash='3488ab8b03bc25d4' id='type-id-11234'/>
+    <array-type-def dimensions='1' type-id='type-id-11217' size-in-bits='14016' hash='70434a40c7df3cbd' id='type-id-11233'>
+      <subrange length='73' lower-bound='0' upper-bound='72' type-id='type-id-3' size-in-bits='64' is-anonymous='yes' hash='975c1bf4ba2114bd' id='type-id-11234'/>
     </array-type-def>
     <array-type-def dimensions='1' type-id='type-id-11217' size-in-bits='1344' hash='7cb6f8916200bd5f' id='type-id-11235'>
       <subrange length='7' lower-bound='0' upper-bound='6' type-id='type-id-3' size-in-bits='64' is-anonymous='yes' hash='58190901bcecd086' id='type-id-11236'/>
@@ -32608,10 +32610,10 @@
     <qualified-type-def type-id='type-id-12320' const='yes' hash='1f9183b53ab0c5bc#39' id='type-id-12321'/>
     <reference-type-def kind='lvalue' type-id='type-id-12321' size-in-bits='64' hash='4a772ba13c93357c#38' id='type-id-12322'/>
     <pointer-type-def type-id='type-id-12321' size-in-bits='64' hash='f67a2adbf8320293#15' id='type-id-12323'/>
-    <qualified-type-def type-id='type-id-12324' const='yes' hash='39569967bf2bc875' id='type-id-12325'/>
-    <reference-type-def kind='lvalue' type-id='type-id-12325' size-in-bits='64' hash='b1bec25b484dfb20' id='type-id-12326'/>
-    <pointer-type-def type-id='type-id-12325' size-in-bits='64' hash='a355ee815bbe984f' id='type-id-12327'/>
-    <qualified-type-def type-id='type-id-12327' const='yes' hash='e30b3392a3e0873f' id='type-id-12328'/>
+    <qualified-type-def type-id='type-id-12324' const='yes' hash='b3485bdb07fd1513' id='type-id-12325'/>
+    <reference-type-def kind='lvalue' type-id='type-id-12325' size-in-bits='64' hash='26be61b28a8f7127' id='type-id-12326'/>
+    <pointer-type-def type-id='type-id-12325' size-in-bits='64' hash='c0978cfa5efe8acb' id='type-id-12327'/>
+    <qualified-type-def type-id='type-id-12327' const='yes' hash='f5577e0937374ac8' id='type-id-12328'/>
     <qualified-type-def type-id='type-id-12329' const='yes' hash='1f9183b53ab0c5bc#40' id='type-id-12330'/>
     <reference-type-def kind='lvalue' type-id='type-id-12330' size-in-bits='64' hash='4a772ba13c93357c#39' id='type-id-12331'/>
     <pointer-type-def type-id='type-id-12330' size-in-bits='64' hash='f67a2adbf8320293#16' id='type-id-12332'/>
@@ -33895,8 +33897,8 @@
     <pointer-type-def type-id='type-id-12315' size-in-bits='64' hash='8dc48f2f8a6e378c' id='type-id-13823'/>
     <reference-type-def kind='lvalue' type-id='type-id-12320' size-in-bits='64' hash='cd73ee8a2544276e#36' id='type-id-13824'/>
     <pointer-type-def type-id='type-id-12320' size-in-bits='64' hash='6e130918c75267c9#14' id='type-id-13825'/>
-    <reference-type-def kind='lvalue' type-id='type-id-12324' size-in-bits='64' hash='cd77eed5246d3ea0' id='type-id-13826'/>
-    <pointer-type-def type-id='type-id-12324' size-in-bits='64' hash='64cb3b311f9f2bc5' id='type-id-13827'/>
+    <reference-type-def kind='lvalue' type-id='type-id-12324' size-in-bits='64' hash='9d6a55a4d188acee' id='type-id-13826'/>
+    <pointer-type-def type-id='type-id-12324' size-in-bits='64' hash='0759d1cd8d84d961' id='type-id-13827'/>
     <reference-type-def kind='lvalue' type-id='type-id-12329' size-in-bits='64' hash='cd73ee8a2544276e#37' id='type-id-13828'/>
     <pointer-type-def type-id='type-id-12329' size-in-bits='64' hash='6e130918c75267c9#15' id='type-id-13829'/>
     <reference-type-def kind='lvalue' type-id='type-id-12333' size-in-bits='64' hash='d170e0fcfa281863' id='type-id-13830'/>
@@ -36748,7 +36750,7 @@
             <enumerator name='ResultCmd' value='8193'/>
             <enumerator name='ResultAction' value='8194'/>
           </enum-decl>
-          <enum-decl name='PairingStage' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='773' column='1' hash='e5f46d25ea359786' id='type-id-14538'>
+          <enum-decl name='PairingStage' size-in-bits='8' alignment-in-bits='8' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/types.h' line='777' column='1' hash='e5f46d25ea359786' id='type-id-14538'>
             <underlying-type type-id='type-id-343'/>
             <enumerator name='Running' value='0'/>
             <enumerator name='Done' value='1'/>
@@ -36878,61 +36880,61 @@
             <var-decl name='kPresetModeNames' type-id='type-id-12334' mangled-name='_ZN7phicore7adapter2v110enum_names16kPresetModeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='371' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names16kPresetModeNamesE'/>
             <var-decl name='kChannelKindNames' type-id='type-id-12325' mangled-name='_ZN7phicore7adapter2v110enum_names17kChannelKindNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='381' column='1'/>
             <var-decl name='kChannelKindNames' type-id='type-id-12325' mangled-name='_ZN7phicore7adapter2v110enum_names17kChannelKindNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='381' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names17kChannelKindNamesE'/>
-            <var-decl name='kChannelDataTypeNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names21kChannelDataTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='455' column='1'/>
-            <var-decl name='kChannelDataTypeNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names21kChannelDataTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='455' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names21kChannelDataTypeNamesE'/>
-            <var-decl name='kConnectivityStatusNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names24kConnectivityStatusNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='467' column='1'/>
-            <var-decl name='kConnectivityStatusNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names24kConnectivityStatusNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='467' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names24kConnectivityStatusNamesE'/>
-            <var-decl name='kAdapterConfigFieldTypeNames' type-id='type-id-12235' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='474' column='1'/>
-            <var-decl name='kAdapterConfigFieldTypeNames' type-id='type-id-12235' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='474' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldTypeNamesE'/>
-            <var-decl name='kAdapterConfigSizeNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names23kAdapterConfigSizeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='487' column='1'/>
-            <var-decl name='kAdapterConfigSizeNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names23kAdapterConfigSizeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='487' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names23kAdapterConfigSizeNamesE'/>
-            <var-decl name='kAdapterConfigLabelPositionNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names32kAdapterConfigLabelPositionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='493' column='1'/>
-            <var-decl name='kAdapterConfigLabelPositionNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names32kAdapterConfigLabelPositionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='493' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names32kAdapterConfigLabelPositionNamesE'/>
-            <var-decl name='kAdapterConfigActionPositionNames' type-id='type-id-12271' mangled-name='_ZN7phicore7adapter2v110enum_names33kAdapterConfigActionPositionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='499' column='1'/>
-            <var-decl name='kAdapterConfigActionPositionNames' type-id='type-id-12271' mangled-name='_ZN7phicore7adapter2v110enum_names33kAdapterConfigActionPositionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='499' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names33kAdapterConfigActionPositionNamesE'/>
-            <var-decl name='kAdapterActionPlacementNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterActionPlacementNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='504' column='1'/>
-            <var-decl name='kAdapterActionPlacementNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterActionPlacementNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='504' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names28kAdapterActionPlacementNamesE'/>
-            <var-decl name='kAdapterConfigVisibilityOpNames' type-id='type-id-12271' mangled-name='_ZN7phicore7adapter2v110enum_names31kAdapterConfigVisibilityOpNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='511' column='1'/>
-            <var-decl name='kAdapterConfigVisibilityOpNames' type-id='type-id-12271' mangled-name='_ZN7phicore7adapter2v110enum_names31kAdapterConfigVisibilityOpNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='511' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names31kAdapterConfigVisibilityOpNamesE'/>
-            <var-decl name='kChannelFlagNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names17kChannelFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='516' column='1'/>
-            <var-decl name='kChannelFlagNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names17kChannelFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='516' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names17kChannelFlagNamesE'/>
-            <var-decl name='kDeviceFlagNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names16kDeviceFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='528' column='1'/>
-            <var-decl name='kDeviceFlagNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names16kDeviceFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='528' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names16kDeviceFlagNamesE'/>
-            <var-decl name='kSceneFlagNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names15kSceneFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='536' column='1'/>
-            <var-decl name='kSceneFlagNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names15kSceneFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='536' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names15kSceneFlagNamesE'/>
-            <var-decl name='kAdapterCapabilityNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names23kAdapterCapabilityNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='543' column='1'/>
-            <var-decl name='kAdapterCapabilityNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names23kAdapterCapabilityNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='543' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names23kAdapterCapabilityNamesE'/>
-            <var-decl name='kAdapterOptionNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names19kAdapterOptionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='555' column='1'/>
-            <var-decl name='kAdapterOptionNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names19kAdapterOptionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='555' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names19kAdapterOptionNamesE'/>
-            <var-decl name='kTopologyNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names14kTopologyNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='563' column='1'/>
-            <var-decl name='kTopologyNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names14kTopologyNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='563' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names14kTopologyNamesE'/>
-            <var-decl name='kStandInRedirectNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names21kStandInRedirectNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='571' column='1'/>
-            <var-decl name='kStandInRedirectNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names21kStandInRedirectNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='571' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names21kStandInRedirectNamesE'/>
-            <var-decl name='kPairingStyleNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names18kPairingStyleNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='577' column='1'/>
-            <var-decl name='kPairingStyleNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names18kPairingStyleNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='577' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names18kPairingStyleNamesE'/>
-            <var-decl name='kSetupCodeSchemeNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names21kSetupCodeSchemeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='585' column='1'/>
-            <var-decl name='kSetupCodeSchemeNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names21kSetupCodeSchemeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='585' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names21kSetupCodeSchemeNamesE'/>
-            <var-decl name='kRadioNames' type-id='type-id-12316' mangled-name='_ZN7phicore7adapter2v110enum_names11kRadioNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='591' column='1'/>
-            <var-decl name='kRadioNames' type-id='type-id-12316' mangled-name='_ZN7phicore7adapter2v110enum_names11kRadioNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='591' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names11kRadioNamesE'/>
-            <var-decl name='kPairingNeedNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names17kPairingNeedNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='600' column='1'/>
-            <var-decl name='kPairingNeedNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names17kPairingNeedNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='600' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names17kPairingNeedNamesE'/>
-            <var-decl name='kWifiBandNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names14kWifiBandNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='608' column='1'/>
-            <var-decl name='kWifiBandNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names14kWifiBandNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='608' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names14kWifiBandNamesE'/>
-            <var-decl name='kNetworkClientTypeNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names23kNetworkClientTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='616' column='1'/>
-            <var-decl name='kNetworkClientTypeNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names23kNetworkClientTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='616' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names23kNetworkClientTypeNamesE'/>
-            <var-decl name='kPairingStageNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names18kPairingStageNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='628' column='1'/>
-            <var-decl name='kPairingStageNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names18kPairingStageNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='628' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names18kPairingStageNamesE'/>
-            <var-decl name='kAdapterConfigFieldFlagNames' type-id='type-id-12334' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='640' column='1'/>
-            <var-decl name='kAdapterConfigFieldFlagNames' type-id='type-id-12334' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='640' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldFlagNamesE'/>
-            <var-decl name='kAdapterRequirementNames' type-id='type-id-12253' mangled-name='_ZN7phicore7adapter2v110enum_names24kAdapterRequirementNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='650' column='1'/>
-            <var-decl name='kAdapterRequirementNames' type-id='type-id-12253' mangled-name='_ZN7phicore7adapter2v110enum_names24kAdapterRequirementNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='650' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names24kAdapterRequirementNamesE'/>
-            <function-decl name='enumNameFor' mangled-name='_ZN7phicore7adapter2v110enum_names11enumNameForB5cxx11ESt17basic_string_viewIcSt11char_traitsIcEEib' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='675' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v110enum_names11enumNameForB5cxx11ESt17basic_string_viewIcSt11char_traitsIcEEib' hash='a79502d22727be06'>
+            <var-decl name='kChannelDataTypeNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names21kChannelDataTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='457' column='1'/>
+            <var-decl name='kChannelDataTypeNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names21kChannelDataTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='457' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names21kChannelDataTypeNamesE'/>
+            <var-decl name='kConnectivityStatusNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names24kConnectivityStatusNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='469' column='1'/>
+            <var-decl name='kConnectivityStatusNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names24kConnectivityStatusNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='469' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names24kConnectivityStatusNamesE'/>
+            <var-decl name='kAdapterConfigFieldTypeNames' type-id='type-id-12235' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='476' column='1'/>
+            <var-decl name='kAdapterConfigFieldTypeNames' type-id='type-id-12235' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='476' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldTypeNamesE'/>
+            <var-decl name='kAdapterConfigSizeNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names23kAdapterConfigSizeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='489' column='1'/>
+            <var-decl name='kAdapterConfigSizeNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names23kAdapterConfigSizeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='489' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names23kAdapterConfigSizeNamesE'/>
+            <var-decl name='kAdapterConfigLabelPositionNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names32kAdapterConfigLabelPositionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='495' column='1'/>
+            <var-decl name='kAdapterConfigLabelPositionNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names32kAdapterConfigLabelPositionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='495' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names32kAdapterConfigLabelPositionNamesE'/>
+            <var-decl name='kAdapterConfigActionPositionNames' type-id='type-id-12271' mangled-name='_ZN7phicore7adapter2v110enum_names33kAdapterConfigActionPositionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='501' column='1'/>
+            <var-decl name='kAdapterConfigActionPositionNames' type-id='type-id-12271' mangled-name='_ZN7phicore7adapter2v110enum_names33kAdapterConfigActionPositionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='501' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names33kAdapterConfigActionPositionNamesE'/>
+            <var-decl name='kAdapterActionPlacementNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterActionPlacementNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='506' column='1'/>
+            <var-decl name='kAdapterActionPlacementNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterActionPlacementNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='506' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names28kAdapterActionPlacementNamesE'/>
+            <var-decl name='kAdapterConfigVisibilityOpNames' type-id='type-id-12271' mangled-name='_ZN7phicore7adapter2v110enum_names31kAdapterConfigVisibilityOpNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='513' column='1'/>
+            <var-decl name='kAdapterConfigVisibilityOpNames' type-id='type-id-12271' mangled-name='_ZN7phicore7adapter2v110enum_names31kAdapterConfigVisibilityOpNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='513' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names31kAdapterConfigVisibilityOpNamesE'/>
+            <var-decl name='kChannelFlagNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names17kChannelFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='518' column='1'/>
+            <var-decl name='kChannelFlagNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names17kChannelFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='518' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names17kChannelFlagNamesE'/>
+            <var-decl name='kDeviceFlagNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names16kDeviceFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='530' column='1'/>
+            <var-decl name='kDeviceFlagNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names16kDeviceFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='530' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names16kDeviceFlagNamesE'/>
+            <var-decl name='kSceneFlagNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names15kSceneFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='538' column='1'/>
+            <var-decl name='kSceneFlagNames' type-id='type-id-12298' mangled-name='_ZN7phicore7adapter2v110enum_names15kSceneFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='538' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names15kSceneFlagNamesE'/>
+            <var-decl name='kAdapterCapabilityNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names23kAdapterCapabilityNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='545' column='1'/>
+            <var-decl name='kAdapterCapabilityNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names23kAdapterCapabilityNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='545' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names23kAdapterCapabilityNamesE'/>
+            <var-decl name='kAdapterOptionNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names19kAdapterOptionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='557' column='1'/>
+            <var-decl name='kAdapterOptionNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names19kAdapterOptionNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='557' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names19kAdapterOptionNamesE'/>
+            <var-decl name='kTopologyNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names14kTopologyNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='565' column='1'/>
+            <var-decl name='kTopologyNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names14kTopologyNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='565' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names14kTopologyNamesE'/>
+            <var-decl name='kStandInRedirectNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names21kStandInRedirectNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='573' column='1'/>
+            <var-decl name='kStandInRedirectNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names21kStandInRedirectNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='573' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names21kStandInRedirectNamesE'/>
+            <var-decl name='kPairingStyleNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names18kPairingStyleNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='579' column='1'/>
+            <var-decl name='kPairingStyleNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names18kPairingStyleNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='579' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names18kPairingStyleNamesE'/>
+            <var-decl name='kSetupCodeSchemeNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names21kSetupCodeSchemeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='587' column='1'/>
+            <var-decl name='kSetupCodeSchemeNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names21kSetupCodeSchemeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='587' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names21kSetupCodeSchemeNamesE'/>
+            <var-decl name='kRadioNames' type-id='type-id-12316' mangled-name='_ZN7phicore7adapter2v110enum_names11kRadioNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='593' column='1'/>
+            <var-decl name='kRadioNames' type-id='type-id-12316' mangled-name='_ZN7phicore7adapter2v110enum_names11kRadioNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='593' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names11kRadioNamesE'/>
+            <var-decl name='kPairingNeedNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names17kPairingNeedNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='602' column='1'/>
+            <var-decl name='kPairingNeedNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names17kPairingNeedNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='602' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names17kPairingNeedNamesE'/>
+            <var-decl name='kWifiBandNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names14kWifiBandNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='610' column='1'/>
+            <var-decl name='kWifiBandNames' type-id='type-id-12307' mangled-name='_ZN7phicore7adapter2v110enum_names14kWifiBandNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='610' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names14kWifiBandNamesE'/>
+            <var-decl name='kNetworkClientTypeNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names23kNetworkClientTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='618' column='1'/>
+            <var-decl name='kNetworkClientTypeNames' type-id='type-id-12343' mangled-name='_ZN7phicore7adapter2v110enum_names23kNetworkClientTypeNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='618' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names23kNetworkClientTypeNamesE'/>
+            <var-decl name='kPairingStageNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names18kPairingStageNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='630' column='1'/>
+            <var-decl name='kPairingStageNames' type-id='type-id-12289' mangled-name='_ZN7phicore7adapter2v110enum_names18kPairingStageNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='630' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names18kPairingStageNamesE'/>
+            <var-decl name='kAdapterConfigFieldFlagNames' type-id='type-id-12334' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='642' column='1'/>
+            <var-decl name='kAdapterConfigFieldFlagNames' type-id='type-id-12334' mangled-name='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldFlagNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='642' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names28kAdapterConfigFieldFlagNamesE'/>
+            <var-decl name='kAdapterRequirementNames' type-id='type-id-12253' mangled-name='_ZN7phicore7adapter2v110enum_names24kAdapterRequirementNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='652' column='1'/>
+            <var-decl name='kAdapterRequirementNames' type-id='type-id-12253' mangled-name='_ZN7phicore7adapter2v110enum_names24kAdapterRequirementNamesE' visibility='default' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='652' column='1' elf-symbol-id='_ZN7phicore7adapter2v110enum_names24kAdapterRequirementNamesE'/>
+            <function-decl name='enumNameFor' mangled-name='_ZN7phicore7adapter2v110enum_names11enumNameForB5cxx11ESt17basic_string_viewIcSt11char_traitsIcEEib' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='677' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v110enum_names11enumNameForB5cxx11ESt17basic_string_viewIcSt11char_traitsIcEEib' hash='a79502d22727be06'>
               <parameter type-id='type-id-2367'/>
               <parameter type-id='type-id-334'/>
               <parameter type-id='type-id-339'/>
               <return type-id='type-id-448'/>
             </function-decl>
-            <function-decl name='flagNamesFor' mangled-name='_ZN7phicore7adapter2v110enum_names12flagNamesForB5cxx11ESt17basic_string_viewIcSt11char_traitsIcEEi' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='775' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v110enum_names12flagNamesForB5cxx11ESt17basic_string_viewIcSt11char_traitsIcEEi' hash='388da3fa973fde78'>
+            <function-decl name='flagNamesFor' mangled-name='_ZN7phicore7adapter2v110enum_names12flagNamesForB5cxx11ESt17basic_string_viewIcSt11char_traitsIcEEi' filepath='/root/projects/phi-adapter-sdk/include/phi/adapter/v1/enum_names.h' line='777' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2v110enum_names12flagNamesForB5cxx11ESt17basic_string_viewIcSt11char_traitsIcEEi' hash='388da3fa973fde78'>
               <parameter type-id='type-id-2367'/>
               <parameter type-id='type-id-334'/>
               <return type-id='type-id-1238'/>
@@ -39977,9 +39979,9 @@
           <typedef-decl name='_Type' type-id='type-id-11231' size-in-bits='1152' filepath='/usr/include/c++/14/array' line='61' column='1' hash='1dec9398c3613774' id='type-id-15089'/>
         </member-type>
       </class-decl>
-      <class-decl name='__array_traits&lt;phicore::adapter::v1::enum_names::EnumValueName, 71&gt;' is-struct='yes' visibility='default' size-in-bits='8' filepath='/usr/include/c++/14/array' line='59' column='1' hash='f301760302ae3afb' id='type-id-15090'>
+      <class-decl name='__array_traits&lt;phicore::adapter::v1::enum_names::EnumValueName, 73&gt;' is-struct='yes' visibility='default' size-in-bits='8' filepath='/usr/include/c++/14/array' line='59' column='1' hash='7ee6fb4805fca8cb' id='type-id-15090'>
         <member-type access='public'>
-          <typedef-decl name='_Type' type-id='type-id-11233' size-in-bits='13632' filepath='/usr/include/c++/14/array' line='61' column='1' hash='8a272a1ef5b99775' id='type-id-15091'/>
+          <typedef-decl name='_Type' type-id='type-id-11233' size-in-bits='14016' filepath='/usr/include/c++/14/array' line='61' column='1' hash='70434a40c7df3cbd' id='type-id-15091'/>
         </member-type>
       </class-decl>
       <class-decl name='__array_traits&lt;phicore::adapter::v1::enum_names::EnumValueName, 7&gt;' is-struct='yes' visibility='default' size-in-bits='8' filepath='/usr/include/c++/14/array' line='59' column='1' hash='88e8bc6ee948d36e' id='type-id-15092'>
@@ -40976,7 +40978,7 @@
           <var-decl name='_M_elems' type-id='type-id-15089' visibility='default' filepath='/usr/include/c++/14/array' line='115' column='1'/>
         </data-member>
       </class-decl>
-      <class-decl name='array&lt;phicore::adapter::v1::enum_names::EnumValueName, 71&gt;' is-struct='yes' visibility='default' size-in-bits='13632' filepath='/usr/include/c++/14/array' line='100' column='1' hash='f99908c17fca2495' id='type-id-12324'>
+      <class-decl name='array&lt;phicore::adapter::v1::enum_names::EnumValueName, 73&gt;' is-struct='yes' visibility='default' size-in-bits='14016' filepath='/usr/include/c++/14/array' line='100' column='1' hash='3c66c1a508099afe' id='type-id-12324'>
         <member-type access='public'>
           <typedef-decl name='const_iterator' type-id='type-id-12332' size-in-bits='64' filepath='/usr/include/c++/14/array' line='108' column='1' hash='f67a2adbf8320293' id='type-id-15380'/>
         </member-type>

@@ -431,6 +431,10 @@ enum class ChannelKind : std::uint16_t {
     MemoryUsage = 74,
     // [0..100] percent of a storage volume in use
     StorageUsage = 75,
+    // degrees above the horizon, negative below (the sun as seen from the house)
+    SunElevation = 76,
+    // degrees clockwise from north: 90 east, 180 south, 270 west
+    SunAzimuth = 77,
     // pH [0.00..14.00]
     PhValue = 200,
     // mV

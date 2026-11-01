@@ -102,6 +102,8 @@ void testChannelKindAndDataTypeEntries()
     PHI_CHECK(enumNameFor("ChannelKind", 73) == "CpuLoad");
     PHI_CHECK(enumNameFor("ChannelKind", 74) == "MemoryUsage");
     PHI_CHECK(enumNameFor("ChannelKind", 75) == "StorageUsage");
+    PHI_CHECK(enumNameFor("ChannelKind", 76) == "SunElevation");
+    PHI_CHECK(enumNameFor("ChannelKind", 77) == "SunAzimuth");
 
     int parsed = -1;
     PHI_CHECK(parseEnumValueByName("ChannelKind", "PowerOnBehavior", &parsed));
