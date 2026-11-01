@@ -15,6 +15,13 @@ phi-adapter-sdk (0.34.0-1) trixie; urgency=medium
     the SDK's TLS helper, as decided in phi-core docs/mail-concept.md. The
     socket and handshake driving sits in src/net/loop_stream.h, shared with
     nothing yet; the HTTP client moves onto it in a later release.
+  * DeviceClass Messenger (16): the device that carries a message to a
+    person, one per recipient, with a Message channel. deviceClassIsPlaceless()
+    says which classes stand in no room, so the room boards, the devices
+    page and the phrases ask one function rather than each keeping a list.
+    abi-check flags the inline template instance valueToName<16> as removed,
+    as it did valueToName<11> in 0.33.0: it existed only for the 16-entry
+    class table, and every adapter carries its own copy from the header.
 
  -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 02 Nov 2026 00:17:30 +0100
 

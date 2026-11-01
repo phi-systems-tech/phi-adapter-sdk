@@ -66,7 +66,27 @@ enum class DeviceClass : std::uint8_t {
     /// (ROADMAP "SDK 0.29: network clients"); the router or its nodes are
     /// Gateway.
     NetworkClient = 15,
+    /// Carries a message to a person: a mailbox, a chat, a pager. One device
+    /// per recipient, with a Message channel (ChannelKind::Message); the
+    /// adapter behind it is the mail client, the chat bot. It stands in no
+    /// room (deviceClassIsPlaceless) - phi-core docs/mail-concept.md.
+    Messenger = 16,
 };
+
+/// Whether a device of that class has no place in the house: nothing to put
+/// in a room, nothing to walk up to. A room board leaves it out, the devices
+/// page lists it under its own heading, and a phrase like "in the kitchen"
+/// never means it. A function rather than a list in each client so that the
+/// next placeless class joins every rule at once.
+[[nodiscard]] constexpr bool deviceClassIsPlaceless(DeviceClass deviceClass) noexcept
+{
+    switch (deviceClass) {
+    case DeviceClass::Messenger:
+        return true;
+    default:
+        return false;
+    }
+}
 
 /// What a room is, as far as a household speaks of it. The name stays the
 /// household's own ("Büro Marius", "Grillbereich"); the class is what lets a

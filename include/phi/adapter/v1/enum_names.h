@@ -143,7 +143,7 @@ inline constexpr std::array<EnumValueName, 9> kActionResultTypeNames = {{
     { static_cast<int>(ActionResultType::Data), "Data" },
 }};
 
-inline constexpr std::array<EnumValueName, 16> kDeviceClassNames = {{
+inline constexpr std::array<EnumValueName, 17> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Unknown), "Unknown" },
     { static_cast<int>(DeviceClass::Light), "Light" },
     { static_cast<int>(DeviceClass::Switch), "Switch" },
@@ -160,6 +160,7 @@ inline constexpr std::array<EnumValueName, 16> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Camera), "Camera" },
     { static_cast<int>(DeviceClass::Doorbell), "Doorbell" },
     { static_cast<int>(DeviceClass::NetworkClient), "NetworkClient" },
+    { static_cast<int>(DeviceClass::Messenger), "Messenger" },
 }};
 
 inline constexpr std::array<EnumValueName, 33> kRoomClassNames = {{

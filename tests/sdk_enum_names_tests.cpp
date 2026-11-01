@@ -224,6 +224,16 @@ void testMessageEntries()
     }
     PHI_CHECK(kMessageFieldSubject == "subject" && kMessageFieldBody == "body"
               && kMessageFieldSeverity == "severity");
+
+    // The device that carries it, and the one property the UI's rules hang on.
+    PHI_CHECK(static_cast<int>(DeviceClass::Messenger) == 16);
+    PHI_CHECK(enumNameFor("DeviceClass", 16, false) == "Messenger");
+    parsed = -1;
+    PHI_CHECK(parseEnumValueByName("DeviceClass", "Messenger", &parsed) && parsed == 16);
+    PHI_CHECK(deviceClassIsPlaceless(DeviceClass::Messenger));
+    PHI_CHECK(!deviceClassIsPlaceless(DeviceClass::Light));
+    PHI_CHECK(!deviceClassIsPlaceless(DeviceClass::Gateway));
+    PHI_CHECK(!deviceClassIsPlaceless(DeviceClass::NetworkClient));
 }
 
 void testUnknownEnumTypeNameFallsBackGracefully()
