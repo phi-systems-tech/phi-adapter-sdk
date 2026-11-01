@@ -319,7 +319,6 @@ DeviceCandidate &DeviceCandidate::setIpv4(Utf8String ipv4)
 struct Room::Private {
     ExternalId externalId;
     Utf8String name;
-    Utf8String zone;
     RoomClass roomClass = RoomClass::Unknown;
     std::vector<ExternalId> deviceExternalIds;
     JsonText metaJson;
@@ -328,7 +327,6 @@ struct Room::Private {
 PHI_V1_ENTITY_MEMBERS(Room)
 PHI_V1_FIELD(Room, const ExternalId &, externalId, setExternalId)
 PHI_V1_FIELD(Room, const Utf8String &, name, setName)
-PHI_V1_FIELD(Room, const Utf8String &, zone, setZone)
 PHI_V1_FIELD(Room, RoomClass, roomClass, setRoomClass)
 PHI_V1_FIELD(Room, const std::vector<ExternalId> &, deviceExternalIds, setDeviceExternalIds)
 PHI_V1_FIELD(Room, const JsonText &, metaJson, setMetaJson)
@@ -344,7 +342,6 @@ Room &Room::addDeviceExternalId(ExternalId id)
 struct Group::Private {
     ExternalId externalId;
     Utf8String name;
-    Utf8String zone;
     std::vector<ExternalId> deviceExternalIds;
     JsonText metaJson;
 };
@@ -352,7 +349,6 @@ struct Group::Private {
 PHI_V1_ENTITY_MEMBERS(Group)
 PHI_V1_FIELD(Group, const ExternalId &, externalId, setExternalId)
 PHI_V1_FIELD(Group, const Utf8String &, name, setName)
-PHI_V1_FIELD(Group, const Utf8String &, zone, setZone)
 PHI_V1_FIELD(Group, const std::vector<ExternalId> &, deviceExternalIds, setDeviceExternalIds)
 PHI_V1_FIELD(Group, const JsonText &, metaJson, setMetaJson)
 

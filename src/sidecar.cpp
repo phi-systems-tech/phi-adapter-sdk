@@ -1540,8 +1540,6 @@ std::string roomToJson(const Room &room)
     out += jsonQuoted(room.externalId());
     appendFieldPrefix(out, first, "name");
     out += jsonQuoted(room.name());
-    appendFieldPrefix(out, first, "zone");
-    out += jsonQuoted(room.zone());
     appendFieldPrefix(out, first, "roomClass");
     out += std::to_string(static_cast<int>(room.roomClass()));
     appendFieldPrefix(out, first, "deviceExternalIds");
@@ -1561,8 +1559,6 @@ std::string groupToJson(const Group &group)
     out += jsonQuoted(group.externalId());
     appendFieldPrefix(out, first, "name");
     out += jsonQuoted(group.name());
-    appendFieldPrefix(out, first, "zone");
-    out += jsonQuoted(group.zone());
     appendFieldPrefix(out, first, "deviceExternalIds");
     appendArrayOfStrings(out, group.deviceExternalIds());
     appendFieldPrefix(out, first, "meta");

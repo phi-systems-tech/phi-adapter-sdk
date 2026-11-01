@@ -24,8 +24,6 @@ public:
     Group &setExternalId(ExternalId externalId);
     const Utf8String &name() const noexcept;
     Group &setName(Utf8String name);
-    const Utf8String &zone() const noexcept;
-    Group &setZone(Utf8String zone);
     const std::vector<ExternalId> &deviceExternalIds() const noexcept;
     Group &setDeviceExternalIds(std::vector<ExternalId> ids);
     Group &addDeviceExternalId(ExternalId id);

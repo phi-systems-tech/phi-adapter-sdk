@@ -1,1 +1,1 @@
-{"command":5121,"payload":{"externalId":"inst-1","group":{"externalId":"grp-1","name":"All Lights","zone":"Ground","deviceExternalIds":["dev-9"],"meta":{}}}}
+{"command":5121,"payload":{"externalId":"inst-1","group":{"externalId":"grp-1","name":"All Lights","deviceExternalIds":["dev-9"],"meta":{}}}}

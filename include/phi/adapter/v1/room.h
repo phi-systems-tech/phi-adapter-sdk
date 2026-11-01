@@ -23,8 +23,6 @@ public:
     Room &setExternalId(ExternalId externalId);
     const Utf8String &name() const noexcept;
     Room &setName(Utf8String name);
-    const Utf8String &zone() const noexcept;
-    Room &setZone(Utf8String zone);
     /// What the room is, when the hub knows (Hue's archetype, Matter's
     /// location tag). Unknown when it does not; core fills a blank from the
     /// adapter and never overwrites what the household chose.

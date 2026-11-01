@@ -1,3 +1,13 @@
+phi-adapter-sdk (0.31.0-1) trixie; urgency=medium
+
+  * Room and Group lose zone()/setZone() and the "zone" key on the wire. It
+    carried Hue's room/zone word into core, which already tells rooms from
+    groups by where they land; adapter vocabulary has no place in core.
+    Only adapters that called setZone (hue) need a rebuild; the entities
+    are behind the d-pointer, so nothing else moves.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 01 Nov 2026 21:00:00 +0100
+
 phi-adapter-sdk (0.30.0-1) trixie; urgency=medium
 
   * DeviceCandidate::setRedirect(port, localPort, protocol): what a stand-in

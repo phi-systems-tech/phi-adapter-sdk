@@ -112,7 +112,6 @@ v1::Room fixtureRoom()
     v1::Room room;
     room.setExternalId("room-1")
         .setName("Living Room")
-        .setZone("Ground")
         .setRoomClass(v1::RoomClass::LivingRoom)
         .setDeviceExternalIds({"dev-9", "dev-10"})
         .setMetaJson("{}");
@@ -124,7 +123,6 @@ v1::Group fixtureGroup()
     v1::Group group;
     group.setExternalId("grp-1")
         .setName("All Lights")
-        .setZone("Ground")
         .setDeviceExternalIds({"dev-9"})
         .setMetaJson("{}");
     return group;
