@@ -326,6 +326,8 @@ enum class DeviceFaultFlag : std::uint32_t {
     LowTemperature = 1u << 4,
     BatteryLow = 1u << 5,
     BatteryDegraded = 1u << 6,
+    /// The supply is below what the device needs (a Raspberry Pi's power alarm).
+    Undervoltage = 1u << 7,
     Other = 1u << 15,
 };
 
@@ -422,6 +424,13 @@ enum class ChannelKind : std::uint16_t {
     ElectricalFault = 71,
     // flags DeviceFaultFlag
     DeviceFault = 72,
+    // [0..100] percent: the processor's load, averaged over all cores (a
+    // machine's own health - the box phi runs on, a NAS)
+    CpuLoad = 73,
+    // [0..100] percent of the working memory in use
+    MemoryUsage = 74,
+    // [0..100] percent of a storage volume in use
+    StorageUsage = 75,
     // pH [0.00..14.00]
     PhValue = 200,
     // mV

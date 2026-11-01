@@ -1,3 +1,12 @@
+phi-adapter-sdk (0.32.0-1) trixie; urgency=medium
+
+  * ChannelKind CpuLoad, MemoryUsage, StorageUsage (percent): a machine's
+    own health, first used by the phi adapter for the box it runs on.
+  * DeviceFaultFlag::Undervoltage (a Raspberry Pi's power alarm).
+    Additions only; nothing an existing adapter uses moves.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 01 Nov 2026 22:30:00 +0100
+
 phi-adapter-sdk (0.31.0-1) trixie; urgency=medium
 
   * Room and Group lose zone()/setZone() and the "zone" key on the wire. It

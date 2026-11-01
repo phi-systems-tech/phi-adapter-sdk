@@ -78,6 +78,7 @@ void testDeviceFaultFlagRoundTrips()
         { DeviceFaultFlag::LowTemperature, "LowTemperature" },
         { DeviceFaultFlag::BatteryLow, "BatteryLow" },
         { DeviceFaultFlag::BatteryDegraded, "BatteryDegraded" },
+        { DeviceFaultFlag::Undervoltage, "Undervoltage" },
         { DeviceFaultFlag::Other, "Other" },
     };
     for (const auto &[value, name] : kCases) {
@@ -98,6 +99,9 @@ void testChannelKindAndDataTypeEntries()
     PHI_CHECK(static_cast<int>(ChannelKind::PowerOnBehavior) == 70);
     PHI_CHECK(static_cast<int>(ChannelKind::ElectricalFault) == 71);
     PHI_CHECK(static_cast<int>(ChannelKind::DeviceFault) == 72);
+    PHI_CHECK(enumNameFor("ChannelKind", 73) == "CpuLoad");
+    PHI_CHECK(enumNameFor("ChannelKind", 74) == "MemoryUsage");
+    PHI_CHECK(enumNameFor("ChannelKind", 75) == "StorageUsage");
 
     int parsed = -1;
     PHI_CHECK(parseEnumValueByName("ChannelKind", "PowerOnBehavior", &parsed));

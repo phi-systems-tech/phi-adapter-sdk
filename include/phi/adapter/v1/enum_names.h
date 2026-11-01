@@ -355,7 +355,7 @@ inline constexpr std::array<EnumValueName, 16> kElectricalFaultFlagNames = {{
     { static_cast<int>(ElectricalFaultFlag::Other), "Other" },
 }};
 
-inline constexpr std::array<EnumValueName, 9> kDeviceFaultFlagNames = {{
+inline constexpr std::array<EnumValueName, 10> kDeviceFaultFlagNames = {{
     { static_cast<int>(DeviceFaultFlag::None), "None" },
     { static_cast<int>(DeviceFaultFlag::MotorFault), "MotorFault" },
     { static_cast<int>(DeviceFaultFlag::SensorFault), "SensorFault" },
@@ -364,6 +364,7 @@ inline constexpr std::array<EnumValueName, 9> kDeviceFaultFlagNames = {{
     { static_cast<int>(DeviceFaultFlag::LowTemperature), "LowTemperature" },
     { static_cast<int>(DeviceFaultFlag::BatteryLow), "BatteryLow" },
     { static_cast<int>(DeviceFaultFlag::BatteryDegraded), "BatteryDegraded" },
+    { static_cast<int>(DeviceFaultFlag::Undervoltage), "Undervoltage" },
     { static_cast<int>(DeviceFaultFlag::Other), "Other" },
 }};
 
@@ -377,7 +378,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 68> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 71> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -419,6 +420,9 @@ inline constexpr std::array<EnumValueName, 68> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::PowerOnBehavior), "PowerOnBehavior" },
     { static_cast<int>(ChannelKind::ElectricalFault), "ElectricalFault" },
     { static_cast<int>(ChannelKind::DeviceFault), "DeviceFault" },
+    { static_cast<int>(ChannelKind::CpuLoad), "CpuLoad" },
+    { static_cast<int>(ChannelKind::MemoryUsage), "MemoryUsage" },
+    { static_cast<int>(ChannelKind::StorageUsage), "StorageUsage" },
     { static_cast<int>(ChannelKind::PhValue), "PhValue" },
     { static_cast<int>(ChannelKind::OrpValue), "OrpValue" },
     { static_cast<int>(ChannelKind::SaltPpm), "SaltPpm" },
