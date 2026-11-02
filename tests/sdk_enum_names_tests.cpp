@@ -238,6 +238,23 @@ void testMessageEntries()
     PHI_CHECK(!deviceClassIsPlaceless(DeviceClass::NetworkClient));
 }
 
+// 0.35.0: what a device behind an infrared blaster needs - a key that is an
+// act, a state that is a guess, and the fan as a class of its own.
+void testRemoteEntries()
+{
+    PHI_CHECK(static_cast<int>(ChannelKind::RemoteKey) == 480);
+    PHI_CHECK(enumNameFor("ChannelKind", 480, false) == "RemoteKey");
+    PHI_CHECK(static_cast<int>(ChannelFlag::Momentary) == 0x100);
+    PHI_CHECK(static_cast<int>(ChannelFlag::Assumed) == 0x200);
+    PHI_CHECK(enumNameFor("ChannelFlag", 0x100, false) == "Momentary");
+    PHI_CHECK(enumNameFor("ChannelFlag", 0x200, false) == "Assumed");
+    int parsed = -1;
+    PHI_CHECK(parseEnumValueByName("ChannelFlag", "Assumed", &parsed) && parsed == 0x200);
+    PHI_CHECK(static_cast<int>(DeviceClass::Fan) == 17);
+    PHI_CHECK(enumNameFor("DeviceClass", 17, false) == "Fan");
+    PHI_CHECK(!deviceClassIsPlaceless(DeviceClass::Fan));
+}
+
 void testUnknownEnumTypeNameFallsBackGracefully()
 {
     // enumNameFor falls back to the number for a type name it does not know;
@@ -260,6 +277,7 @@ int main()
     testMediaPlayerVocabulary();
     testVoiceAndCameraEntries();
     testMessageEntries();
+    testRemoteEntries();
     testUnknownEnumTypeNameFallsBackGracefully();
     return phi::testing::report("sdk_enum_names_tests");
 }

@@ -63,6 +63,11 @@ target_link_libraries(sdk_smtp_protocol_tests PRIVATE phi::adapter-sdk)
 add_executable(sdk_smtp_client_tests smtp_client_tests.cpp)
 target_link_libraries(sdk_smtp_client_tests PRIVATE phi::adapter-sdk OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
+# Infrared codes in every dialect: Pronto, Broadlink, Tuya, the protocol
+# encoders and a Flipper file, against the community's own vectors.
+add_executable(sdk_ir_tests ir_tests.cpp)
+target_link_libraries(sdk_ir_tests PRIVATE phi::adapter-sdk)
+
 # What a stream of button events becomes: one thing per gesture.
 add_executable(sdk_button_presses_tests button_presses_tests.cpp)
 target_link_libraries(sdk_button_presses_tests PRIVATE phi::adapter-sdk)
@@ -95,6 +100,7 @@ add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
 add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
 add_test(NAME sdk_smtp_protocol_tests COMMAND sdk_smtp_protocol_tests)
 add_test(NAME sdk_smtp_client_tests COMMAND sdk_smtp_client_tests)
+add_test(NAME sdk_ir_tests COMMAND sdk_ir_tests)
 add_test(NAME sdk_button_presses_tests COMMAND sdk_button_presses_tests)
 add_test(NAME sdk_reachability_tests COMMAND sdk_reachability_tests)
 add_test(NAME sdk_version_tests COMMAND sdk_version_tests)

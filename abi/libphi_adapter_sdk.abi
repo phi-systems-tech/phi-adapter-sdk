@@ -14219,15 +14219,15 @@
     <namespace-decl name='phicore'>
       <namespace-decl name='adapter'>
         <namespace-decl name='ir'>
-          <function-decl name='protocolFromName' mangled-name='_ZN7phicore7adapter2ir16protocolFromNameESt17basic_string_viewIcSt11char_traitsIcEE' filepath='/root/projects/phi-adapter-sdk/src/ir_protocols.cpp' line='250' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2ir16protocolFromNameESt17basic_string_viewIcSt11char_traitsIcEE' hash='7866545caa18f244'>
+          <function-decl name='protocolFromName' mangled-name='_ZN7phicore7adapter2ir16protocolFromNameESt17basic_string_viewIcSt11char_traitsIcEE' filepath='/root/projects/phi-adapter-sdk/src/ir_protocols.cpp' line='254' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2ir16protocolFromNameESt17basic_string_viewIcSt11char_traitsIcEE' hash='7866545caa18f244'>
             <parameter type-id='type-id-2407'/>
             <return type-id='type-id-4219'/>
           </function-decl>
-          <function-decl name='protocolName' mangled-name='_ZN7phicore7adapter2ir12protocolNameENS1_8ProtocolE' filepath='/root/projects/phi-adapter-sdk/src/ir_protocols.cpp' line='264' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2ir12protocolNameENS1_8ProtocolE' hash='7866545caa18f244'>
+          <function-decl name='protocolName' mangled-name='_ZN7phicore7adapter2ir12protocolNameENS1_8ProtocolE' filepath='/root/projects/phi-adapter-sdk/src/ir_protocols.cpp' line='268' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2ir12protocolNameENS1_8ProtocolE' hash='7866545caa18f244'>
             <parameter type-id='type-id-4219'/>
             <return type-id='type-id-2407'/>
           </function-decl>
-          <function-decl name='encode' mangled-name='_ZN7phicore7adapter2ir6encodeENS1_8ProtocolEjjPNS1_6IrCodeEPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE' filepath='/root/projects/phi-adapter-sdk/src/ir_protocols.cpp' line='283' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2ir6encodeENS1_8ProtocolEjjPNS1_6IrCodeEPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE' hash='82457d01e9f41842'>
+          <function-decl name='encode' mangled-name='_ZN7phicore7adapter2ir6encodeENS1_8ProtocolEjjPNS1_6IrCodeEPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE' filepath='/root/projects/phi-adapter-sdk/src/ir_protocols.cpp' line='287' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN7phicore7adapter2ir6encodeENS1_8ProtocolEjjPNS1_6IrCodeEPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE' hash='82457d01e9f41842'>
             <parameter type-id='type-id-4219'/>
             <parameter type-id='type-id-2754'/>
             <parameter type-id='type-id-2754'/>

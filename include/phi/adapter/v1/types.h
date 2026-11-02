@@ -71,6 +71,11 @@ enum class DeviceClass : std::uint8_t {
     /// adapter behind it is the mail client, the chat bot. It stands in no
     /// room (deviceClassIsPlaceless) - phi-core docs/mail-concept.md.
     Messenger = 16,
+    /// A fan: ceiling, pedestal, extractor. Its own class because a fan is
+    /// spoken of as one ("turn the fan up"), has speeds rather than a level,
+    /// and is what most infrared remotes besides TVs and air conditioners
+    /// drive.
+    Fan = 17,
 };
 
 /// Whether a device of that class has no place in the house: nothing to put
@@ -529,6 +534,13 @@ enum class ChannelKind : std::uint16_t {
     // Message channel without a translation table (docs/mail-concept.md in
     // phi-core). Meant with ChannelFlag::NoHistory: the text is not a reading.
     Message = 460,
+    // --- remotes: a device driven by sending it what its remote would send
+    // Bool, writable, Momentary: a key of the device's remote ("Power",
+    // "Volume up", "Source"); true presses it once. One channel per key, the
+    // name is the key's. The device behind it answers nothing, so a kind that
+    // is a state (PowerOnOff, Volume) sits beside the keys with the Assumed
+    // flag where the adapter keeps a guess.
+    RemoteKey = 480,
 };
 
 /// How urgent a Message is (ChannelKind::Message). The three names are core's
@@ -682,6 +694,16 @@ enum class ChannelFlag : std::uint32_t {
     /// still be the largest thing in the database. The user can override it per
     /// channel in either direction.
     NoHistory = 0x00000080,
+    /// A write is an act, not a state: pressing a key, ringing a chime. The
+    /// value never settles, so a client shows a button and never a switch,
+    /// and core expects no state report after the write.
+    Momentary = 0x00000100,
+    /// The value is what the adapter believes after its last command, not
+    /// something the device reported: a TV behind an infrared blaster is "on"
+    /// because "Power" was sent to it while it was "off". Shown as a guess,
+    /// and corrected by whatever learns better (a plug's power reading, a
+    /// person toggling it).
+    Assumed = 0x00000200,
 };
 
 enum class DeviceFlag : std::uint32_t {

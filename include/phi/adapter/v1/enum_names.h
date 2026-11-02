@@ -143,7 +143,7 @@ inline constexpr std::array<EnumValueName, 9> kActionResultTypeNames = {{
     { static_cast<int>(ActionResultType::Data), "Data" },
 }};
 
-inline constexpr std::array<EnumValueName, 17> kDeviceClassNames = {{
+inline constexpr std::array<EnumValueName, 18> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Unknown), "Unknown" },
     { static_cast<int>(DeviceClass::Light), "Light" },
     { static_cast<int>(DeviceClass::Switch), "Switch" },
@@ -161,6 +161,7 @@ inline constexpr std::array<EnumValueName, 17> kDeviceClassNames = {{
     { static_cast<int>(DeviceClass::Doorbell), "Doorbell" },
     { static_cast<int>(DeviceClass::NetworkClient), "NetworkClient" },
     { static_cast<int>(DeviceClass::Messenger), "Messenger" },
+    { static_cast<int>(DeviceClass::Fan), "Fan" },
 }};
 
 inline constexpr std::array<EnumValueName, 33> kRoomClassNames = {{
@@ -386,7 +387,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 79> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 80> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -466,6 +467,7 @@ inline constexpr std::array<EnumValueName, 79> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::WifiBand), "WifiBand" },
     { static_cast<int>(ChannelKind::NetworkAccess), "NetworkAccess" },
     { static_cast<int>(ChannelKind::Message), "Message" },
+    { static_cast<int>(ChannelKind::RemoteKey), "RemoteKey" },
 }};
 
 inline constexpr std::array<EnumValueName, 9> kChannelDataTypeNames = {{
@@ -529,7 +531,7 @@ inline constexpr std::array<EnumValueName, 2> kAdapterConfigVisibilityOpNames = 
     { static_cast<int>(AdapterConfigVisibilityOp::Contains), "Contains" },
 }};
 
-inline constexpr std::array<EnumValueName, 9> kChannelFlagNames = {{
+inline constexpr std::array<EnumValueName, 11> kChannelFlagNames = {{
     { static_cast<int>(ChannelFlag::None), "None" },
     { static_cast<int>(ChannelFlag::Readable), "Readable" },
     { static_cast<int>(ChannelFlag::Writable), "Writable" },
@@ -539,6 +541,8 @@ inline constexpr std::array<EnumValueName, 9> kChannelFlagNames = {{
     { static_cast<int>(ChannelFlag::NoTrigger), "NoTrigger" },
     { static_cast<int>(ChannelFlag::Suppress), "Suppress" },
     { static_cast<int>(ChannelFlag::NoHistory), "NoHistory" },
+    { static_cast<int>(ChannelFlag::Momentary), "Momentary" },
+    { static_cast<int>(ChannelFlag::Assumed), "Assumed" },
 }};
 
 inline constexpr std::array<EnumValueName, 5> kDeviceFlagNames = {{

@@ -1468,6 +1468,36 @@ warning page, an adapter would connect silently while the interface said "TLS".
 An endpoint with a self-signed certificate has a correct answer already: name
 the certificate in `tlsCaFile`.
 
+## Infrared (`phi/adapter/ir`, from 0.35.0)
+
+A device behind an infrared blaster never announces itself and never
+answers: the blaster is found, the TV or air conditioner is made by the
+household and taught key by key, or filled from a code collection. What the
+SDK settles so that Broadlink, Tuya and Zigbee blasters agree:
+
+- **The code is light.** `IrCode` (`ir_code.h`) is a carrier and mark/space
+  microseconds, mark first. Every dialect converts to and from it: `pronto.h`
+  (format 0000), `broadlink.h` (the RM packet, IR and RF, plus base64),
+  `tuya.h` (the Wi-Fi DP 201 / Zigbee `ir_code_to_send` string), `flipper.h`
+  (the `.ir` file of Flipper-IRDB, CC0), `protocols.h` (NEC family,
+  Samsung32, SIRC, RC5/RC5X, RC6 from protocol, address and command). A code
+  learnt on one blaster plays on another; a collection is imported once.
+- **A key is a channel.** `ChannelKind::RemoteKey`, Bool, with
+  `ChannelFlag::Momentary`: writing `true` presses it once, the UI shows a
+  button, nothing is reported back. External id `key:<name>`
+  (`actions.h`), one per key, the name the key's.
+- **A state is a guess.** A `PowerOnOff` or `Volume` beside the keys carries
+  `ChannelFlag::Assumed`: the adapter reports what it believes after its
+  last command, the UI shows it as such, and anything that knows better
+  (a plug's power reading) corrects it.
+- **The same two actions everywhere.** `actions.h` names "new device",
+  "learn key" and "send code" with their form keys, so the UI and a person's
+  habits carry over between blaster adapters.
+
+Not here: air conditioners. They send their whole state in one frame and
+need an encoder per brand, or a table of codes per state; that is the code
+database's business (ROADMAP, "The device catalogue").
+
 ## SMTP (`phi/adapter/net`, from 0.34.0)
 
 `SmtpClient` (`smtp_client.h`) hands one mail at a time to a server that
