@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.36.0
+    VERSION 0.37.0
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )
@@ -68,6 +68,8 @@ add_library(phi_adapter_sdk SHARED
     src/mime.cpp
     src/smtp_protocol.cpp
     src/smtp_client.cpp
+    src/udp_probe.cpp
+    src/tdp.cpp
     src/ir_code.cpp
     src/ir_pronto.cpp
     src/ir_broadlink.cpp

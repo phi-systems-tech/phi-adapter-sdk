@@ -1202,6 +1202,8 @@ Minimal static discovery config example:
   open between runs: open them in the action, close them before the answer.
 - Manual entry stays as the fallback: a device the search does not find is still added by typing
   its host.
+- The building blocks are `phi/adapter/net/udp_probe.h` (the one-shot UDP search on the loop) and
+  `phi/adapter/net/tdp.h` (TP-Link's TDP, used by the Deco adapter).
 
 ## Factory Actions (v1)
 
@@ -1560,6 +1562,34 @@ for any language, the body base64 in UTF-8, text first with an optional HTML
 alternative), so an adapter hands over text and never MIME. A recipient the
 server refuses while accepting the others ends in `rejectedRecipients()`; all
 refused is not `ok()`. The port defaults from the security (587, 465, 25).
+
+## UDP probe and TDP (`phi/adapter/net`, from 0.37.0)
+
+`UdpProbe` (`udp_probe.h`) is the one-shot search a factory needs for
+[Factory Discovery](#factory-discovery-v1): it sends one datagram, listens for a window, and says
+done. It knows no protocol.
+
+```cpp
+UdpProbe probe(loop);                       // a phi::runtime::Loop
+probe.start(/*target*/ "", kTdpPort, tdpProbePacket(), 2s,
+    [&](const std::string &ip, std::uint16_t, const std::string &bytes) {
+        TdpAnswer a;
+        if (parseTdpAnswer(bytes, &a, nullptr))
+            found.push_back(tdpCandidateFor(a, ip));
+    },
+    [&](std::string error) { /* socket already closed; answer the action */ });
+```
+
+An empty `target` is the limited broadcast 255.255.255.255, otherwise a host name or an IPv4
+address. The socket is bound to an ephemeral port with SO_BROADCAST, lives only inside the run and
+is closed before `onDone`; a failure to open, resolve or send ends the run with the reason in
+`onDone`. `cancel()` drops the run without calling `onDone`.
+
+`tdp.h` is TP-Link's TDP (Deco and other TP-Link home gear, UDP port `kTdpPort` = 20002) as pure
+functions: `tdpProbePacket()` (16-byte header, CRC-32 and a throwaway RSA key in the JSON body),
+`parseTdpAnswer()` into a `TdpAnswer` (device type, model, role, MAC, group name, ip) and
+`tdpCandidateFor()` for a `v1::DiscoveryCandidate` (MAC as external id, label "model (group)",
+meta `deviceType`, `role`, `groupName`).
 
 ## HTTP (`phi/adapter/net`)
 

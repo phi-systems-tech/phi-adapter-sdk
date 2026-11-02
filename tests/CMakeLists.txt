@@ -67,6 +67,16 @@ target_link_libraries(sdk_smtp_protocol_tests PRIVATE phi::adapter-sdk)
 add_executable(sdk_smtp_client_tests smtp_client_tests.cpp)
 target_link_libraries(sdk_smtp_client_tests PRIVATE phi::adapter-sdk OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
+# TP-Link's TDP as bytes: the probe's header and CRC, an answer from a Deco X55,
+# and the candidate made from it.
+add_executable(sdk_tdp_tests tdp_tests.cpp)
+target_link_libraries(sdk_tdp_tests PRIVATE phi::adapter-sdk)
+
+# The one-shot UDP search against a stub socket on loopback: the reply, the
+# done callback after the window, a silent target, cancel.
+add_executable(sdk_udp_probe_tests udp_probe_tests.cpp)
+target_link_libraries(sdk_udp_probe_tests PRIVATE phi::adapter-sdk Threads::Threads)
+
 # Infrared codes in every dialect: Pronto, Broadlink, Tuya, the protocol
 # encoders and a Flipper file, against the community's own vectors.
 add_executable(sdk_ir_tests ir_tests.cpp)
@@ -105,6 +115,8 @@ add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
 add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
 add_test(NAME sdk_smtp_protocol_tests COMMAND sdk_smtp_protocol_tests)
 add_test(NAME sdk_smtp_client_tests COMMAND sdk_smtp_client_tests)
+add_test(NAME sdk_tdp_tests COMMAND sdk_tdp_tests)
+add_test(NAME sdk_udp_probe_tests COMMAND sdk_udp_probe_tests)
 add_test(NAME sdk_ir_tests COMMAND sdk_ir_tests)
 add_test(NAME sdk_button_presses_tests COMMAND sdk_button_presses_tests)
 add_test(NAME sdk_reachability_tests COMMAND sdk_reachability_tests)
