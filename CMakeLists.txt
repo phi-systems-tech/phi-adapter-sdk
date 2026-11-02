@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(phi-adapter-sdk
-    VERSION 0.34.0
+    VERSION 0.35.0
     DESCRIPTION "Phi adapter SDK (contract + Linux runtime)"
     LANGUAGES CXX
 )
@@ -67,6 +67,12 @@ add_library(phi_adapter_sdk SHARED
     src/mime.cpp
     src/smtp_protocol.cpp
     src/smtp_client.cpp
+    src/ir_code.cpp
+    src/ir_pronto.cpp
+    src/ir_broadlink.cpp
+    src/ir_protocols.cpp
+    src/ir_flipper.cpp
+    src/ir_tuya.cpp
     src/loop_execution_backend.cpp
     src/linux/uds_epoll_transport.cpp
 )
@@ -168,6 +174,12 @@ install(
 )
 install(
     DIRECTORY include/phi/adapter/net
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/phi/adapter
+    FILES_MATCHING
+        PATTERN "*.h"
+)
+install(
+    DIRECTORY include/phi/adapter/ir
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/phi/adapter
     FILES_MATCHING
         PATTERN "*.h"

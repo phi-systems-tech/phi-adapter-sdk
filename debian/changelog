@@ -1,3 +1,33 @@
+phi-adapter-sdk (0.35.0-1) trixie; urgency=medium
+
+  * phi/adapter/ir: infrared codes as light (IrCode: carrier and mark/space
+    microseconds) and the dialects around it - Pronto 0000 both ways, the
+    Broadlink RM packet (IR and both RF frames), the Tuya/Zigbee code string
+    (FastLZ grammar read, literal blocks written), the Flipper .ir file
+    (Flipper-IRDB, CC0), and encoders for NEC, NECext, NEC42, NEC42ext,
+    Samsung32, SIRC/15/20, RC5, RC5X and RC6. Written from the published
+    format descriptions and pinned against their vectors. actions.h names
+    the "new device", "learn key" and "send code" actions every blaster
+    adapter shares. The groundwork of ROADMAP item 7 (IR/RF).
+  * ChannelKind RemoteKey (480): a key of a device's remote, Bool and
+    Momentary. ChannelFlag Momentary (a write is an act, the UI shows a
+    button) and Assumed (the value is the adapter's guess after its last
+    command). DeviceClass Fan (17).
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 02 Nov 2026 01:36:06 +0100
+
+phi-adapter-sdk (0.34.1-1) trixie; urgency=medium
+
+  * Topology::OnlineService: the adapter itself fetches from an online
+    service; AdapterOption::VendorCloudAllowed now reads "the instance may
+    use the internet", for its devices and for such a service.
+  * ChannelKind WindSpeed, WindDirection, Precipitation, CloudCover,
+    PrecipitationProbability: the phi adapter's Weather device.
+    abi-check flags the inline template instance maskToNames<5> as removed
+    (only the 5-entry topology names had it); adapters carry their own copy.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 02 Nov 2026 02:10:00 +0100
+
 phi-adapter-sdk (0.34.0-1) trixie; urgency=medium
 
   * ChannelKind Message (460): a notification carried to a person, Json
@@ -23,13 +53,6 @@ phi-adapter-sdk (0.34.0-1) trixie; urgency=medium
     as it did valueToName<11> in 0.33.0: it existed only for the 16-entry
     class table, and every adapter carries its own copy from the header.
 
-  * Topology::OnlineService: the adapter itself fetches from an online
-    service; AdapterOption::VendorCloudAllowed now reads "the instance may
-    use the internet", for its devices and for such a service.
-  * ChannelKind WindSpeed, WindDirection, Precipitation, CloudCover,
-    PrecipitationProbability: the phi adapter's Weather device.
-    abi-check flags the inline template instance maskToNames<5> as removed
-    (only the 5-entry topology names had it); adapters carry their own copy.
  -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 02 Nov 2026 00:17:30 +0100
 
 phi-adapter-sdk (0.33.0-1) trixie; urgency=medium
