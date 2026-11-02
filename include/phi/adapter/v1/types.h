@@ -470,6 +470,10 @@ enum class ChannelKind : std::uint16_t {
     CloudCover = 81,
     // [0..100] percent chance of precipitation
     PrecipitationProbability = 82,
+    // kWh consumed over the period the channel names (today, since a reset):
+    // an amount, not a meter reading. Core derives nothing from it; a meter
+    // is Energy.
+    Consumption = 83,
     // pH [0.00..14.00]
     PhValue = 200,
     // mV
@@ -960,6 +964,13 @@ enum class AdapterRequirement : std::uint32_t {
     /// location is not every adapter's business - in ConfigChangedRequest::
     /// houseJson(). Declare it optional unless the plugin cannot work without.
     HouseFacts = 0x00000400,
+    /// The plugin needs the household's energy figures: which meter is the
+    /// grid meter, which are consumers, and their "today" / "since reset"
+    /// values, kept by core. Core sends them as SyncHouseEnergy
+    /// (HouseEnergyRequest) only to plugins it has granted them to, on grant,
+    /// whenever the setting changes and whenever one of the values does.
+    /// Register for them with AdapterInstance::setHouseEnergyHandler.
+    HouseEnergy = 0x00000800,
 };
 
 template <typename Enum>

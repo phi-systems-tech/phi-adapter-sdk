@@ -16,6 +16,9 @@ enum class IpcCommand : std::uint16_t {
     /// forgets it (a router drops the client from its tracked list) so the
     /// next report does not bring it back.
     SyncDeviceRemoved = 0x0104,
+    /// The household's energy figures (see AdapterRequirement::HouseEnergy),
+    /// to an instance of a plugin core granted them to. Instance scope.
+    SyncHouseEnergy = 0x0105,
 
     // Cmd (core -> adapter, always followed by Result*)
     CmdChannelInvoke = 0x0201,

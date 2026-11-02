@@ -106,6 +106,11 @@ void testChannelKindAndDataTypeEntries()
     PHI_CHECK(enumNameFor("ChannelKind", 77) == "SunAzimuth");
     PHI_CHECK(enumNameFor("ChannelKind", 82) == "PrecipitationProbability");
     PHI_CHECK(enumNameFor("Topology", 0x10) == "OnlineService");
+    PHI_CHECK(enumNameFor("ChannelKind", 83) == "Consumption");
+    PHI_CHECK(static_cast<int>(ChannelKind::Consumption) == 83);
+    PHI_CHECK(enumNameFor("AdapterRequirement", static_cast<int>(AdapterRequirement::HouseFacts)) == "HouseFacts");
+    PHI_CHECK(enumNameFor("AdapterRequirement", static_cast<int>(AdapterRequirement::HouseEnergy)) == "HouseEnergy");
+    PHI_CHECK(static_cast<std::uint32_t>(AdapterRequirement::HouseEnergy) == 0x800);
 
     int parsed = -1;
     PHI_CHECK(parseEnumValueByName("ChannelKind", "PowerOnBehavior", &parsed));
@@ -114,6 +119,10 @@ void testChannelKindAndDataTypeEntries()
     PHI_CHECK(parsed == 71);
     PHI_CHECK(parseEnumValueByName("ChannelKind", "DeviceFault", &parsed));
     PHI_CHECK(parsed == 72);
+    PHI_CHECK(parseEnumValueByName("ChannelKind", "Consumption", &parsed));
+    PHI_CHECK(parsed == 83);
+    PHI_CHECK(parseEnumValueByName("AdapterRequirement", "HouseEnergy", &parsed));
+    PHI_CHECK(parsed == 0x800);
 
     PHI_CHECK(enumNameFor("ChannelDataType", static_cast<int>(ChannelDataType::Flags)) == "Flags");
     PHI_CHECK(static_cast<int>(ChannelDataType::Flags) == 8);

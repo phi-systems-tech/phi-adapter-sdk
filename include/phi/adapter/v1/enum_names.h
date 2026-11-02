@@ -387,7 +387,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 80> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 81> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -439,6 +439,7 @@ inline constexpr std::array<EnumValueName, 80> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Precipitation), "Precipitation" },
     { static_cast<int>(ChannelKind::CloudCover), "CloudCover" },
     { static_cast<int>(ChannelKind::PrecipitationProbability), "PrecipitationProbability" },
+    { static_cast<int>(ChannelKind::Consumption), "Consumption" },
     { static_cast<int>(ChannelKind::PhValue), "PhValue" },
     { static_cast<int>(ChannelKind::OrpValue), "OrpValue" },
     { static_cast<int>(ChannelKind::SaltPpm), "SaltPpm" },
@@ -669,7 +670,7 @@ inline constexpr std::array<EnumValueName, 7> kAdapterConfigFieldFlagNames = {{
     { static_cast<int>(AdapterConfigFieldFlag::InstanceOnly), "InstanceOnly" },
 }};
 
-inline constexpr std::array<EnumValueName, 12> kAdapterRequirementNames = {{
+inline constexpr std::array<EnumValueName, 13> kAdapterRequirementNames = {{
     { static_cast<int>(AdapterRequirement::None), "None" },
     { static_cast<int>(AdapterRequirement::Host), "Host" },
     { static_cast<int>(AdapterRequirement::Port), "Port" },
@@ -682,6 +683,7 @@ inline constexpr std::array<EnumValueName, 12> kAdapterRequirementNames = {{
     { static_cast<int>(AdapterRequirement::ManualConfirm), "ManualConfirm" },
     { static_cast<int>(AdapterRequirement::UsesRetryInterval), "UsesRetryInterval" },
     { static_cast<int>(AdapterRequirement::HouseFacts), "HouseFacts" },
+    { static_cast<int>(AdapterRequirement::HouseEnergy), "HouseEnergy" },
 }};
 
 [[nodiscard]] inline std::string cmdStatusName(CmdStatus status)

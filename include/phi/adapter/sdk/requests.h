@@ -110,6 +110,25 @@ class DeviceRemovedRequest
     DeviceRemovedRequest &setDeviceExternalId(phicore::adapter::v1::ExternalId deviceExternalId);
 };
 
+/// The household's energy figures, for a plugin that declared
+/// AdapterRequirement::HouseEnergy and was granted them. Nothing is answered.
+/// Core sends one on grant, whenever the household changes the setting and
+/// whenever one of the values changes.
+class HouseEnergyRequest
+{
+    PHI_SDK_REQUEST_MEMBERS(HouseEnergyRequest)
+    /// The instance the message is for.
+    const phicore::adapter::v1::ExternalId &externalId() const noexcept;
+    HouseEnergyRequest &setExternalId(phicore::adapter::v1::ExternalId externalId);
+    /// `{"grid": {...}, "consumers": [{...}, ...]}`, each meter
+    /// `{"deviceId": <int>, "deviceName": "<s>", "channelId": <int>,
+    /// "meterName": "<s>", "todayKwh": <num>?, "sinceResetKwh": <num>?}` (a
+    /// value is left out while core has none). Empty when the household has
+    /// not set a grid meter: then there is no house energy.
+    const phicore::adapter::v1::JsonText &houseEnergyJson() const noexcept;
+    HouseEnergyRequest &setHouseEnergyJson(phicore::adapter::v1::JsonText json);
+};
+
 /// A write to a channel.
 class ChannelInvokeRequest
 {

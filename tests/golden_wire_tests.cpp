@@ -207,6 +207,7 @@ struct InboundCapture {
     std::optional<sdk::ConfigChangedRequest> configChanged;
     std::optional<sdk::InstanceRemovedRequest> instanceRemoved;
     std::optional<sdk::DeviceRemovedRequest> deviceRemoved;
+    std::optional<sdk::HouseEnergyRequest> houseEnergy;
     std::optional<sdk::ChannelInvokeRequest> channelInvoke;
     std::optional<sdk::AdapterActionInvokeRequest> actionInvoke;
     std::optional<sdk::DeviceNameUpdateRequest> nameUpdate;
@@ -223,7 +224,7 @@ struct InboundCapture {
     void clear() { *this = InboundCapture{}; }
     bool any() const
     {
-        return bootstrap || configChanged || instanceRemoved || deviceRemoved || channelInvoke || actionInvoke
+        return bootstrap || configChanged || instanceRemoved || deviceRemoved || houseEnergy || channelInvoke || actionInvoke
             || nameUpdate || entityNameUpdate || effectInvoke || mediaPlayerInvoke || sceneInvoke || streamStart
             || streamStop || pairingStart || pairCandidate || setupCode;
     }
@@ -495,6 +496,19 @@ void runInboundCases(sdk::SidecarDispatcher &dispatcher, TestClient &client,
              CHECK(c.deviceRemoved->externalId() == "inst-1");
              CHECK(c.deviceRemoved->deviceExternalId() == "d8:c8:0c:02:22:44");
          }},
+        {"sync_house_energy", 24, [](const InboundCapture &c) {
+             REQUIRE(c.houseEnergy.has_value());
+             CHECK(c.houseEnergy->externalId() == "inst-1");
+             CHECK(phitest::contains(c.houseEnergy->houseEnergyJson(), "\"grid\""));
+             CHECK(phitest::contains(c.houseEnergy->houseEnergyJson(), "\"meterName\":\"Energy\""));
+             CHECK(phitest::contains(c.houseEnergy->houseEnergyJson(), "\"todayKwh\":4.25"));
+             CHECK(phitest::contains(c.houseEnergy->houseEnergyJson(), "\"consumers\""));
+         }},
+        {"sync_house_energy_unset", 25, [](const InboundCapture &c) {
+             REQUIRE(c.houseEnergy.has_value());
+             CHECK(c.houseEnergy->externalId() == "inst-1");
+             CHECK(c.houseEnergy->houseEnergyJson().empty());
+         }},
         {"cmd_channel_invoke", 11, [](const InboundCapture &c) {
              REQUIRE(c.channelInvoke.has_value());
              CHECK(c.channelInvoke->cmdId() == 11);
@@ -631,6 +645,7 @@ int main()
     handlers.onConfigChanged = [&capture](const sdk::ConfigChangedRequest &r) { capture.configChanged = r; };
     handlers.onInstanceRemoved = [&capture](const sdk::InstanceRemovedRequest &r) { capture.instanceRemoved = r; };
     handlers.onDeviceRemoved = [&capture](const sdk::DeviceRemovedRequest &r) { capture.deviceRemoved = r; };
+    handlers.onHouseEnergy = [&capture](const sdk::HouseEnergyRequest &r) { capture.houseEnergy = r; };
     handlers.onChannelInvoke = [&capture](const sdk::ChannelInvokeRequest &r) { capture.channelInvoke = r; };
     handlers.onAdapterActionInvoke = [&capture](const sdk::AdapterActionInvokeRequest &r) { capture.actionInvoke = r; };
     handlers.onDeviceNameUpdate = [&capture](const sdk::DeviceNameUpdateRequest &r) { capture.nameUpdate = r; };

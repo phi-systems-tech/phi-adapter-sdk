@@ -2495,6 +2495,19 @@ bool SidecarDispatcher::handleRequestFrame(const phicore::adapter::v1::FrameHead
         return true;
     }
 
+    if (command == IpcCommand::SyncHouseEnergy) {
+        if (m_handlers.onHouseEnergy) {
+            HouseEnergyRequest request;
+            request.setExternalId(decodeStringOrDefault(member(payloadMap, "externalId")));
+            // Absent or null when the household has no grid meter set.
+            if (const std::string_view energy = member(payloadMap, "houseEnergy");
+                !energy.empty() && energy != "null")
+                request.setHouseEnergyJson(std::string(energy));
+            m_handlers.onHouseEnergy(request);
+        }
+        return true;
+    }
+
     if (command == IpcCommand::CmdChannelInvoke) {
         ChannelInvokeRequest request;
         request.setCmdId(cmdId);
@@ -3977,6 +3990,7 @@ struct AdapterInstance::Impl {
     LogFilterCache logFilter;
     std::function<void(const phicore::adapter::v1::CmdResponse &)> cmdResultSubmitter;
     std::function<void(const phicore::adapter::v1::ActionResponse &)> actionResultSubmitter;
+    std::function<void(const HouseEnergyRequest &)> houseEnergyHandler;
     // Written by the host thread, read from the instance execution thread while
     // it may be parked in a blocking wait.
     std::atomic_bool stopRequested{false};
@@ -4006,6 +4020,10 @@ const phicore::adapter::v1::Utf8String &AdapterInstance::pluginType() const { re
 const phicore::adapter::v1::ExternalId &AdapterInstance::externalId() const { return m_externalId; }
 const ConfigChangedRequest &AdapterInstance::config() const { return m_config; }
 bool AdapterInstance::hasConfig() const { return m_hasConfig; }
+void AdapterInstance::setHouseEnergyHandler(std::function<void(const HouseEnergyRequest &)> handler)
+{
+    m_impl->houseEnergyHandler = std::move(handler);
+}
 
 bool AdapterInstance::log(LogLevel level,
                           LogCategory category,
@@ -4522,6 +4540,11 @@ void AdapterInstance::hostOnMediaPlayerInvoke(const MediaPlayerInvokeRequest &re
 void AdapterInstance::hostOnStreamSourceRequest(const StreamSourceRequest &request) { onStreamSourceRequest(request); }
 void AdapterInstance::hostOnSceneInvoke(const SceneInvokeRequest &request) { onSceneInvoke(request); }
 void AdapterInstance::hostOnDeviceRemoved(const DeviceRemovedRequest &request) { onDeviceRemoved(request); }
+void AdapterInstance::hostOnHouseEnergy(const HouseEnergyRequest &request)
+{
+    if (m_impl->houseEnergyHandler)
+        m_impl->houseEnergyHandler(request);
+}
 void AdapterInstance::hostOnPairingStart(const PairingStartRequest &request) { onPairingStart(request); }
 void AdapterInstance::hostOnPairingStop(const PairingStopRequest &request) { onPairingStop(request); }
 void AdapterInstance::hostOnPairCandidate(const PairCandidateRequest &request) { onPairCandidate(request); }
@@ -5265,6 +5288,21 @@ void SidecarHost::wireHandlers()
                               },
                               &dispatchError))
             reportProtocolError("Failed to dispatch device.removed for externalId='"
+                                + request.externalId() + "': " + dispatchError);
+    };
+    handlers.onHouseEnergy = [this](const HouseEnergyRequest &request) {
+        if (request.externalId().empty()) {
+            reportProtocolError("HouseEnergy needs externalId");
+            return;
+        }
+        phicore::adapter::v1::Utf8String dispatchError;
+        if (!executeOnRuntime(request.externalId(),
+                              [instance = findInstance(request.externalId()), request]() {
+                                  if (instance)
+                                      instance->hostOnHouseEnergy(request);
+                              },
+                              &dispatchError))
+            reportProtocolError("Failed to dispatch house.energy for externalId='"
                                 + request.externalId() + "': " + dispatchError);
     };
     handlers.onChannelInvoke = [this](const ChannelInvokeRequest &request) {

@@ -1,3 +1,16 @@
+phi-adapter-sdk (0.38.0-1) trixie; urgency=medium
+
+  * AdapterRequirement::HouseEnergy (0x800) and the core -> adapter message
+    SyncHouseEnergy (0x0105, HouseEnergyRequest): the household's energy
+    figures (grid meter, consumer meters, their today / since reset values)
+    for a plugin core granted them to, like HouseFacts. An adapter registers
+    with AdapterInstance::setHouseEnergyHandler - a registration, no new
+    virtual, so adapters built before keep their vtable.
+  * ChannelKind::Consumption (83): kWh over a period that is not a meter
+    reading; core derives nothing from it (a meter is Energy).
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 02 Nov 2026 15:10:00 +0100
+
 phi-adapter-sdk (0.37.0-1) trixie; urgency=medium
 
   * net/tdp.h: TP-Link's TDP discovery (probe + answer), moved here from

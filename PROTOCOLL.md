@@ -81,6 +81,7 @@ Hard rules:
 | `SyncAdapterConfigChanged` | `0x0102` | `Request` | factory or instance | `adapterId:int`, `adapter:object` | `externalId:string`, `pluginType:string`, `staticConfig:json` |
 | `SyncAdapterInstanceRemoved` | `0x0103` | `Request` | instance | `adapterId:int`, `pluginType:string`, `externalId:string` | none |
 | `SyncDeviceRemoved` | `0x0104` | `Request` | instance | `externalId:string`, `deviceExternalId:string` | none |
+| `SyncHouseEnergy` | `0x0105` | `Request` | instance | `externalId:string` | `houseEnergy:object` (`grid:object`, `consumers:array` of `{deviceId:int, deviceName:string, channelId:int, meterName:string, todayKwh:number?, sinceResetKwh:number?}`); absent or `null` when the household has no grid meter set; only sent to a plugin that declared `HouseEnergy` and was granted it |
 | `CmdChannelInvoke` | `0x0201` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `channelExternalId:string`, `value:any-json` | none |
 | `CmdAdapterActionInvoke` | `0x0202` | `Request` | factory or instance | envelope `cmdId:uint64`; payload: `externalId:string`, `actionId:string` | `params:object` |
 | `CmdDeviceNameUpdate` | `0x0203` | `Request` | instance | envelope `cmdId:uint64`; payload: `externalId:string`, `deviceExternalId:string`, `name:string` | none |

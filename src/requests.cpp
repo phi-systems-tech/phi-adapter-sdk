@@ -114,6 +114,16 @@ PHI_SDK_REQUEST_IMPL(DeviceRemovedRequest)
 PHI_SDK_FIELD(DeviceRemovedRequest, const v1::ExternalId &, externalId, setExternalId)
 PHI_SDK_FIELD(DeviceRemovedRequest, const v1::ExternalId &, deviceExternalId, setDeviceExternalId)
 
+// --- HouseEnergyRequest ------------------------------------------------------
+
+struct HouseEnergyRequest::Private {
+    v1::ExternalId externalId;
+    v1::JsonText houseEnergyJson;
+};
+PHI_SDK_REQUEST_IMPL(HouseEnergyRequest)
+PHI_SDK_FIELD(HouseEnergyRequest, const v1::ExternalId &, externalId, setExternalId)
+PHI_SDK_FIELD(HouseEnergyRequest, const v1::JsonText &, houseEnergyJson, setHouseEnergyJson)
+
 // --- ChannelInvokeRequest ----------------------------------------------------
 
 struct ChannelInvokeRequest::Private {

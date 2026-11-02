@@ -942,6 +942,32 @@ goes true at once and false only after the away delay (default 5 min).
 `SyncDeviceRemoved` tells an instance that the household deleted one of its
 devices; `onDeviceRemoved` is the hook (default: nothing).
 
+### House energy (v1, from 0.38.0)
+
+A plugin that declares `AdapterRequirement::HouseEnergy` (`0x800`) and was
+granted it by core receives the household's energy figures as `SyncHouseEnergy`
+(`0x0105`, `HouseEnergyRequest`): on grant, whenever the household changes the
+setting and whenever one of the values changes. Like `HouseFacts` it is for a
+plugin core trusts with the house, not for every adapter.
+
+The instance registers for it - a registration, not a virtual, so adapters
+built before keep their vtable:
+
+```cpp
+setHouseEnergyHandler([this](const sdk::HouseEnergyRequest &request) {
+    const std::string &json = request.houseEnergyJson();   // empty: no grid meter set
+});
+```
+
+`houseEnergyJson()` is `{"grid": {...}, "consumers": [{...}, ...]}`, each meter
+`{"deviceId": <int>, "deviceName": "<s>", "channelId": <int>, "meterName": "<s>",
+"todayKwh": <num>?, "sinceResetKwh": <num>?}` (core's ids; a value is left out
+while core has none). It is empty when the household has not set a grid meter.
+An instance that never registers drops the message. What an adapter makes of
+the figures is a channel of `ChannelKind::Consumption` (kWh over a period,
+not a meter reading); an `Energy` channel would be taken for a meter and
+derived from again.
+
 ## Adapter IPC Command Model (v1)
 
 Naming rules:

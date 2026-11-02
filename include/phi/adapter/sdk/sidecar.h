@@ -218,6 +218,8 @@ struct SidecarHandlers {
     std::function<void(const InstanceRemovedRequest &)> onInstanceRemoved;
     /// Called on `sync.device.removed`.
     std::function<void(const DeviceRemovedRequest &)> onDeviceRemoved;
+    /// Called on `sync.house.energy`.
+    std::function<void(const HouseEnergyRequest &)> onHouseEnergy;
     /// Called on `cmd.channel.invoke`.
     std::function<void(const ChannelInvokeRequest &)> onChannelInvoke;
     /// Called on `cmd.adapter.action.invoke`.
@@ -800,6 +802,18 @@ public:
     bool hasConfig() const;
 
     /**
+     * @brief Registers for the household's energy figures.
+     *
+     * A registration, not a virtual: the virtuals of this class are the
+     * adapter's vtable and stay as they are. Core sends the figures only to a
+     * plugin that declared AdapterRequirement::HouseEnergy and was granted
+     * them; an instance that never registers drops them. The handler runs on
+     * the instance's execution thread, like the virtual hooks. Call it from
+     * the constructor or `start()`.
+     */
+    void setHouseEnergyHandler(std::function<void(const HouseEnergyRequest &)> handler);
+
+    /**
      * @brief The directory this instance keeps what only it reads back.
      *
      * `<tenant data>/adapters/<pluginType>/<externalId>`, from
@@ -1000,6 +1014,7 @@ private:
     void hostOnStreamSourceRequest(const StreamSourceRequest &request);
     void hostOnSceneInvoke(const SceneInvokeRequest &request);
     void hostOnDeviceRemoved(const DeviceRemovedRequest &request);
+    void hostOnHouseEnergy(const HouseEnergyRequest &request);
     void hostOnPairingStart(const PairingStartRequest &request);
     void hostOnPairingStop(const PairingStopRequest &request);
     void hostOnPairCandidate(const PairCandidateRequest &request);

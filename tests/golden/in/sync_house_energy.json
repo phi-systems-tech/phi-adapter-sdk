@@ -1,0 +1,1 @@
+{"command":261,"cmdId":24,"payload":{"externalId":"inst-1","houseEnergy":{"grid":{"deviceId":12,"deviceName":"Main meter","channelId":340,"meterName":"Energy","todayKwh":4.25,"sinceResetKwh":1234.5},"consumers":[{"deviceId":15,"deviceName":"Heat pump","channelId":351,"meterName":"Energy","todayKwh":1.5,"sinceResetKwh":88.25}]}}}

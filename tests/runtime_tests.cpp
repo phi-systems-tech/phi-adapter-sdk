@@ -17,9 +17,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <sys/wait.h>
 #include <thread>
+#include <vector>
 
 namespace sdk = phicore::adapter::sdk;
 namespace v1 = phicore::adapter::v1;
@@ -529,6 +531,97 @@ void testInstanceIsConfiguredBeforeStart()
     host.stop();
 }
 
+// An instance that registers for the household's energy figures, and one that
+// does not: core sends SyncHouseEnergy to either, and only the registered one
+// sees it. A registration, not a virtual, so adapters built before the message
+// existed keep their vtable.
+class HouseEnergyInstance final : public sdk::AdapterInstance
+{
+public:
+    explicit HouseEnergyInstance(bool registered)
+    {
+        if (registered) {
+            setHouseEnergyHandler([this](const sdk::HouseEnergyRequest &request) {
+                std::lock_guard<std::mutex> lock(mutex);
+                received.push_back(request.houseEnergyJson());
+            });
+        }
+    }
+    std::mutex mutex;
+    std::vector<std::string> received;
+};
+
+class HouseEnergyFactory final : public sdk::AdapterFactory
+{
+public:
+    bool registered = true;
+
+protected:
+    v1::Utf8String pluginType() const override { return "test.house.energy"; }
+    v1::AdapterCapabilities capabilities() const override
+    {
+        v1::AdapterCapabilities caps;
+        caps.setTopologies(v1::Topology::Local);
+        return caps;
+    }
+    std::unique_ptr<sdk::AdapterInstance> createInstance(const v1::ExternalId &) override
+    {
+        return std::make_unique<HouseEnergyInstance>(registered);
+    }
+};
+
+void runHouseEnergy(bool registered)
+{
+    const std::string path = phitest::uniqueSocketPath("house-energy");
+    auto factory = std::make_unique<HouseEnergyFactory>();
+    factory->registered = registered;
+    sdk::SidecarHost host(path, std::move(factory));
+    v1::Utf8String err;
+    REQUIRE(host.start(&err));
+
+    TestClient client;
+    REQUIRE(client.connectTo(path));
+    const std::string config = "{\"command\":258,\"cmdId\":1,\"payload\":{"
+                               "\"adapterId\":1,\"adapter\":{"
+                               "\"pluginType\":\"test.house.energy\",\"externalId\":\"inst-1\"}}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 1, config));
+    auto deadline = Clock::now() + std::chrono::seconds(3);
+    while (host.instance("inst-1") == nullptr && Clock::now() < deadline)
+        host.pollOnce(std::chrono::milliseconds(10), nullptr);
+    REQUIRE(host.instance("inst-1") != nullptr);
+    auto *instance = static_cast<HouseEnergyInstance *>(host.instance("inst-1"));
+
+    const std::string energy = "{\"command\":261,\"cmdId\":2,\"payload\":{\"externalId\":\"inst-1\","
+                               "\"houseEnergy\":{\"grid\":{\"deviceId\":1,\"channelId\":2},\"consumers\":[]}}}";
+    const std::string cleared = "{\"command\":261,\"cmdId\":3,\"payload\":{\"externalId\":\"inst-1\"}}";
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 2, energy));
+    REQUIRE(client.sendFrame(v1::MessageType::Request, 3, cleared));
+
+    deadline = Clock::now() + std::chrono::seconds(registered ? 3 : 1);
+    const auto count = [&]() {
+        std::lock_guard<std::mutex> lock(instance->mutex);
+        return instance->received.size();
+    };
+    while (count() < 2 && Clock::now() < deadline)
+        host.pollOnce(std::chrono::milliseconds(10), nullptr);
+
+    std::lock_guard<std::mutex> lock(instance->mutex);
+    if (registered) {
+        REQUIRE(instance->received.size() == 2);
+        CHECK(instance->received[0].find("\"grid\"") != std::string::npos);
+        CHECK(instance->received[1].empty());
+    } else {
+        CHECK(instance->received.empty());
+    }
+    host.stop();
+}
+
+void testHouseEnergyReachesOnlyARegisteredInstance()
+{
+    runHouseEnergy(true);
+    runHouseEnergy(false);
+}
+
 // F-35: a worker that misses its stop deadline used to be detached, which threw
 // away every means of knowing it was still running. Runs before the other
 // shutdown tests so the registry starts empty and the counts can be exact.
@@ -897,6 +990,7 @@ int main()
     testFactoryBackendKeepsPollResponsive();
     testFactoryBackendDefaultsToInline();
     testInstanceIsConfiguredBeforeStart();
+    testHouseEnergyReachesOnlyARegisteredInstance();
     testAbandonedThreadIsReapedNotDetached();
     testShutdownBudgetIsShared();
     testStopRequestReachesBlockedInstance();
