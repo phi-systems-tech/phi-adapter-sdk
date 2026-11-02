@@ -104,6 +104,8 @@ void testChannelKindAndDataTypeEntries()
     PHI_CHECK(enumNameFor("ChannelKind", 75) == "StorageUsage");
     PHI_CHECK(enumNameFor("ChannelKind", 76) == "SunElevation");
     PHI_CHECK(enumNameFor("ChannelKind", 77) == "SunAzimuth");
+    PHI_CHECK(enumNameFor("ChannelKind", 82) == "PrecipitationProbability");
+    PHI_CHECK(enumNameFor("Topology", 0x10) == "OnlineService");
 
     int parsed = -1;
     PHI_CHECK(parseEnumValueByName("ChannelKind", "PowerOnBehavior", &parsed));

@@ -386,7 +386,7 @@ inline constexpr std::array<EnumValueName, 7> kPresetModeNames = {{
     { static_cast<int>(PresetMode::Boost), "Boost" },
 }};
 
-inline constexpr std::array<EnumValueName, 74> kChannelKindNames = {{
+inline constexpr std::array<EnumValueName, 79> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::Unknown), "Unknown" },
     { static_cast<int>(ChannelKind::PowerOnOff), "PowerOnOff" },
     { static_cast<int>(ChannelKind::ButtonEvent), "ButtonEvent" },
@@ -433,6 +433,11 @@ inline constexpr std::array<EnumValueName, 74> kChannelKindNames = {{
     { static_cast<int>(ChannelKind::StorageUsage), "StorageUsage" },
     { static_cast<int>(ChannelKind::SunElevation), "SunElevation" },
     { static_cast<int>(ChannelKind::SunAzimuth), "SunAzimuth" },
+    { static_cast<int>(ChannelKind::WindSpeed), "WindSpeed" },
+    { static_cast<int>(ChannelKind::WindDirection), "WindDirection" },
+    { static_cast<int>(ChannelKind::Precipitation), "Precipitation" },
+    { static_cast<int>(ChannelKind::CloudCover), "CloudCover" },
+    { static_cast<int>(ChannelKind::PrecipitationProbability), "PrecipitationProbability" },
     { static_cast<int>(ChannelKind::PhValue), "PhValue" },
     { static_cast<int>(ChannelKind::OrpValue), "OrpValue" },
     { static_cast<int>(ChannelKind::SaltPpm), "SaltPpm" },
@@ -571,12 +576,13 @@ inline constexpr std::array<EnumValueName, 5> kAdapterOptionNames = {{
     { static_cast<int>(AdapterOption::VendorCloudAllowed), "VendorCloudAllowed" },
 }};
 
-inline constexpr std::array<EnumValueName, 5> kTopologyNames = {{
+inline constexpr std::array<EnumValueName, 6> kTopologyNames = {{
     { static_cast<int>(Topology::None), "None" },
     { static_cast<int>(Topology::Local), "Local" },
     { static_cast<int>(Topology::LocalCloudSetup), "LocalCloudSetup" },
     { static_cast<int>(Topology::CloudStandIn), "CloudStandIn" },
     { static_cast<int>(Topology::CloudOnly), "CloudOnly" },
+    { static_cast<int>(Topology::OnlineService), "OnlineService" },
 }};
 
 inline constexpr std::array<EnumValueName, 3> kStandInRedirectNames = {{

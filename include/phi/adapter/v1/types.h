@@ -455,6 +455,16 @@ enum class ChannelKind : std::uint16_t {
     SunElevation = 76,
     // degrees clockwise from north: 90 east, 180 south, 270 west
     SunAzimuth = 77,
+    // km/h
+    WindSpeed = 78,
+    // degrees the wind comes from, clockwise from north
+    WindDirection = 79,
+    // mm (over the period the channel names: the last hour, a day)
+    Precipitation = 80,
+    // [0..100] percent of the sky covered
+    CloudCover = 81,
+    // [0..100] percent chance of precipitation
+    PrecipitationProbability = 82,
     // pH [0.00..14.00]
     PhValue = 200,
     // mV
@@ -735,10 +745,11 @@ enum class AdapterCapability : std::uint32_t {
 /// row written before the two enums parted can never carry them by accident.
 /// CloudControl: control this instance through the vendor's cloud - offered
 /// only when the plugin declares CloudOnly beside a local topology. It implies
-/// VendorCloudAllowed. VendorCloudAllowed: the devices may talk to the vendor's
-/// cloud - for a stand-in, phi mirrors their session to the real cloud so the
-/// vendor's app keeps working; for a local device, phi leaves its internet
-/// open. Unset is the default: blocked.
+/// VendorCloudAllowed. VendorCloudAllowed: the instance may use the internet -
+/// its devices may talk to the vendor's cloud (for a stand-in, phi mirrors their
+/// session to the real cloud so the vendor's app keeps working; for a local
+/// device, phi leaves its internet open), and an OnlineService plugin may fetch
+/// from its service. Unset is the default: blocked.
 enum class AdapterOption : std::uint32_t {
     None = 0x00000000,
     UseTls = 0x00000001,
@@ -761,6 +772,11 @@ enum class Topology : std::uint32_t {
     CloudStandIn = 0x00000004,
     /// Control only through the vendor's cloud.
     CloudOnly = 0x00000008,
+    /// The adapter itself fetches data from an online service (weather, say),
+    /// whatever its devices do. Like a cloud path it needs the instance's
+    /// AdapterOption::VendorCloudAllowed; without it the adapter offers none
+    /// of what the service would bring.
+    OnlineService = 0x00000010,
 };
 
 /// How a stand-in's devices reach phi instead of the vendor's cloud: by name

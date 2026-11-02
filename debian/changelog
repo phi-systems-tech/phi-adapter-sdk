@@ -23,6 +23,13 @@ phi-adapter-sdk (0.34.0-1) trixie; urgency=medium
     as it did valueToName<11> in 0.33.0: it existed only for the 16-entry
     class table, and every adapter carries its own copy from the header.
 
+  * Topology::OnlineService: the adapter itself fetches from an online
+    service; AdapterOption::VendorCloudAllowed now reads "the instance may
+    use the internet", for its devices and for such a service.
+  * ChannelKind WindSpeed, WindDirection, Precipitation, CloudCover,
+    PrecipitationProbability: the phi adapter's Weather device.
+    abi-check flags the inline template instance maskToNames<5> as removed
+    (only the 5-entry topology names had it); adapters carry their own copy.
  -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 02 Nov 2026 00:17:30 +0100
 
 phi-adapter-sdk (0.33.0-1) trixie; urgency=medium
