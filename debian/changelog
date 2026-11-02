@@ -1,3 +1,16 @@
+phi-adapter-sdk (0.36.0-1) trixie; urgency=medium
+
+  * AdapterCapability::FactoryDiscovery (0x2000): the factory answers the
+    reserved action "factory.discover" with candidates; core runs it in every
+    discovery run.
+  * DiscoveryKind::Adapter (4): found by an adapter factory.
+  * phi/adapter/v1/discovery.h: DiscoveryCandidate, the candidates JSON both
+    ways, setDiscoveryCandidates for the ActionResponse, discoveryTimeoutMs
+    for the request's params, kFactoryDiscoverActionId.
+  * README: new section "Factory Discovery".
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Mon, 02 Nov 2026 11:40:54 +0100
+
 phi-adapter-sdk (0.35.0-1) trixie; urgency=medium
 
   * phi/adapter/ir: infrared codes as light (IrCode: carrier and mark/space

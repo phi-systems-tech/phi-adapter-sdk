@@ -663,6 +663,8 @@ enum class DiscoveryKind : std::uint8_t {
     Ssdp = 1,
     NetScan = 2,
     Manual = 3,
+    /// Found by an adapter factory (AdapterCapability::FactoryDiscovery).
+    Adapter = 4,
 };
 
 // Frame classes implemented by the v1 sidecar IPC. The values 1, 2, 6 and 7
@@ -752,6 +754,9 @@ enum class AdapterCapability : std::uint32_t {
     /// style Listing (a router, a mesh). Above AdapterOption's two bits, which
     /// a capability never takes.
     NetworkClients = 0x00001000,
+    /// The factory answers the reserved action `factory.discover` with
+    /// candidates (see discovery.h); core runs it in every discovery run.
+    FactoryDiscovery = 0x00002000,
 };
 
 /// What a household answers for one instance of a plugin. No plugin ever

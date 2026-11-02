@@ -1176,6 +1176,33 @@ Minimal static discovery config example:
 }
 ```
 
+## Factory Discovery (v1)
+
+- A factory that can find its devices itself declares `AdapterCapability::FactoryDiscovery`
+  (a UDP broadcast and a short listen, say). Core then runs it in every discovery run
+  (the UI's Discover page) and shows what it found like mDNS hits, with the host prefilled.
+  Such hits carry `DiscoveryKind::Adapter`.
+- The request is the reserved factory action `factory.discover` (`v1::kFactoryDiscoverActionId`,
+  `phi/adapter/v1/discovery.h`) with the params `{"timeoutMs": N}`. Core hides the id from the
+  UI's action buttons. Read N with `v1::discoveryTimeoutMs(paramsJson)`; it is 3000 when missing.
+- The answer is an `ActionResponse` of type Data. `v1::setDiscoveryCandidates(response, list)`
+  writes it:
+
+```json
+{"candidates":[{"externalId":"34:ea:34:00:11:22","label":"RM4 mini","host":"rm4.lan",
+  "ip":"192.168.1.40","port":80,"mac":"34:ea:34:00:11:22","model":"RM4 mini",
+  "meta":{"type":"rm4"}}]}
+```
+
+- `externalId`: stable id of the device, such as its MAC. `host` or `ip`: where the form's host
+  field points. `label`: what the list shows. `meta`: a free object; core keeps `mac`, `model`,
+  `type` and `name` of it. Empty strings and a port of 0 are left out.
+  `v1::discoveryCandidatesFromJson` reads the shape back and ignores what it does not know.
+- A run must finish within `timeoutMs` and return what it has. The factory must not keep sockets
+  open between runs: open them in the action, close them before the answer.
+- Manual entry stays as the fallback: a device the search does not find is still added by typing
+  its host.
+
 ## Factory Actions (v1)
 
 - There is no default UI/core fallback for adapter factory actions.

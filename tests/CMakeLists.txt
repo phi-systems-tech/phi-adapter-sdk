@@ -36,6 +36,10 @@ add_executable(sdk_loop_execution_backend_tests loop_execution_backend_tests.cpp
 target_link_libraries(sdk_loop_execution_backend_tests PRIVATE phi::adapter-sdk Threads::Threads)
 
 # HTTP digest, pinned against the worked examples in RFC 2617 and RFC 7616.
+# Factory discovery: the candidate JSON both ways and the timeout helper.
+add_executable(sdk_discovery_tests discovery_tests.cpp)
+target_link_libraries(sdk_discovery_tests PRIVATE phi::adapter-sdk)
+
 add_executable(sdk_http_auth_tests http_auth_tests.cpp)
 target_link_libraries(sdk_http_auth_tests PRIVATE phi::adapter-sdk)
 
@@ -96,6 +100,7 @@ add_test(NAME sdk_enum_names_tests COMMAND sdk_enum_names_tests)
 add_test(NAME sdk_schema_json_tests COMMAND sdk_schema_json_tests)
 add_test(NAME sdk_channel_value_tests COMMAND sdk_channel_value_tests)
 add_test(NAME sdk_http_auth_tests COMMAND sdk_http_auth_tests)
+add_test(NAME sdk_discovery_tests COMMAND sdk_discovery_tests)
 add_test(NAME sdk_http_message_tests COMMAND sdk_http_message_tests)
 add_test(NAME sdk_http_client_tests COMMAND sdk_http_client_tests)
 add_test(NAME sdk_smtp_protocol_tests COMMAND sdk_smtp_protocol_tests)
